@@ -190,7 +190,7 @@
             <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[300px] w-full border border-zinc-700">
                 <h2 id="confirm-title" class="text-xl font-bold mb-4">確認</h2>
                 <p id="confirm-message" class="mb-6 opacity-80 text-sm whitespace-pre-wrap">本当に実行しますか？</p>
-                <div class="flex gap-3 justify-center">
+                <div class="flex gap-3 justify-center w-full">
                     <button id="confirm-yes" class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1">はい</button>
                     <button id="confirm-no" class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1">いいえ</button>
                 </div>
@@ -349,6 +349,8 @@
                 // Online State
                 this.roomId = null;
                 this.unsubRoom = null;
+                this.turnStartTime = 0;
+                this.baseTimers = { white: 0, black: 0 };
 
                 this.board = [];
                 this.turn = 'white';
@@ -449,12 +451,21 @@
 
             confirmExit() {
                 this.sfx.buttonClick();
-                this.showConfirm("終了確認", "現在のゲームを終了してタイトルに戻りますか？", () => {
+                this.showConfirm("終了確認", "現在のゲームを終了してタイトルに戻りますか？", async () => {
+                    if (this.gameMode === 'online' && this.roomId && this.userId && !this.isGameOver) {
+                        try {
+                            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                            await updateDoc(roomRef, {
+                                status: 'abandoned',
+                                whoAbandoned: this.userId
+                            });
+                        } catch(e) { console.error(e); }
+                    }
                     this.showModeSelection();
                 });
             }
 
-            showConfirm(title, message, callback) {
+            showConfirm(title, message, callback, isAlert = false) {
                 const modal = document.getElementById('confirm-modal');
                 document.getElementById('confirm-title').innerText = title;
                 document.getElementById('confirm-message').innerText = message;
@@ -467,10 +478,22 @@
                 yesBtn.parentNode.replaceChild(newYes, yesBtn);
                 noBtn.parentNode.replaceChild(newNo, noBtn);
 
+                if (isAlert) {
+                    newYes.innerText = "確認";
+                    newYes.classList.remove("flex-1");
+                    newYes.classList.add("w-full");
+                    newNo.style.display = 'none';
+                } else {
+                    newYes.innerText = "はい";
+                    newYes.classList.add("flex-1");
+                    newYes.classList.remove("w-full");
+                    newNo.style.display = 'block';
+                }
+
                 newYes.addEventListener('click', () => {
                     this.sfx.buttonClick();
                     modal.style.display = 'none';
-                    callback();
+                    if (callback) callback();
                 });
 
                 newNo.addEventListener('click', () => {
@@ -581,11 +604,20 @@
                         if (this.gameMode === 'online' && !this.isGameOver) {
                             this.isGameOver = true;
                             this.stopTimer();
-                            this.showConfirm("切断", "対戦相手が退出したか部屋が削除されました。", () => { this.showModeSelection(); });
+                            this.showConfirm("切断", "対戦相手が退出したか部屋が削除されました。", () => { this.showModeSelection(); }, true);
                         }
                         return;
                     }
                     const data = snap.data();
+                    
+                    if (data.status === 'abandoned') {
+                        if (data.whoAbandoned !== this.userId && !this.isGameOver) {
+                            this.isGameOver = true;
+                            this.stopTimer();
+                            this.showConfirm("終了", "対戦相手が退出しました。", () => { this.showModeSelection(); }, true);
+                        }
+                        return;
+                    }
                     
                     if (data.status === 'playing' || data.status === 'finished_mate' || data.status === 'finished_timeout') {
                         this.handleOnlineUpdate(data);
@@ -600,12 +632,15 @@
                 const newTurn = gs.turn;
                 const oldTurn = this.turn;
                 
-                // 【修正】UIやタイマーを動かす前に、まず盤面のデータをセットする
                 this.board = JSON.parse(gs.board);
                 this.movedStatus = gs.movedStatus;
                 this.lastMove = gs.lastMove;
                 this.timers = gs.timers; 
+                this.baseTimers = { ...gs.timers };
                 this.turn = gs.turn;
+                
+                // 【重要】端末間の時計ズレを回避するため、データを受信した「今」を基準時間にする
+                this.turnStartTime = Date.now();
 
                 if (this.gameMode !== 'online') {
                     this.gameMode = 'online';
@@ -777,22 +812,27 @@
                 this.turn = 'white';
                 this.initGameLocalVariables();
                 this.initialized = true;
+                
+                this.turnStartTime = Date.now();
+                this.baseTimers = { ...this.timers };
+                
                 this.updateStatus("白の番です");
                 this.updateAdvantageMeter();
             }
 
             startTimer() {
                 this.stopTimer();
-                let lastTurn = this.turn;
-                // 【修正】安全のため未定義時は0を代入
+                this.turnStartTime = Date.now();
+                this.baseTimers = { white: this.timers.white, black: this.timers.black };
+                
                 let lastSec = Math.floor(this.timers[this.turn] || 0);
 
                 this.timerInterval = setInterval(() => {
-                    if (lastTurn !== this.turn) {
-                        lastTurn = this.turn;
-                        lastSec = Math.floor(this.timers[this.turn] || 0);
-                    }
-                    this.timers[this.turn] -= 0.1;
+                    // 【修正】経過時間を絶対時間（Date.now()）の差分で計算し、機種ごとの遅延を完全に防ぐ
+                    const now = Date.now();
+                    const elapsed = (now - this.turnStartTime) / 1000;
+                    
+                    this.timers[this.turn] = Math.max(0, this.baseTimers[this.turn] - elapsed);
 
                     const currentSec = Math.floor(this.timers[this.turn]);
 
@@ -811,7 +851,7 @@
                         }
                     }
                     this.updateTimerDisplay();
-                }, 100);
+                }, 50); // 描画頻度を上げて滑らかに更新
             }
 
             stopTimer() { clearInterval(this.timerInterval); }
@@ -1126,6 +1166,10 @@
                 this.turn = this.turn === 'white' ? 'black' : 'white';
                 this.assistMoves = [];
                 
+                // 【修正】ターンが切り替わったタイミングでタイマーの基準をリセットする
+                this.turnStartTime = Date.now();
+                this.baseTimers = { ...this.timers };
+                
                 this.updateCheckStatus();
                 const isMate = this.isMate();
 
@@ -1241,6 +1285,9 @@
                 this.pendingPromotion = null;
                 this.isGameOver = false;
                 document.getElementById('promotion-modal').style.display = 'none';
+                
+                this.turnStartTime = Date.now();
+                this.baseTimers = { ...this.timers };
                 
                 this.updateCheckStatus();
                 if (this.useTimer) this.startTimer();
