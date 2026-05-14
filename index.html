@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess - Online Multiplayer</title>
+    
+    <!-- アプリアイコン（ファビコン）の設定 -->
+    <link rel="icon" type="image/png" href="chessicon.png">
+    <link rel="apple-touch-icon" href="chessicon.png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -696,7 +701,7 @@
                 
                 this.turnStartTime = Date.now();
 
-                // 初回初期化
+                // 【修正】盤面準備エラーを防ぐため、チェック判定を初期化処理から外した
                 if (!this.initialized || this.gameMode !== 'online') {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
@@ -722,41 +727,39 @@
                     this.initGameLocalVariables();
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove;
+                    
+                    this.updateCheckStatus(); // 盤面ロード後にチェック判定を行う
+                    
                     this.initialized = true;
                     if (this.useTimer) this.startTimer();
-                    this.updateCheckStatus();
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
                     this.checkGameEnd(data, gs, oldTurn, newTurn);
                     return;
                 }
 
-                // 相手の手番から自分の手番に変わった時（相手の手を受信した時）のアニメーション判定
                 const isOpponentMove = (oldTurn !== newTurn && newTurn === this.playerColor && gs.lastMove);
 
                 if (isOpponentMove && !this.animatingPiece) {
                     const isCapture = this.board[gs.lastMove.to.y][gs.lastMove.to.x] !== null;
                     
-                    // 相手の移動をアニメーションさせるための情報をセット
                     this.animatingPiece = {
                         piece: this.board[gs.lastMove.from.y][gs.lastMove.from.x] || (oldTurn === 'white' ? 'P' : 'p'),
                         from: gs.lastMove.from,
                         to: gs.lastMove.to,
                         progress: 0,
                         isOpponent: true,
-                        targetBoard: JSON.parse(gs.board), // アニメーション終了後に完全に適用する盤面
+                        targetBoard: JSON.parse(gs.board), 
                         isCapture: isCapture,
                         data: data,
                         oldTurn: oldTurn,
                         newTurn: newTurn
                     };
                     
-                    // アニメーション中は盤面から移動元の駒だけを消しておく
                     this.board[gs.lastMove.from.y][gs.lastMove.from.x] = null;
                     this.lastMove = gs.lastMove;
                     this.updateTimerDisplay();
                 } else {
-                    // 通常の更新（自分が指した直後など）
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove;
                     this.updateCheckStatus();
@@ -883,7 +886,7 @@
                 this.animatingPiece = null;
                 this.inCheckPos = null;
                 this.moveCount = 0;
-                this.updateCheckStatus();
+                // ここにあった updateCheckStatus(); を削除
             }
 
             initGame() {
@@ -901,6 +904,8 @@
                 };
                 this.turn = 'white';
                 this.initGameLocalVariables();
+                
+                this.updateCheckStatus(); // 盤面セット後に呼ぶ
                 this.initialized = true;
                 
                 this.turnStartTime = Date.now();
@@ -932,7 +937,6 @@
                     }
                     lastSec = currentSec;
 
-                    // 【修正】どちらの画面でも時間切れを検知したら即座に終了処理を行う
                     if (this.timers[this.turn] <= 0 && !this.isGameOver) { 
                         this.timers[this.turn] = 0; 
                         this.handleTimeout(); 
@@ -949,7 +953,6 @@
                 this.sfx.checkmate(); 
                 this.updateStatus(`時間切れ！ ${this.turn === 'white' ? '黒' : '白'}の勝ち`);
                 
-                // 【修正】サーバーへの送信は自分のターンの時に時間切れになった場合のみ行う
                 if (this.gameMode === 'online' && this.turn === this.playerColor) {
                     this.sendTimeout();
                 }
@@ -971,10 +974,8 @@
                     topTimer.innerText = fmt(this.timers.white);
                 }
 
-                // ゲーム終了時は青いラインを消す
                 if (this.isGameOver) {
-                    bottomTimer.classList.remove('timer-active');
-                    topTimer.classList.remove('timer-active');
+                    this.clearActiveStyles();
                 } else {
                     if (this.playerColor === 'white') {
                         bottomTimer.classList.toggle('timer-active', this.turn === 'white');
@@ -1629,7 +1630,6 @@
                     const a = this.animatingPiece; a.progress += 0.15;
                     if (a.progress >= 1) { 
                         if (a.isOpponent) {
-                            // 相手のアニメーション終了処理
                             this.board = a.targetBoard;
                             this.updateCheckStatus();
                             this.updateAdvantageMeter();
@@ -1645,7 +1645,6 @@
                             this.animatingPiece = null;
                             this.checkGameEnd(a.data, a.data.gameState, a.oldTurn, a.newTurn);
                         } else {
-                            // 自分の手のアニメーション終了処理
                             this.executeMove(a.move); 
                         }
                     }
@@ -1692,7 +1691,6 @@
             });
         }
 
-        // ブラウザ（タブ）を閉じた時や他のページへ移動した時に切断を通知
         window.addEventListener('pagehide', () => {
             if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId && !window.game.isGameOver) {
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
