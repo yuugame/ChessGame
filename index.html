@@ -694,14 +694,12 @@
                     if (this.gameMode === 'online' && this.roomId && this.userId) {
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                            // ホストの場合、または既に勝負が決まっている場合は部屋を削除（解散）する
-                            if (this.isHost || this.isGameOver) {
-                                await deleteDoc(roomRef);
-                            } else {
-                                await updateDoc(roomRef, {
-                                    status: 'abandoned',
-                                    whoAbandoned: this.userId
-                                });
+                            await updateDoc(roomRef, {
+                                status: 'abandoned',
+                                whoAbandoned: this.userId
+                            });
+                            if (this.isHost) {
+                                setTimeout(() => deleteDoc(roomRef).catch(()=>{}), 2000);
                             }
                         } catch(e) { console.error(e); }
                     }
@@ -714,7 +712,6 @@
                 document.getElementById('confirm-title').innerText = title;
                 document.getElementById('confirm-message').innerText = message;
                 
-                // 現在開いている設定画面を記憶しておく
                 const activeOverlays = [];
                 const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal'];
                 ids.forEach(id => {
@@ -745,7 +742,6 @@
                     newNo.innerText = window.t('no');
                 }
 
-                // モーダルを閉じた後に、元の画面を復元する処理
                 const restoreOverlays = () => {
                     modal.style.display = 'none';
                     activeOverlays.forEach(id => {
@@ -909,13 +905,13 @@
                 }
             }
 
-            async cancelOnlineRoom() {
+            cancelOnlineRoom() {
                 this.sfx.buttonClick();
                 if (this.unsubRoom) this.unsubRoom();
                 if (this.roomId && this.userId) {
                     try {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                        await deleteDoc(roomRef);
+                        deleteDoc(roomRef);
                     } catch(e) { console.error(e); }
                 }
                 this.showModeSelection();
@@ -927,23 +923,31 @@
                 
                 this.unsubRoom = onSnapshot(roomRef, (snap) => {
                     if (!snap.exists()) {
-                        if (this.gameMode === 'online' && !this.isGameOver) {
-                            this.isGameOver = true;
-                            this.stopTimer();
-                            this.showConfirm(window.t('disconnectTitle'), window.t('disconnectMsg'), () => { this.showModeSelection(); }, true);
+                        if (this.gameMode === 'online') {
+                            const modal = document.getElementById('confirm-modal');
+                            if (modal.style.display !== 'flex') {
+                                this.isGameOver = true;
+                                this.stopTimer();
+                                document.getElementById('rematch-btn').style.display = 'none';
+                                this.showConfirm(window.t('disconnectTitle'), window.t('disconnectMsg'), () => { this.showModeSelection(); }, true);
+                            }
                         }
                         return;
                     }
                     const data = snap.data();
                     
                     if (data.status === 'abandoned') {
-                        if (data.whoAbandoned !== this.userId && !this.isGameOver) {
-                            this.isGameOver = true;
-                            this.stopTimer();
-                            let leaverName = window.t('anonymous');
-                            if (data.host === data.whoAbandoned) leaverName = data.hostName || window.t('anonymous');
-                            else if (data.guest === data.whoAbandoned) leaverName = data.guestName || window.t('anonymous');
-                            this.showConfirm(window.t('abandonTitle'), `${leaverName}${window.t('abandonMsg')}`, () => { this.showModeSelection(); }, true);
+                        if (data.whoAbandoned !== this.userId) {
+                            const modal = document.getElementById('confirm-modal');
+                            if (modal.style.display !== 'flex') {
+                                this.isGameOver = true;
+                                this.stopTimer();
+                                document.getElementById('rematch-btn').style.display = 'none';
+                                let leaverName = window.t('anonymous');
+                                if (data.host === data.whoAbandoned) leaverName = data.hostName || window.t('anonymous');
+                                else if (data.guest === data.whoAbandoned) leaverName = data.guestName || window.t('anonymous');
+                                this.showConfirm(window.t('abandonTitle'), `${leaverName}${window.t('abandonMsg')}`, () => { this.showModeSelection(); }, true);
+                            }
                         }
                         return;
                     }
@@ -2063,14 +2067,13 @@
         window.addEventListener('pagehide', () => {
             if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId) {
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
-                // ホスト、または勝負がついた後に閉じた場合は部屋を解散
-                if (window.game.isGameOver || window.game.isHost) {
-                    deleteDoc(roomRef).catch(()=>{});
-                } else {
-                    updateDoc(roomRef, {
-                        status: 'abandoned',
-                        whoAbandoned: window.game.userId
-                    }).catch(()=>{});
+                updateDoc(roomRef, {
+                    status: 'abandoned',
+                    whoAbandoned: window.game.userId
+                }).catch(()=>{});
+                
+                if (window.game.isHost) {
+                    setTimeout(() => deleteDoc(roomRef).catch(()=>{}), 1000);
                 }
             }
         });
