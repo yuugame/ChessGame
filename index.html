@@ -398,6 +398,10 @@
                 this.isAssistMode = false;
                 this.assistMoves = [];
                 this.inCheckPos = null;
+                
+                // 【重要追加】初手加算バグを完全に防ぐための専用フラグ
+                this.firstMoveDone = { white: false, black: false };
+
                 this.setupListeners();
                 this.animate();
 
@@ -434,7 +438,6 @@
                 document.getElementById('timer-bottom').style.display = 'none';
                 document.getElementById('meter-ui').style.display = 'none';
                 
-                // 【重要】再戦時などのバグを防ぐための完全リセット
                 this.initialized = false;
                 this.isGameOver = false;
                 this.gameMode = null;
@@ -694,6 +697,12 @@
                     return; 
                 }
                 this.moveCount = gs.moveCount || 0;
+                
+                // 【重要】オンライン復帰時に初手フラグを正しく復元する
+                this.firstMoveDone = { 
+                    white: this.moveCount > 0, 
+                    black: this.moveCount > 1 
+                };
 
                 const newTurn = gs.turn;
                 const oldTurn = this.turn;
@@ -728,6 +737,7 @@
                     }
                     
                     this.initGameLocalVariables();
+                    this.firstMoveDone = { white: this.moveCount > 0, black: this.moveCount > 1 }; // リセット後に再適用
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove;
                     
@@ -800,7 +810,7 @@
             async sendOnlineMove(isMate) {
                 if (!this.roomId) return;
                 try {
-                    this.moveCount++; // ターン数を進める
+                    this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = isMate ? 'finished_mate' : 'playing';
                     
@@ -888,6 +898,7 @@
                 this.animatingPiece = null;
                 this.inCheckPos = null;
                 this.moveCount = 0;
+                this.firstMoveDone = { white: false, black: false }; // 確実にフラグをリセット
             }
 
             initGame() {
@@ -927,9 +938,9 @@
                     const now = Date.now();
                     let elapsed = (now - this.turnStartTime) / 1000;
                     
-                    // 【重要修正】オンライン対戦時、誰も駒を動かしていない（0手目）時はタイマーを減らさない
-                    // 裏画面待機などによる開始直後の理不尽な時間切れ事故を完全に防ぐ
-                    if (this.gameMode === 'online' && this.moveCount === 0) {
+                    // 【修正】オフライン・オンライン問わず、白が最初の一手を動かすまでは全員のタイマーを止める
+                    const isGameStart = (this.gameMode === 'online') ? (this.moveCount === 0) : (this.history.length === 0);
+                    if (isGameStart) {
                         this.turnStartTime = now;
                         elapsed = 0;
                     }
@@ -940,7 +951,7 @@
 
                     if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
                         if (this.gameMode !== 'online' || this.turn === this.playerColor) {
-                            if (this.moveCount > 0 || this.gameMode !== 'online') {
+                            if (!isGameStart) {
                                 this.sfx.countdown();
                             }
                         }
@@ -1061,13 +1072,10 @@
 
             executeMove(move) {
                 if (this.useTimer) {
-                    // 各プレイヤーの最初の1手目かどうかを判定
-                    const isFirstMove = (this.gameMode === 'online') 
-                        ? (this.turn === 'white' ? this.moveCount === 0 : this.moveCount === 1)
-                        : (this.turn === 'white' ? this.history.length === 1 : this.history.length === 2);
-
-                    // 1手目以外の場合のみ、インクリメント（加算秒）を追加する
-                    if (!isFirstMove) {
+                    // 【絶対確実な判定】専用のフラグを使い、1回目のアクションでは絶対に加算しない
+                    if (!this.firstMoveDone[this.turn]) {
+                        this.firstMoveDone[this.turn] = true;
+                    } else {
                         this.timers[this.turn] += this.increment;
                     }
                 }
