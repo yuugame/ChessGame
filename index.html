@@ -108,12 +108,14 @@
         .btn-sub { background-color: #10b981; color: white; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; max-width: 300px; transition: all 0.2s; }
         .btn-sub:hover { filter: brightness(1.1); }
 
-        input[type=range] {
+        input[type=text], input[type=range] {
             width: 100%;
+            outline: none;
+        }
+        input[type=range] {
             height: 8px;
             background: #444;
             border-radius: 5px;
-            outline: none;
             accent-color: #3b82f6;
         }
     </style>
@@ -153,12 +155,14 @@
         <div id="online-config" class="w-full flex flex-col items-center" style="display: none;">
             <h2 class="text-2xl font-bold mb-8 text-center">オンライン対戦</h2>
             <div class="flex flex-col gap-4 w-full max-w-[300px] items-center">
-                <input type="text" id="room-id-input" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl outline-none">
+                <input type="text" id="player-name-input" placeholder="あなたの名前 (任意)" class="p-3 w-full rounded text-black font-bold text-center text-xl" maxlength="10">
+                <input type="text" id="room-id-input" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl">
                 <button class="btn-sub !bg-orange-500" onclick="game.joinOnlineRoom()">部屋に入る</button>
                 <div class="my-2 opacity-50 border-b border-zinc-600 w-full text-center h-0 leading-0"><span class="bg-[#1a1a1a] px-2 text-xs">または</span></div>
                 <button class="btn-sub !bg-purple-600" onclick="game.showOnlineTimeSelection()">部屋を作る</button>
                 <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
             </div>
+            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]">※同じ合言葉で再戦する場合は、どちらかが「部屋を作る」で新しく作り直してください。</p>
         </div>
 
         <div id="waiting-room" class="w-full flex flex-col items-center" style="display: none;">
@@ -383,6 +387,8 @@
                 this.sfx = new SoundEffects();
                 this.initialized = false;
                 this.userId = null;
+                this.playerName = ""; // プレイヤー名
+                this.currentRoomData = null; // 部屋のデータ保持用
                 
                 this.roomId = null;
                 this.unsubRoom = null;
@@ -452,6 +458,7 @@
                 this.gameMode = null;
                 this.roomId = null;
                 this.moveCount = 0;
+                this.currentRoomData = null;
                 this.clearActiveStyles();
             }
 
@@ -473,6 +480,7 @@
             showOnlineTimeSelection() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
+                this.playerName = document.getElementById('player-name-input').value.trim() || "匿名プレイヤー";
                 if (!this.roomId) {
                     this.showConfirm("エラー", "合言葉を入力してください", ()=>{}, true);
                     return;
@@ -577,6 +585,8 @@
             async joinOnlineRoom() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
+                this.playerName = document.getElementById('player-name-input').value.trim() || "匿名プレイヤー";
+                
                 if (!this.roomId) return this.showConfirm("エラー", "合言葉を入力してください", ()=>{}, true);
                 if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{}, true);
 
@@ -606,6 +616,7 @@
                     await updateDoc(roomRef, {
                         status: 'playing',
                         guest: this.userId,
+                        guestName: this.playerName,
                         white: isHostWhite ? data.host : this.userId,
                         black: isHostWhite ? this.userId : data.host
                     });
@@ -640,7 +651,9 @@
                     await setDoc(roomRef, {
                         status: 'waiting',
                         host: this.userId,
+                        hostName: this.playerName,
                         guest: null,
+                        guestName: null,
                         timeConfig: { seconds, inc },
                         turnMode: turnMode,
                         gameState: {
@@ -741,7 +754,10 @@
                         if (data.whoAbandoned !== this.userId && !this.isGameOver) {
                             this.isGameOver = true;
                             this.stopTimer();
-                            this.showConfirm("終了", "対戦相手が退出しました。", () => { this.showModeSelection(); }, true);
+                            let leaverName = "対戦相手";
+                            if (data.host === data.whoAbandoned) leaverName = data.hostName || "相手";
+                            else if (data.guest === data.whoAbandoned) leaverName = data.guestName || "相手";
+                            this.showConfirm("終了", `${leaverName} が退出しました。`, () => { this.showModeSelection(); }, true);
                         }
                         return;
                     }
@@ -756,6 +772,7 @@
 
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
+                this.currentRoomData = data;
                 
                 const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.moveCount > 0;
                 
@@ -794,8 +811,19 @@
                     const topLabel = document.getElementById('top-player-label');
                     const bottomLabel = document.getElementById('bottom-player-label');
                     document.getElementById('mode-display').innerText = `オンライン対戦 [${this.roomId}]`;
-                    bottomLabel.innerText = `あなた (${this.playerColor === 'white' ? '白・先手' : '黒・後手'})`;
-                    topLabel.innerText = `あいて (${this.playerColor === 'white' ? '黒' : '白'})`;
+                    
+                    let myName = "あなた";
+                    let opponentName = "相手";
+                    if (data.host === this.userId) {
+                        myName = data.hostName || "あなた";
+                        opponentName = data.guestName || "相手";
+                    } else {
+                        myName = data.guestName || "あなた";
+                        opponentName = data.hostName || "相手";
+                    }
+                    
+                    bottomLabel.innerText = `${myName} (${this.playerColor === 'white' ? '白・先手' : '黒・後手'})`;
+                    topLabel.innerText = `${opponentName} (${this.playerColor === 'white' ? '黒' : '白'})`;
                     
                     if (this.useTimer) {
                         document.getElementById('timer-top').style.display = 'block';
