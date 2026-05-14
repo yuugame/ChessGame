@@ -694,7 +694,8 @@
                     if (this.gameMode === 'online' && this.roomId && this.userId) {
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                            if (this.isHost) {
+                            // ホストの場合、または既に勝負が決まっている場合は部屋を削除（解散）する
+                            if (this.isHost || this.isGameOver) {
                                 await deleteDoc(roomRef);
                             } else {
                                 await updateDoc(roomRef, {
@@ -1344,11 +1345,21 @@
 
                 const diff = whiteScore - blackScore;
                 
+                // 自分が後攻（黒）の時は、黒視点の有利不利に数値を反転させ、メーターの左右も反転させる
+                let displayDiff = diff;
+                const meterUi = document.getElementById('meter-ui');
+                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.playerColor === 'black') {
+                    displayDiff = blackScore - whiteScore;
+                    meterUi.style.flexDirection = 'row-reverse';
+                } else {
+                    meterUi.style.flexDirection = 'row';
+                }
+                
                 let whitePercent = 50 + (diff * 2);
                 whitePercent = Math.max(5, Math.min(95, whitePercent));
                 
                 document.getElementById('advantage-bar-white').style.width = `${whitePercent}%`;
-                const text = diff > 0 ? `+${diff}` : (diff < 0 ? `${diff}` : "0");
+                const text = displayDiff > 0 ? `+${displayDiff}` : (displayDiff < 0 ? `${displayDiff}` : "0");
                 document.getElementById('advantage-text').innerText = text;
             }
 
@@ -2050,12 +2061,17 @@
         }
 
         window.addEventListener('pagehide', () => {
-            if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId && !window.game.isGameOver) {
+            if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId) {
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
-                updateDoc(roomRef, {
-                    status: 'abandoned',
-                    whoAbandoned: window.game.userId
-                }).catch(()=>{});
+                // ホスト、または勝負がついた後に閉じた場合は部屋を解散
+                if (window.game.isGameOver || window.game.isHost) {
+                    deleteDoc(roomRef).catch(()=>{});
+                } else {
+                    updateDoc(roomRef, {
+                        status: 'abandoned',
+                        whoAbandoned: window.game.userId
+                    }).catch(()=>{});
+                }
             }
         });
 
