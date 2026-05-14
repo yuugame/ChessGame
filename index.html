@@ -596,6 +596,17 @@
             }
 
             handleOnlineUpdate(data) {
+                const gs = data.gameState;
+                const newTurn = gs.turn;
+                const oldTurn = this.turn;
+                
+                // 【修正】UIやタイマーを動かす前に、まず盤面のデータをセットする
+                this.board = JSON.parse(gs.board);
+                this.movedStatus = gs.movedStatus;
+                this.lastMove = gs.lastMove;
+                this.timers = gs.timers; 
+                this.turn = gs.turn;
+
                 if (this.gameMode !== 'online') {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
@@ -619,18 +630,8 @@
                     }
                     
                     this.initGameLocalVariables();
-                    this.startTimer();
+                    if (this.useTimer) this.startTimer();
                 }
-
-                const gs = data.gameState;
-                const newTurn = gs.turn;
-                const oldTurn = this.turn;
-                
-                this.board = JSON.parse(gs.board);
-                this.movedStatus = gs.movedStatus;
-                this.lastMove = gs.lastMove;
-                this.timers = gs.timers; 
-                this.turn = gs.turn;
 
                 this.updateCheckStatus();
                 this.updateAdvantageMeter();
@@ -783,13 +784,13 @@
             startTimer() {
                 this.stopTimer();
                 let lastTurn = this.turn;
-                let lastSec = Math.floor(this.timers[this.turn]);
+                // 【修正】安全のため未定義時は0を代入
+                let lastSec = Math.floor(this.timers[this.turn] || 0);
 
                 this.timerInterval = setInterval(() => {
-                    // 【修正】システム時計に依存せず、純粋にローカルでタイマーを回すように変更
                     if (lastTurn !== this.turn) {
                         lastTurn = this.turn;
-                        lastSec = Math.floor(this.timers[this.turn]);
+                        lastSec = Math.floor(this.timers[this.turn] || 0);
                     }
                     this.timers[this.turn] -= 0.1;
 
