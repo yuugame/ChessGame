@@ -189,7 +189,7 @@
         <div id="confirm-modal" class="w-full flex flex-col items-center" style="display: none;">
             <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[300px] w-full border border-zinc-700">
                 <h2 id="confirm-title" class="text-xl font-bold mb-4">確認</h2>
-                <p id="confirm-message" class="mb-6 opacity-80 text-sm">本当に実行しますか？</p>
+                <p id="confirm-message" class="mb-6 opacity-80 text-sm whitespace-pre-wrap">本当に実行しますか？</p>
                 <div class="flex gap-3 justify-center">
                     <button id="confirm-yes" class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1">はい</button>
                     <button id="confirm-no" class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1">いいえ</button>
@@ -239,11 +239,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ==========================================
-        // 【重要】GitHub等で動かす場合の設定
-        // 下記の myFirebaseConfig にご自身のFirebaseの
-        // 設定情報を貼り付けてください。
-        // ==========================================
         const myFirebaseConfig = {
             apiKey: "AIzaSyCkUBUExKBbhuMzMnyxZbmrgsfGWK9lTt0",
             authDomain: "chessonline-ab5ac.firebaseapp.com",
@@ -254,10 +249,8 @@
             measurementId: "G-1KK4ZB1PJS"
         };
 
-        // Canvas環境と外部環境を自動で切り替える
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
         
-        // 設定が空の場合はエラーを防ぐために初期化をスキップ（オフラインのみ動作）
         let app, auth, db;
         if (Object.keys(firebaseConfig).length > 0) {
             app = initializeApp(firebaseConfig);
@@ -265,7 +258,6 @@
             db = getFirestore(app);
         }
         
-        // 外部環境用にカスタムアプリIDを設定
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'my-chess-app-v1';
 
         const SIZE = 400;
@@ -357,8 +349,6 @@
                 // Online State
                 this.roomId = null;
                 this.unsubRoom = null;
-                this.baseTimers = { white: 0, black: 0 };
-                this.lastUpdate = 0;
 
                 this.board = [];
                 this.turn = 'white';
@@ -413,9 +403,8 @@
             showOnlineConfig() {
                 this.sfx.buttonClick();
                 
-                // 外部環境で設定がない場合のエラーハンドリング
                 if (!auth || !db) {
-                    return this.showConfirm("エラー", "Firebaseの設定が見つかりません。コード内の myFirebaseConfig に設定を書き込んでください。", ()=>{});
+                    return this.showConfirm("エラー", "Firebaseの設定が見つかりません。", ()=>{});
                 }
                 
                 this.hideAllOverlays();
@@ -509,20 +498,23 @@
                         return this.showConfirm("エラー", "この部屋は既に対戦中か終了しています。", ()=>{});
                     }
 
-                    // 白黒をランダムに決定
+                    // 【修正】同一ブラウザの別タブでテストした際にIDが被る問題への対策
+                    if (data.host === this.userId) {
+                        this.userId = this.userId + "_guest";
+                    }
+
                     const isHostWhite = Math.random() < 0.5;
                     await updateDoc(roomRef, {
                         status: 'playing',
                         guest: this.userId,
                         white: isHostWhite ? data.host : this.userId,
-                        black: isHostWhite ? this.userId : data.host,
-                        'gameState.lastUpdate': Date.now()
+                        black: isHostWhite ? this.userId : data.host
                     });
                     
                     this.listenToRoom();
                 } catch (e) {
                     console.error(e);
-                    this.showConfirm("エラー", "通信に失敗しました。Firebaseのセキュリティルール等を確認してください。", ()=>{});
+                    this.showConfirm("通信エラー", `エラーが発生しました。\n${e.message}`, ()=>{});
                 }
             }
 
@@ -552,7 +544,6 @@
                             board: JSON.stringify(initialBoard),
                             turn: 'white',
                             timers: { white: seconds, black: seconds },
-                            lastUpdate: Date.now(),
                             movedStatus: {
                                 whiteKing: false, blackKing: false,
                                 whiteRookLeft: false, whiteRookRight: false,
@@ -564,7 +555,7 @@
                     this.listenToRoom();
                 } catch(e) {
                     console.error(e);
-                    this.showConfirm("エラー", "通信に失敗しました。Firebaseのセキュリティルール等を確認してください。", ()=>{});
+                    this.showConfirm("通信エラー", `部屋の作成に失敗しました。\n${e.message}`, ()=>{});
                     this.showModeSelection();
                 }
             }
@@ -587,7 +578,6 @@
                 
                 this.unsubRoom = onSnapshot(roomRef, (snap) => {
                     if (!snap.exists()) {
-                        // 部屋が削除された場合
                         if (this.gameMode === 'online' && !this.isGameOver) {
                             this.isGameOver = true;
                             this.stopTimer();
@@ -606,7 +596,6 @@
             }
 
             handleOnlineUpdate(data) {
-                // 初回UI設定
                 if (this.gameMode !== 'online') {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
@@ -616,7 +605,6 @@
                     this.increment = data.timeConfig.inc;
                     this.useTimer = data.timeConfig.seconds > 0;
                     
-                    // undoボタンを隠す
                     document.getElementById('undo-btn').style.display = 'none';
 
                     const topLabel = document.getElementById('top-player-label');
@@ -638,38 +626,27 @@
                 const newTurn = gs.turn;
                 const oldTurn = this.turn;
                 
-                // 盤面の同期
                 this.board = JSON.parse(gs.board);
                 this.movedStatus = gs.movedStatus;
                 this.lastMove = gs.lastMove;
-                this.baseTimers = gs.timers;
-                this.lastUpdate = gs.lastUpdate;
+                this.timers = gs.timers; 
                 this.turn = gs.turn;
 
                 this.updateCheckStatus();
                 this.updateAdvantageMeter();
+                this.updateTimerDisplay();
 
-                // 相手が動かして自分の番になった時に音を鳴らす
                 if (oldTurn !== newTurn && this.turn === this.playerColor) {
                     if (this.lastMove) {
-                        this.sfx.pieceMove(); // 簡易的にmove音
+                        this.sfx.pieceMove(); 
                     }
                     if (this.inCheckPos) this.sfx.check();
                 }
 
-                // タイマー強制同期
-                if (this.useTimer && !this.isGameOver) {
-                    const elapsed = (Date.now() - this.lastUpdate) / 1000;
-                    this.timers.white = this.turn === 'white' ? Math.max(0, this.baseTimers.white - elapsed) : this.baseTimers.white;
-                    this.timers.black = this.turn === 'black' ? Math.max(0, this.baseTimers.black - elapsed) : this.baseTimers.black;
-                    this.updateTimerDisplay();
-                }
-
-                // ゲーム終了判定
                 if (data.status === 'finished_mate') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    if (oldTurn !== newTurn) this.sfx.checkmate(); // 送信側は既に鳴らしているので受信側のみ
+                    if (oldTurn !== newTurn) this.sfx.checkmate();
                     const winner = gs.turn === 'white' ? '黒' : '白';
                     this.updateStatus(`チェックメイト！ ${winner}の勝ち`);
                 } else if (data.status === 'finished_timeout') {
@@ -702,8 +679,7 @@
                         status: status,
                         'gameState.board': JSON.stringify(this.board),
                         'gameState.turn': this.turn,
-                        'gameState.timers': this.timers, // 自分のターン終了時の残り時間を送信
-                        'gameState.lastUpdate': Date.now(),
+                        'gameState.timers': this.timers,
                         'gameState.movedStatus': this.movedStatus,
                         'gameState.lastMove': this.lastMove
                     });
@@ -810,24 +786,16 @@
                 let lastSec = Math.floor(this.timers[this.turn]);
 
                 this.timerInterval = setInterval(() => {
-                    if (this.gameMode === 'online') {
-                        // オンライン時は Date.now() と lastUpdate を使って時間を計算
-                        const elapsed = (Date.now() - this.lastUpdate) / 1000;
-                        this.timers[this.turn] = Math.max(0, this.baseTimers[this.turn] - elapsed);
-                    } else {
-                        // オフライン時は単純に引いていく
-                        if (lastTurn !== this.turn) {
-                            lastTurn = this.turn;
-                            lastSec = Math.floor(this.timers[this.turn]);
-                        }
-                        this.timers[this.turn] -= 0.1;
+                    // 【修正】システム時計に依存せず、純粋にローカルでタイマーを回すように変更
+                    if (lastTurn !== this.turn) {
+                        lastTurn = this.turn;
+                        lastSec = Math.floor(this.timers[this.turn]);
                     }
+                    this.timers[this.turn] -= 0.1;
 
                     const currentSec = Math.floor(this.timers[this.turn]);
 
-                    // カウントダウン音
                     if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
-                        // オンライン時は自分の番の時だけ鳴らす
                         if (this.gameMode !== 'online' || this.turn === this.playerColor) {
                             this.sfx.countdown();
                         }
@@ -837,7 +805,6 @@
                     if (this.timers[this.turn] <= 0 && !this.isGameOver) { 
                         this.timers[this.turn] = 0; 
                         
-                        // 時間切れの処理（オンライン時は自分の番の時だけ自分が申告する）
                         if (this.gameMode !== 'online' || this.turn === this.playerColor) {
                             this.handleTimeout(); 
                         }
@@ -861,8 +828,8 @@
 
             updateTimerDisplay() {
                 const fmt = s => {
-                    const m = Math.floor(s/60); const sc = Math.floor(s%60);
-                    return `${m}:${sc.toString().padStart(2,'0')}.${Math.floor((s%1)*10)}`;
+                    const m = Math.floor(Math.max(0, s)/60); const sc = Math.floor(Math.max(0, s)%60);
+                    return `${m}:${sc.toString().padStart(2,'0')}.${Math.floor((Math.max(0, s)%1)*10)}`;
                 };
                 const topTimer = document.getElementById('timer-top');
                 const bottomTimer = document.getElementById('timer-bottom');
@@ -1161,7 +1128,6 @@
                 this.updateCheckStatus();
                 const isMate = this.isMate();
 
-                // オンライン対戦の場合、自分が操作を終えたらFirestoreに送信
                 if (this.gameMode === 'online' && this.turn !== this.playerColor) {
                     this.sendOnlineMove(isMate);
                 }
@@ -1253,7 +1219,7 @@
             }
 
             undoMove() {
-                if (this.gameMode === 'online') return; // オンライン時は無効
+                if (this.gameMode === 'online') return; 
                 if (this.history.length === 0 || this.animatingPiece) return;
                 
                 const restore = () => {
@@ -1379,7 +1345,6 @@
 
             updateStatus(s) { 
                 document.getElementById('game-status').innerText = s; 
-                // PvP/Onlineモード時の名前の色変更ロジック
                 if (this.gameMode === 'pvp' || this.gameMode === 'online') {
                     const bottomLabel = document.getElementById('bottom-player-label');
                     const topLabel = document.getElementById('top-player-label');
@@ -1516,10 +1481,8 @@
             }
         }
         
-        // グローバルにインスタンスを割り当てる（HTMLのonclickから呼ぶため）
         window.game = new ChessGame('chessBoard');
 
-        // Firebase Authの初期化と状態監視
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
