@@ -378,7 +378,6 @@
                 this.unsubRoom = null;
                 this.isHost = false;
                 
-                // 無駄な通信制限（遅延の元）を解消したためサクサク動く
                 this.moveCount = 0; 
                 this.gameMode = null; 
                 
@@ -434,11 +433,14 @@
                 document.getElementById('timer-top').style.display = 'none';
                 document.getElementById('timer-bottom').style.display = 'none';
                 document.getElementById('meter-ui').style.display = 'none';
-                this.initialized = false;
                 
+                // 【重要】再戦時などのバグを防ぐための完全リセット
+                this.initialized = false;
+                this.isGameOver = false;
                 this.gameMode = null;
                 this.roomId = null;
                 this.moveCount = 0;
+                this.clearActiveStyles();
             }
 
             showCpuConfig() {
@@ -688,7 +690,21 @@
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
                 
-                // 初回ゲーム開始時（盤面などの初期構築を先に行いバグを防ぐ）
+                if (this.gameMode === 'online' && gs.moveCount <= this.moveCount && this.initialized) {
+                    return; 
+                }
+                this.moveCount = gs.moveCount || 0;
+
+                const newTurn = gs.turn;
+                const oldTurn = this.turn;
+                
+                this.movedStatus = gs.movedStatus;
+                this.timers = gs.timers; 
+                this.baseTimers = { ...gs.timers };
+                this.turn = gs.turn;
+                
+                this.turnStartTime = Date.now();
+
                 if (!this.initialized || this.gameMode !== 'online') {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
@@ -712,15 +728,8 @@
                     }
                     
                     this.initGameLocalVariables();
-                    
-                    // 【重要修正】ゲーム開始時に必要なステータス（盤面、ターン、タイマー、キャスリング履歴）を全てロードする
                     this.board = JSON.parse(gs.board);
-                    this.movedStatus = gs.movedStatus;
-                    this.timers = gs.timers;
-                    this.baseTimers = { ...gs.timers };
-                    this.turn = gs.turn;
                     this.lastMove = gs.lastMove;
-                    this.turnStartTime = Date.now();
                     
                     this.updateCheckStatus(); 
                     
@@ -729,26 +738,8 @@
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
                     this.checkGameEnd(data, gs, this.turn, gs.turn);
-                    
-                    this.moveCount = gs.moveCount || 0;
                     return;
                 }
-
-                // すでに初期化済みの場合は、手数（ターン）が進んでいなければ無視して遅延・重複を防ぐ
-                if (gs.moveCount <= this.moveCount) {
-                    return; 
-                }
-                this.moveCount = gs.moveCount;
-
-                const newTurn = gs.turn;
-                const oldTurn = this.turn;
-                
-                this.movedStatus = gs.movedStatus;
-                this.timers = gs.timers; 
-                this.baseTimers = { ...gs.timers };
-                this.turn = gs.turn;
-                
-                this.turnStartTime = Date.now();
 
                 const isOpponentMove = (oldTurn !== newTurn && newTurn === this.playerColor && gs.lastMove);
 
@@ -804,7 +795,6 @@
                         this.assistMoves = [];
                     }
                 }
-                this.initialized = true;
             }
 
             async sendOnlineMove(isMate) {
@@ -935,7 +925,14 @@
 
                 this.timerInterval = setInterval(() => {
                     const now = Date.now();
-                    const elapsed = (now - this.turnStartTime) / 1000;
+                    let elapsed = (now - this.turnStartTime) / 1000;
+                    
+                    // 【重要修正】オンライン対戦時、誰も駒を動かしていない（0手目）時はタイマーを減らさない
+                    // 裏画面待機などによる開始直後の理不尽な時間切れ事故を完全に防ぐ
+                    if (this.gameMode === 'online' && this.moveCount === 0) {
+                        this.turnStartTime = now;
+                        elapsed = 0;
+                    }
                     
                     this.timers[this.turn] = Math.max(0, this.baseTimers[this.turn] - elapsed);
 
@@ -943,7 +940,9 @@
 
                     if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
                         if (this.gameMode !== 'online' || this.turn === this.playerColor) {
-                            this.sfx.countdown();
+                            if (this.moveCount > 0 || this.gameMode !== 'online') {
+                                this.sfx.countdown();
+                            }
                         }
                     }
                     lastSec = currentSec;
