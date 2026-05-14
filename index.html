@@ -713,6 +713,16 @@
                 document.getElementById('confirm-title').innerText = title;
                 document.getElementById('confirm-message').innerText = message;
                 
+                // 現在開いている設定画面を記憶しておく
+                const activeOverlays = [];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el.style.display === 'flex') {
+                        activeOverlays.push(id);
+                    }
+                });
+
                 const yesBtn = document.getElementById('confirm-yes');
                 const noBtn = document.getElementById('confirm-no');
 
@@ -734,15 +744,23 @@
                     newNo.innerText = window.t('no');
                 }
 
+                // モーダルを閉じた後に、元の画面を復元する処理
+                const restoreOverlays = () => {
+                    modal.style.display = 'none';
+                    activeOverlays.forEach(id => {
+                        document.getElementById(id).style.display = 'flex';
+                    });
+                };
+
                 newYes.addEventListener('click', () => {
                     this.sfx.buttonClick();
-                    modal.style.display = 'none';
+                    restoreOverlays();
                     if (callback) callback();
                 });
 
                 newNo.addEventListener('click', () => {
                     this.sfx.buttonClick();
-                    modal.style.display = 'none';
+                    restoreOverlays();
                 });
 
                 this.hideAllOverlays();
