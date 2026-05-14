@@ -122,79 +122,87 @@
 </head>
 <body>
 
+    <div class="fixed top-2 right-2 z-50">
+        <select id="language-select" class="bg-zinc-800 text-white py-1 px-2 rounded outline-none border border-zinc-600 text-sm cursor-pointer" onchange="window.setLanguage(this.value)">
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+        </select>
+    </div>
+
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
-            <h1 class="text-4xl font-bold mb-10 text-center">CHESS</h1>
+            <h1 class="text-4xl font-bold mb-10 text-center" data-i18n="title">CHESS</h1>
             <div class="flex flex-col gap-4 w-full items-center">
-                <button class="btn-main" onclick="game.showCpuConfig()">VS CPU</button>
-                <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')">2人プレイ(オフライン)</button>
-                <button class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()">オンライン対戦(合言葉)</button>
+                <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
+                <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
+                <button class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦(合言葉)</button>
             </div>
-            <div id="auth-status" class="mt-6 text-xs opacity-50 text-center">通信準備中...</div>
+            <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" data-i18n="authStatusPreparing">通信準備中...</div>
         </div>
 
         <div id="cpu-config" class="w-full flex flex-col items-center" style="display: none;">
-            <h2 class="text-2xl font-bold mb-8 text-center">CPU設定</h2>
+            <h2 class="text-2xl font-bold mb-8 text-center" data-i18n="cpuSettings">CPU設定</h2>
             <div class="w-full max-w-[300px] mb-6">
                 <div class="flex justify-between mb-2">
-                    <span class="opacity-70">難易度レベル</span>
+                    <span class="opacity-70" data-i18n="difficulty">難易度レベル</span>
                     <span id="level-value" class="font-bold text-blue-400">Lv.1</span>
                 </div>
                 <input type="range" id="level-slider" min="1" max="10" value="1" step="1" 
                     oninput="document.getElementById('level-value').innerText = 'Lv.' + this.value">
                 <div class="flex justify-between text-xs mt-2 opacity-50">
-                    <span>初級</span>
-                    <span>上級</span>
+                    <span data-i18n="beginner">初級</span>
+                    <span data-i18n="advanced">上級</span>
                 </div>
             </div>
-            <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。</p>
-            <button class="btn-sub mb-4 !bg-blue-600" onclick="game.showTimeSelection('cpu', document.getElementById('level-slider').value)">時間設定へ進む</button>
-            <button class="text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
+            <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]" data-i18n="cpuNote">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。</p>
+            <button class="btn-sub mb-4 !bg-blue-600" onclick="game.showTimeSelection('cpu', document.getElementById('level-slider').value)" data-i18n="nextToTime">時間設定へ進む</button>
+            <button class="text-sm underline opacity-50 py-2" onclick="game.showModeSelection()" data-i18n="back">戻る</button>
         </div>
 
         <div id="online-config" class="w-full flex flex-col items-center" style="display: none;">
-            <h2 class="text-2xl font-bold mb-8 text-center">オンライン対戦</h2>
+            <h2 class="text-2xl font-bold mb-8 text-center" data-i18n="onlineSettings">オンライン対戦</h2>
             <div class="flex flex-col gap-4 w-full max-w-[300px] items-center">
-                <input type="text" id="player-name-input" placeholder="あなたの名前 (任意)" class="p-3 w-full rounded text-black font-bold text-center text-xl" maxlength="10">
-                <input type="text" id="room-id-input" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl">
-                <button class="btn-sub !bg-orange-500" onclick="game.joinOnlineRoom()">部屋に入る</button>
-                <div class="my-2 opacity-50 border-b border-zinc-600 w-full text-center h-0 leading-0"><span class="bg-[#1a1a1a] px-2 text-xs">または</span></div>
-                <button class="btn-sub !bg-purple-600" onclick="game.showOnlineTimeSelection()">部屋を作る</button>
-                <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
+                <input type="text" id="player-name-input" data-i18n="playerNamePlaceholder" placeholder="あなたの名前 (任意)" class="p-3 w-full rounded text-black font-bold text-center text-xl" maxlength="10">
+                <input type="text" id="room-id-input" data-i18n="roomWordPlaceholder" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl">
+                <button class="btn-sub !bg-orange-500" onclick="game.joinOnlineRoom()" data-i18n="joinRoom">部屋に入る</button>
+                <div class="my-2 opacity-50 border-b border-zinc-600 w-full text-center h-0 leading-0"><span class="bg-[#1a1a1a] px-2 text-xs" data-i18n="or">または</span></div>
+                <button class="btn-sub !bg-purple-600" onclick="game.showOnlineTimeSelection()" data-i18n="createRoom">部屋を作る</button>
+                <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()" data-i18n="back">戻る</button>
             </div>
-            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]">※同じ合言葉で再戦する場合は、どちらかが「部屋を作る」で新しく作り直してください。</p>
+            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]" data-i18n="onlineNote">※同じ合言葉で再戦する場合は、どちらかが「部屋を作る」で新しく作り直してください。</p>
         </div>
 
         <div id="waiting-room" class="w-full flex flex-col items-center" style="display: none;">
-            <h2 class="text-2xl font-bold mb-8 text-center">対戦相手を待っています...</h2>
-            <p class="mb-6">合言葉: <span id="display-room-id" class="font-bold text-orange-400 text-2xl tracking-widest bg-zinc-800 px-4 py-2 rounded"></span></p>
+            <h2 class="text-2xl font-bold mb-8 text-center" data-i18n="waitingOpponent">対戦相手を待っています...</h2>
+            <p class="mb-6"><span data-i18n="roomWordInfo">合言葉:</span> <span id="display-room-id" class="font-bold text-orange-400 text-2xl tracking-widest bg-zinc-800 px-4 py-2 rounded"></span></p>
             <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-8"></div>
-            <button class="btn-sub !bg-red-900" onclick="game.cancelOnlineRoom()">キャンセル</button>
+            <button class="btn-sub !bg-red-900" onclick="game.cancelOnlineRoom()" data-i18n="cancel">キャンセル</button>
         </div>
 
         <div id="time-selection" class="w-full flex flex-col items-center" style="display: none;">
-            <h2 class="text-2xl font-bold mb-6 text-center">設定</h2>
+            <h2 class="text-2xl font-bold mb-6 text-center" data-i18n="timeSettings">設定</h2>
             
             <div id="online-turn-config" class="w-full max-w-[300px] mb-6 flex flex-col gap-2 p-3 bg-zinc-800 rounded border border-zinc-700" style="display: none;">
-                <span class="text-sm font-bold opacity-70">先攻/後攻</span>
+                <span class="text-sm font-bold opacity-70" data-i18n="turnConfig">先攻/後攻</span>
                 <select id="online-turn-select" class="bg-zinc-900 text-white p-2 rounded outline-none border border-zinc-600 w-full">
-                    <option value="random">ランダム</option>
-                    <option value="fixed">ホスト(親機)が先攻・白</option>
+                    <option value="random" data-i18n="random">ランダム</option>
+                    <option value="fixed" data-i18n="fixedHostWhite">ホスト(親機)が先攻・白</option>
                 </select>
             </div>
 
-            <h3 class="text-lg font-bold mb-4 text-center">時間制限</h3>
+            <h3 class="text-lg font-bold mb-4 text-center" data-i18n="timeLimitText">時間制限</h3>
             <div class="flex flex-col gap-3 w-full max-w-[300px] items-center">
-                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(600, 5)">10分 + 5秒</button>
-                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(300, 3)">5分 + 3秒</button>
-                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(60, 10)">1分 + 10秒</button>
-                <button class="btn-sub !bg-gray-600" onclick="game.startWithTime(0, 0)">制限なし</button>
-                <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">キャンセル</button>
+                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(600, 5)" data-i18n="time10m5s">10分 + 5秒</button>
+                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(300, 3)" data-i18n="time5m3s">5分 + 3秒</button>
+                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(60, 10)" data-i18n="time1m10s">1分 + 10秒</button>
+                <button class="btn-sub !bg-gray-600" onclick="game.startWithTime(0, 0)" data-i18n="noLimit">制限なし</button>
+                <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()" data-i18n="cancel">キャンセル</button>
             </div>
         </div>
 
         <div id="promotion-modal" class="w-full flex flex-col items-center" style="display: none;">
-            <h2 class="text-2xl font-bold mb-6 text-center">プロモーション</h2>
+            <h2 class="text-2xl font-bold mb-6 text-center" data-i18n="promotion">プロモーション</h2>
             <div class="flex gap-2 justify-center flex-wrap max-w-[300px]">
                 <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('Q')">♕&#xFE0E;</div>
                 <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('R')">♖&#xFE0E;</div>
@@ -209,8 +217,8 @@
                 <h2 id="confirm-title" class="text-xl font-bold mb-4 text-white">確認</h2>
                 <p id="confirm-message" class="mb-6 opacity-80 text-sm whitespace-pre-wrap text-white">本当に実行しますか？</p>
                 <div class="flex gap-3 justify-center w-full">
-                    <button id="confirm-yes" class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white">はい</button>
-                    <button id="confirm-no" class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white">いいえ</button>
+                    <button id="confirm-yes" class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" data-i18n="yes">はい</button>
+                    <button id="confirm-no" class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" data-i18n="no">いいえ</button>
                 </div>
             </div>
         </div>
@@ -224,14 +232,14 @@
     </div>
 
     <div class="status-panel">
-        <div id="mode-display" class="text-[10px] uppercase tracking-tighter opacity-50 mb-1">MODE</div>
+        <div id="mode-display" class="text-[10px] uppercase tracking-tighter opacity-50 mb-1" data-i18n="modeText">MODE</div>
         
         <div class="flex justify-between items-center mb-2 border-b border-zinc-700 pb-2">
             <div id="top-player-label" class="text-xs font-bold opacity-70">CPU</div>
             <div id="timer-top" class="timer-box" style="display: none;">00:00</div>
         </div>
 
-        <h2 id="game-status" class="text-lg font-bold my-2 text-white">準備完了</h2>
+        <h2 id="game-status" class="text-lg font-bold my-2 text-white" data-i18n="statusReady">準備完了</h2>
 
         <div class="flex justify-between items-center mt-2 border-t border-zinc-700 pt-2">
             <div id="bottom-player-label" class="text-xs font-bold text-blue-400">あなた</div>
@@ -243,13 +251,13 @@
 
     <div class="mt-3 flex flex-col items-center gap-2 w-full max-w-[400px]">
         <div class="flex w-full gap-2">
-            <button id="undo-btn" class="flex-1 bg-zinc-700 py-3 rounded font-bold hover:bg-zinc-600 transition-colors" onclick="game.confirmUndo()">1手戻る</button>
-            <button id="rematch-btn" class="flex-1 bg-green-600 py-3 rounded font-bold hover:bg-green-500 transition-colors" style="display: none;" onclick="game.requestRematch()">もう一回やる</button>
-            <button class="flex-1 bg-red-900 py-3 rounded font-bold hover:bg-red-800 transition-colors" onclick="game.confirmExit()">終了</button>
+            <button id="undo-btn" class="flex-1 bg-zinc-700 py-3 rounded font-bold hover:bg-zinc-600 transition-colors" onclick="game.confirmUndo()" data-i18n="undoMove">1手戻る</button>
+            <button id="rematch-btn" class="flex-1 bg-green-600 py-3 rounded font-bold hover:bg-green-500 transition-colors" style="display: none;" onclick="game.requestRematch()" data-i18n="rematch">もう一回やる</button>
+            <button class="flex-1 bg-red-900 py-3 rounded font-bold hover:bg-red-800 transition-colors" onclick="game.confirmExit()" data-i18n="exit">終了</button>
         </div>
         <label class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors mt-2">
             <input type="checkbox" id="assist-mode-toggle" class="w-5 h-5 accent-blue-500" onchange="game.toggleAssistMode(this.checked)">
-            <span class="opacity-90 font-bold text-xs sm:text-sm text-center">アシストモード (最善手候補を表示)</span>
+            <span class="opacity-90 font-bold text-xs sm:text-sm text-center" data-i18n="assistMode">アシストモード (最善手候補を表示)</span>
         </label>
     </div>
 
@@ -257,6 +265,94 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 多言語辞書と管理機能 ---
+        const TRANSLATIONS = {
+            ja: {
+                title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
+                authStatusPreparing: "通信準備中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定",
+                difficulty: "難易度レベル", beginner: "初級", advanced: "上級", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。",
+                nextToTime: "時間設定へ進む", back: "戻る", onlineSettings: "オンライン対戦", playerNamePlaceholder: "あなたの名前 (任意)",
+                roomWordPlaceholder: "合言葉を入力", joinRoom: "部屋に入る", or: "または", createRoom: "部屋を作る",
+                onlineNote: "※同じ合言葉で再戦する場合は、どちらかが「部屋を作る」で新しく作り直してください。", waitingOpponent: "対戦相手を待っています...",
+                roomWordInfo: "合言葉:", cancel: "キャンセル", timeSettings: "設定", turnConfig: "先攻/後攻", random: "ランダム",
+                fixedHostWhite: "ホスト(親機)が先攻・白", timeLimitText: "時間制限", time10m5s: "10分 + 5秒", time5m3s: "5分 + 3秒", time1m10s: "1分 + 10秒",
+                noLimit: "制限なし", promotion: "プロモーション", confirmTitle: "確認", confirmMessage: "本当に実行しますか？", yes: "はい", no: "いいえ",
+                modeText: "MODE", cpuName: "CPU", you: "あなた", opponent: "相手", p1White: "P1", p2Black: "P2", statusReady: "準備完了",
+                undoMove: "1手戻る", rematch: "もう一回やる", exit: "終了", assistMode: "アシストモード (最善手候補を表示)", anonymous: "匿名プレイヤー",
+                whiteTurn: "白の番です", blackTurn: "黒の番です", yourTurn: "あなたの番です", opponentTurn: "相手の番です", checkmate: "チェックメイト！",
+                timeout: "時間切れ！", winSuffix: "の勝ち", youWin: "あなたの勝ち！ 🎉", youLose: "あなたの負け...", checkWarning: "⚠️ チェック！ ",
+                waitingCommunication: "通信待機中 (相手の応答がありません...)", rematchPrep: "再戦の準備中...", rematchFailed: "再戦の準備に失敗しました",
+                error: "エラー", commError: "通信エラー", cannotJoinTitle: "部屋に入れません", cannotJoinMsg: "この合言葉の部屋は既に対戦中か、過去の対戦データが残っています。\n\n再戦する場合は、どちらかが「部屋を作る」を押して部屋を新しく上書きしてください。",
+                disconnectTitle: "切断", disconnectMsg: "対戦相手が退出したか部屋が削除されました。", abandonTitle: "終了", abandonMsg: " が退出しました。",
+                opponentDisconnectedMsg: "対戦相手の通信が切断されました。", inputRoomWordMsg: "合言葉を入力してください", firebaseErrorMsg: "Firebaseの設定が見つかりません。",
+                connectingMsg: "サーバーに接続しています。数秒後にお試しください。", roomNotFoundMsg: "指定された合言葉の部屋が見つかりません。", createRoomFailedMsg: "部屋の作成に失敗しました。\n",
+                noUndoOnlineMsg: "オンライン対戦中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
+                colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)"
+            },
+            en: {
+                title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
+                authStatusPreparing: "Connecting...", authStatusReady: "Ready for online play", cpuSettings: "CPU Settings",
+                difficulty: "Difficulty", beginner: "Beginner", advanced: "Advanced", cpuNote: "* Colors (White/Black) are random. Board inverts if Black.",
+                nextToTime: "Next", back: "Back", onlineSettings: "Online Match", playerNamePlaceholder: "Your Name (Optional)",
+                roomWordPlaceholder: "Room Word", joinRoom: "Join", or: "OR", createRoom: "Create",
+                onlineNote: "* To rematch with the same word, someone must 'Create Room' to overwrite.", waitingOpponent: "Waiting for opponent...",
+                roomWordInfo: "Word:", cancel: "Cancel", timeSettings: "Settings", turnConfig: "First/Second", random: "Random",
+                fixedHostWhite: "Host plays First(White)", timeLimitText: "Time Control", time10m5s: "10m + 5s", time5m3s: "5m + 3s", time1m10s: "1m + 10s",
+                noLimit: "No Limit", promotion: "Promotion", confirmTitle: "Confirm", confirmMessage: "Are you sure?", yes: "Yes", no: "No",
+                modeText: "MODE", cpuName: "CPU", you: "You", opponent: "Opponent", p1White: "P1", p2Black: "P2", statusReady: "Ready",
+                undoMove: "Undo", rematch: "Rematch", exit: "Exit", assistMode: "Assist Mode (Show hints)", anonymous: "Anonymous",
+                whiteTurn: "White's turn", blackTurn: "Black's turn", yourTurn: "Your turn", opponentTurn: "Opponent's turn", checkmate: "Checkmate!",
+                timeout: "Time Out!", winSuffix: " wins", youWin: "You Win! 🎉", youLose: "You Lose...", checkWarning: "⚠️ Check! ",
+                waitingCommunication: "Waiting for opponent...", rematchPrep: "Preparing rematch...", rematchFailed: "Failed to prepare rematch",
+                error: "Error", commError: "Connection Error", cannotJoinTitle: "Cannot Join", cannotJoinMsg: "Room is in play or has old data.\n\nTo rematch, please 'Create' to overwrite.",
+                disconnectTitle: "Disconnected", disconnectMsg: "Opponent left or room was deleted.", abandonTitle: "Ended", abandonMsg: " left the room.",
+                opponentDisconnectedMsg: "Opponent disconnected.", inputRoomWordMsg: "Please enter a room word.", firebaseErrorMsg: "Firebase config not found.",
+                connectingMsg: "Connecting. Try again in a few seconds.", roomNotFoundMsg: "Room not found.", createRoomFailedMsg: "Failed to create room.\n",
+                noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
+                colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)"
+            },
+            zh: {
+                title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
+                authStatusPreparing: "连接中...", authStatusReady: "在线对战准备就绪", cpuSettings: "人机设置",
+                difficulty: "难度等级", beginner: "初级", advanced: "高级", cpuNote: "※ 执白或执黑随机决定。如果执黑，棋盘将会翻转。",
+                nextToTime: "下一步", back: "返回", onlineSettings: "在线对战", playerNamePlaceholder: "你的名字 (可选)",
+                roomWordPlaceholder: "输入房间口令", joinRoom: "加入房间", or: "或", createRoom: "创建房间",
+                onlineNote: "※ 如果使用相同口令重赛，请点击“创建房间”以覆盖原房间。", waitingOpponent: "等待加入...",
+                roomWordInfo: "房间口令:", cancel: "取消", timeSettings: "设置", turnConfig: "先后手", random: "随机",
+                fixedHostWhite: "房主先手(白方)", timeLimitText: "时间限制", time10m5s: "10分 + 5秒", time5m3s: "5分 + 3秒", time1m10s: "1分 + 10秒",
+                noLimit: "无限制", promotion: "升变", confirmTitle: "确认", confirmMessage: "确定要执行此操作吗？", yes: "是", no: "否",
+                modeText: "模式", cpuName: "CPU", you: "你", opponent: "对手", p1White: "P1", p2Black: "P2", statusReady: "准备就绪",
+                undoMove: "悔棋", rematch: "再来一局", exit: "退出", assistMode: "辅助模式 (显示提示)", anonymous: "匿名玩家",
+                whiteTurn: "白方回合", blackTurn: "黑方回合", yourTurn: "你的回合", opponentTurn: "对手回合", checkmate: "将死！",
+                timeout: "超时！", winSuffix: " 获胜", youWin: "你赢了！ 🎉", youLose: "你输了...", checkWarning: "⚠️ 将军！ ",
+                waitingCommunication: "等待对手响应...", rematchPrep: "正在准备重赛...", rematchFailed: "准备重赛失败",
+                error: "错误", commError: "通信错误", cannotJoinTitle: "无法加入", cannotJoinMsg: "该房间正在对战中或存有旧数据。\n\n如需重赛，请点击“创建房间”以覆盖原房间。",
+                disconnectTitle: "连接断开", disconnectMsg: "对手已离开或房间被删除。", abandonTitle: "游戏结束", abandonMsg: " 离开了房间。",
+                opponentDisconnectedMsg: "对手的连接已断开。", inputRoomWordMsg: "请输入房间口令", firebaseErrorMsg: "未找到Firebase配置。",
+                connectingMsg: "正在连接，请稍后再试。", roomNotFoundMsg: "未找到该口令的房间。", createRoomFailedMsg: "创建房间失败。\n",
+                noUndoOnlineMsg: "在线对战中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
+                colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)"
+            }
+        };
+
+        window.currentLang = 'ja';
+        window.t = (key) => TRANSLATIONS[window.currentLang][key] || key;
+
+        window.setLanguage = (lang) => {
+            window.currentLang = lang;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
+                    el.placeholder = window.t(key);
+                } else if (el.tagName === 'OPTION') {
+                    el.innerText = window.t(key);
+                } else {
+                    el.innerText = window.t(key);
+                }
+            });
+            if (window.game) window.game.updateLanguageUI();
+        };
 
         const myFirebaseConfig = {
             apiKey: "AIzaSyCkUBUExKBbhuMzMnyxZbmrgsfGWK9lTt0",
@@ -387,8 +483,8 @@
                 this.sfx = new SoundEffects();
                 this.initialized = false;
                 this.userId = null;
-                this.playerName = ""; // プレイヤー名
-                this.currentRoomData = null; // 部屋のデータ保持用
+                this.playerName = "";
+                this.currentRoomData = null; 
                 
                 this.roomId = null;
                 this.unsubRoom = null;
@@ -426,6 +522,50 @@
                         }
                     }
                 });
+                
+                // 初回言語UI適用
+                setTimeout(() => window.setLanguage(window.currentLang), 100);
+            }
+
+            updateLanguageUI() {
+                if (this.initialized) {
+                    this.updatePlayerLabels();
+                    if (this.isGameOver) {
+                        const isMate = this.isMate();
+                        const winnerColor = this.turn === 'white' ? 'black' : 'white';
+                        this.showWinLoseMessage(isMate ? window.t('checkmate') : window.t('timeout'), winnerColor);
+                    } else {
+                        const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
+                        this.showTurnMessage(checkStr);
+                    }
+                }
+            }
+
+            updatePlayerLabels() {
+                const topLabel = document.getElementById('top-player-label');
+                const bottomLabel = document.getElementById('bottom-player-label');
+
+                if (this.gameMode === 'cpu') {
+                    bottomLabel.innerText = `${window.t('you')}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
+                    topLabel.innerText = `${window.t('cpuName')}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                } else if (this.gameMode === 'pvp') {
+                    bottomLabel.innerText = `${window.t('p1White')}`;
+                    topLabel.innerText = `${window.t('p2Black')}`;
+                } else if (this.gameMode === 'online') {
+                    let myName = window.t('you');
+                    let opponentName = window.t('opponent');
+                    if (this.currentRoomData) {
+                        if (this.currentRoomData.host === this.userId) {
+                            myName = this.currentRoomData.hostName || window.t('you');
+                            opponentName = this.currentRoomData.guestName || window.t('opponent');
+                        } else {
+                            myName = this.currentRoomData.guestName || window.t('you');
+                            opponentName = this.currentRoomData.hostName || window.t('opponent');
+                        }
+                    }
+                    bottomLabel.innerText = `${myName}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
+                    topLabel.innerText = `${opponentName}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                }
             }
 
             setupListeners() {
@@ -460,6 +600,7 @@
                 this.moveCount = 0;
                 this.currentRoomData = null;
                 this.clearActiveStyles();
+                document.getElementById('game-status').innerText = window.t('statusReady');
             }
 
             showCpuConfig() {
@@ -471,7 +612,7 @@
             showOnlineConfig() {
                 this.sfx.buttonClick();
                 if (!auth || !db) {
-                    return this.showConfirm("エラー", "Firebaseの設定が見つかりません。", ()=>{}, true);
+                    return this.showConfirm(window.t('error'), window.t('firebaseErrorMsg'), ()=>{}, true);
                 }
                 this.hideAllOverlays();
                 document.getElementById('online-config').style.display = 'flex';
@@ -480,9 +621,9 @@
             showOnlineTimeSelection() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                this.playerName = document.getElementById('player-name-input').value.trim() || "匿名プレイヤー";
+                this.playerName = document.getElementById('player-name-input').value.trim() || window.t('anonymous');
                 if (!this.roomId) {
-                    this.showConfirm("エラー", "合言葉を入力してください", ()=>{}, true);
+                    this.showConfirm(window.t('error'), window.t('inputRoomWordMsg'), ()=>{}, true);
                     return;
                 }
                 this.hideAllOverlays();
@@ -514,17 +655,17 @@
             confirmUndo() {
                 this.sfx.buttonClick();
                 if (this.gameMode === 'online') {
-                    return this.showConfirm("エラー", "オンライン対戦中は「待った」を使用できません。", ()=>{}, true);
+                    return this.showConfirm(window.t('error'), window.t('noUndoOnlineMsg'), ()=>{}, true);
                 }
                 if (this.history.length === 0 || this.animatingPiece) return;
-                this.showConfirm("1手戻る", "1手前の状態に戻しますか？", () => {
+                this.showConfirm(window.t('undoMove'), window.t('confirmUndoMsg'), () => {
                     this.undoMove();
                 });
             }
 
             confirmExit() {
                 this.sfx.buttonClick();
-                this.showConfirm("終了確認", "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）", async () => {
+                this.showConfirm(window.t('exit'), window.t('confirmExitMsg'), async () => {
                     if (this.gameMode === 'online' && this.roomId && this.userId) {
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -556,15 +697,16 @@
                 noBtn.parentNode.replaceChild(newNo, noBtn);
 
                 if (isAlert) {
-                    newYes.innerText = "確認";
+                    newYes.innerText = window.t('confirmTitle');
                     newYes.classList.remove("flex-1");
                     newYes.classList.add("w-full");
                     newNo.style.display = 'none';
                 } else {
-                    newYes.innerText = "はい";
+                    newYes.innerText = window.t('yes');
                     newYes.classList.add("flex-1");
                     newYes.classList.remove("w-full");
                     newNo.style.display = 'block';
+                    newNo.innerText = window.t('no');
                 }
 
                 newYes.addEventListener('click', () => {
@@ -585,23 +727,23 @@
             async joinOnlineRoom() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                this.playerName = document.getElementById('player-name-input').value.trim() || "匿名プレイヤー";
+                this.playerName = document.getElementById('player-name-input').value.trim() || window.t('anonymous');
                 
-                if (!this.roomId) return this.showConfirm("エラー", "合言葉を入力してください", ()=>{}, true);
-                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{}, true);
+                if (!this.roomId) return this.showConfirm(window.t('error'), window.t('inputRoomWordMsg'), ()=>{}, true);
+                if (!this.userId) return this.showConfirm(window.t('authStatusPreparing'), window.t('connectingMsg'), ()=>{}, true);
 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                 try {
                     const snap = await getDoc(roomRef);
                     if (!snap.exists()) {
-                        return this.showConfirm("エラー", "指定された合言葉の部屋が見つかりません。", ()=>{}, true);
+                        return this.showConfirm(window.t('error'), window.t('roomNotFoundMsg'), ()=>{}, true);
                     }
                     const data = snap.data();
                     
                     if (data.status !== 'waiting') {
                         return this.showConfirm(
-                            "部屋に入れません", 
-                            "この合言葉の部屋は既に対戦中か、過去の対戦データが残っています。\n\n再戦する場合は、どちらかが「部屋を作る」を押して部屋を新しく上書きしてください。", 
+                            window.t('cannotJoinTitle'), 
+                            window.t('cannotJoinMsg'), 
                             ()=>{}, true
                         );
                     }
@@ -624,12 +766,12 @@
                     this.listenToRoom();
                 } catch (e) {
                     console.error(e);
-                    this.showConfirm("通信エラー", `エラーが発生しました。\n${e.message}`, ()=>{}, true);
+                    this.showConfirm(window.t('commError'), `${window.t('error')}\n${e.message}`, ()=>{}, true);
                 }
             }
 
             async createOnlineRoom(seconds, inc, turnMode) {
-                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{}, true);
+                if (!this.userId) return this.showConfirm(window.t('authStatusPreparing'), window.t('connectingMsg'), ()=>{}, true);
                 
                 this.hideAllOverlays();
                 document.getElementById('waiting-room').style.display = 'flex';
@@ -672,7 +814,7 @@
                     this.listenToRoom();
                 } catch(e) {
                     console.error(e);
-                    this.showConfirm("通信エラー", `部屋の作成に失敗しました。\n${e.message}`, ()=>{}, true);
+                    this.showConfirm(window.t('commError'), `${window.t('createRoomFailedMsg')}${e.message}`, ()=>{}, true);
                     this.showModeSelection();
                 }
             }
@@ -682,7 +824,7 @@
                 if (!this.isHost || !this.roomId) return;
                 
                 document.getElementById('rematch-btn').style.display = 'none';
-                this.updateStatus("再戦の準備中...");
+                this.updateStatus(window.t('rematchPrep'));
 
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -719,7 +861,7 @@
                     });
                 } catch(e) {
                     console.error("Rematch error:", e);
-                    this.updateStatus("再戦の準備に失敗しました");
+                    this.updateStatus(window.t('rematchFailed'));
                 }
             }
 
@@ -744,7 +886,7 @@
                         if (this.gameMode === 'online' && !this.isGameOver) {
                             this.isGameOver = true;
                             this.stopTimer();
-                            this.showConfirm("切断", "対戦相手が退出したか部屋が削除されました。", () => { this.showModeSelection(); }, true);
+                            this.showConfirm(window.t('disconnectTitle'), window.t('disconnectMsg'), () => { this.showModeSelection(); }, true);
                         }
                         return;
                     }
@@ -754,10 +896,10 @@
                         if (data.whoAbandoned !== this.userId && !this.isGameOver) {
                             this.isGameOver = true;
                             this.stopTimer();
-                            let leaverName = "対戦相手";
-                            if (data.host === data.whoAbandoned) leaverName = data.hostName || "相手";
-                            else if (data.guest === data.whoAbandoned) leaverName = data.guestName || "相手";
-                            this.showConfirm("終了", `${leaverName} が退出しました。`, () => { this.showModeSelection(); }, true);
+                            let leaverName = window.t('opponent');
+                            if (data.host === data.whoAbandoned) leaverName = data.hostName || window.t('opponent');
+                            else if (data.guest === data.whoAbandoned) leaverName = data.guestName || window.t('opponent');
+                            this.showConfirm(window.t('abandonTitle'), `${leaverName}${window.t('abandonMsg')}`, () => { this.showModeSelection(); }, true);
                         }
                         return;
                     }
@@ -808,22 +950,8 @@
                     document.getElementById('undo-btn').style.display = 'none';
                     document.getElementById('rematch-btn').style.display = 'none';
 
-                    const topLabel = document.getElementById('top-player-label');
-                    const bottomLabel = document.getElementById('bottom-player-label');
-                    document.getElementById('mode-display').innerText = `オンライン対戦 [${this.roomId}]`;
-                    
-                    let myName = "あなた";
-                    let opponentName = "相手";
-                    if (data.host === this.userId) {
-                        myName = data.hostName || "あなた";
-                        opponentName = data.guestName || "相手";
-                    } else {
-                        myName = data.guestName || "あなた";
-                        opponentName = data.hostName || "相手";
-                    }
-                    
-                    bottomLabel.innerText = `${myName} (${this.playerColor === 'white' ? '白・先手' : '黒・後手'})`;
-                    topLabel.innerText = `${opponentName} (${this.playerColor === 'white' ? '黒' : '白'})`;
+                    document.getElementById('mode-display').innerText = `${window.t('onlinePvp')} [${this.roomId}]`;
+                    this.updatePlayerLabels();
                     
                     if (this.useTimer) {
                         document.getElementById('timer-top').style.display = 'block';
@@ -843,7 +971,7 @@
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
                     
-                    const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                     this.showTurnMessage(checkStr);
                     return;
                 }
@@ -885,17 +1013,17 @@
                     this.stopTimer();
                     if (oldTurn !== newTurn) this.sfx.checkmate();
                     const winnerColor = gs.turn === 'white' ? 'black' : 'white';
-                    this.showWinLoseMessage('チェックメイト！', winnerColor);
+                    this.showWinLoseMessage(window.t('checkmate'), winnerColor);
                     this.showRematchButton();
                 } else if (data.status === 'finished_timeout') {
                     this.isGameOver = true;
                     this.stopTimer();
                     if (oldTurn !== newTurn) this.sfx.checkmate();
                     const winnerColor = data.winner;
-                    this.showWinLoseMessage('時間切れ！', winnerColor);
+                    this.showWinLoseMessage(window.t('timeout'), winnerColor);
                     this.showRematchButton();
                 } else {
-                    const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                     this.showTurnMessage(checkStr);
                     
                     if (this.turn === this.playerColor) {
@@ -908,23 +1036,33 @@
 
             showWinLoseMessage(reason, winnerColor) {
                 if (this.gameMode === 'pvp') {
-                    const winnerText = winnerColor === 'white' ? '白' : '黒';
-                    this.updateStatus(`${reason} ${winnerText}の勝ち`);
+                    const winnerText = winnerColor === 'white' ? window.t('p1White') : window.t('p2Black');
+                    this.updateStatus(`${reason} ${winnerText}${window.t('winSuffix')}`);
+                } else if (this.gameMode === 'online') {
+                    if (winnerColor === this.playerColor) {
+                        this.updateStatus(`${reason} ${window.t('youWin')}`);
+                    } else {
+                        let opponentName = window.t('opponent');
+                        if (this.currentRoomData) {
+                            opponentName = this.isHost ? (this.currentRoomData.guestName || window.t('opponent')) : (this.currentRoomData.hostName || window.t('opponent'));
+                        }
+                        this.updateStatus(`${reason} ${opponentName}${window.t('winSuffix')}`);
+                    }
                 } else {
                     if (winnerColor === this.playerColor) {
-                        this.updateStatus(`${reason} あなたの勝ち！ 🎉`);
+                        this.updateStatus(`${reason} ${window.t('youWin')}`);
                     } else {
-                        this.updateStatus(`${reason} あなたの負け...`);
+                        this.updateStatus(`${reason} ${window.t('youLose')}`);
                     }
                 }
             }
             
             showTurnMessage(prefix) {
                 if (this.gameMode === 'pvp') {
-                    const turnText = this.turn === 'white' ? '白の番です' : '黒の番です';
+                    const turnText = this.turn === 'white' ? window.t('whiteTurn') : window.t('blackTurn');
                     this.updateStatus(prefix + turnText);
                 } else {
-                    const turnText = this.turn === this.playerColor ? 'あなたの番です' : '相手の番です';
+                    const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                     this.updateStatus(prefix + turnText);
                 }
             }
@@ -985,22 +1123,18 @@
                 document.getElementById('rematch-btn').style.display = 'none';
                 document.getElementById('meter-ui').style.display = 'flex';
                 
-                const topLabel = document.getElementById('top-player-label');
-                const bottomLabel = document.getElementById('bottom-player-label');
                 const topTimer = document.getElementById('timer-top');
                 const bottomTimer = document.getElementById('timer-bottom');
 
                 if (this.gameMode === 'cpu') {
                     this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
-                    document.getElementById('mode-display').innerText = `VS CPU Lv.${this.aiLevel}`;
-                    bottomLabel.innerText = `あなた (${this.playerColor === 'white' ? '白・先手' : '黒・後手'})`;
-                    topLabel.innerText = `CPU (${this.playerColor === 'white' ? '黒' : '白'})`;
+                    document.getElementById('mode-display').innerText = `${window.t('vsCpu')} Lv.${this.aiLevel}`;
                 } else {
                     this.playerColor = 'white';
-                    document.getElementById('mode-display').innerText = '2 PLAYER';
-                    bottomLabel.innerText = 'P1 (白・先手)';
-                    topLabel.innerText = 'P2 (黒・後手)';
+                    document.getElementById('mode-display').innerText = window.t('offlinePvp');
                 }
+                
+                this.updatePlayerLabels();
 
                 if (this.useTimer) {
                     topTimer.style.display = 'block';
@@ -1102,7 +1236,7 @@
                 this.isGameOver = true;
                 this.sfx.checkmate(); 
                 const winnerColor = this.turn === 'white' ? 'black' : 'white';
-                this.showWinLoseMessage('時間切れ！', winnerColor);
+                this.showWinLoseMessage(window.t('timeout'), winnerColor);
                 this.showRematchButton();
                 
                 if (this.gameMode === 'online' && this.turn === this.playerColor) {
@@ -1455,12 +1589,12 @@
                     this.isGameOver = true; 
                     this.stopTimer();
                     const winnerColor = this.turn === 'white' ? 'black' : 'white';
-                    this.showWinLoseMessage('チェックメイト！', winnerColor);
+                    this.showWinLoseMessage(window.t('checkmate'), winnerColor);
                     this.showRematchButton();
                 } else {
                     if (this.inCheckPos) this.sfx.check(); 
                     
-                    const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                     this.showTurnMessage(checkStr);
                     
                     if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
@@ -1566,7 +1700,7 @@
                 
                 this.updateCheckStatus();
                 if (this.useTimer) this.startTimer();
-                const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                 this.showTurnMessage(checkStr);
                 this.updateTimerDisplay();
                 this.updateAdvantageMeter();
@@ -1846,7 +1980,7 @@
             onAuthStateChanged(auth, user => { 
                 if (user) {
                     window.game.userId = user.uid;
-                    document.getElementById('auth-status').innerText = "オンライン接続準備完了";
+                    document.getElementById('auth-status').innerText = window.t('authStatusReady');
                 }
             });
         }
