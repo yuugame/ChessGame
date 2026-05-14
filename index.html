@@ -256,7 +256,7 @@
             <button id="rematch-btn" class="flex-1 bg-green-600 py-3 rounded font-bold hover:bg-green-500 transition-colors" style="display: none;" onclick="game.requestRematch()" data-i18n="rematch">もう一回やる</button>
             <button class="flex-1 bg-red-900 py-3 rounded font-bold hover:bg-red-800 transition-colors" onclick="game.confirmExit()" data-i18n="exit">終了</button>
         </div>
-        <label class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors mt-2">
+        <label id="assist-mode-container" class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors mt-2">
             <input type="checkbox" id="assist-mode-toggle" class="w-5 h-5 accent-blue-500" onchange="game.toggleAssistMode(this.checked)">
             <span class="opacity-90 font-bold text-xs sm:text-sm text-center" data-i18n="assistMode">アシストモード (最善手候補を表示)</span>
         </label>
@@ -975,6 +975,9 @@
                     
                     document.getElementById('undo-btn').style.display = 'none';
                     document.getElementById('rematch-btn').style.display = 'none';
+                    document.getElementById('assist-mode-container').style.display = 'none';
+                    this.isAssistMode = false;
+                    document.getElementById('assist-mode-toggle').checked = false;
 
                     document.getElementById('mode-display').innerText = `${window.t('onlinePvp')} [${this.roomId}]`;
                     this.updatePlayerLabels();
@@ -1074,11 +1077,7 @@
                     if (winnerColor === this.playerColor) {
                         this.updateStatus(`${reason} ${window.t('youWin')}`);
                     } else {
-                        let opponentName = window.t('anonymous');
-                        if (this.currentRoomData) {
-                            opponentName = this.isHost ? (this.currentRoomData.guestName || window.t('anonymous')) : (this.currentRoomData.hostName || window.t('anonymous'));
-                        }
-                        this.updateStatus(`${reason} ${opponentName}${window.t('winSuffix')}`);
+                        this.updateStatus(`${reason} ${window.t('youLose')}`);
                     }
                 } else {
                     if (winnerColor === this.playerColor) {
@@ -1160,6 +1159,7 @@
                 document.getElementById('undo-btn').style.display = 'block';
                 document.getElementById('rematch-btn').style.display = 'none';
                 document.getElementById('meter-ui').style.display = 'flex';
+                document.getElementById('assist-mode-container').style.display = 'flex';
                 
                 const topTimer = document.getElementById('timer-top');
                 const bottomTimer = document.getElementById('timer-bottom');
@@ -1450,7 +1450,8 @@
             updateAssistMoves() {
                 this.assistMoves = [];
                 if (!this.isAssistMode || this.isGameOver || !this.initialized) return;
-                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) return;
+                if (this.gameMode === 'online') return;
+                if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
 
                 setTimeout(() => {
                     const all = this.getAllValidMoves(this.turn, this.board);
