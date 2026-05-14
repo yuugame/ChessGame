@@ -283,7 +283,6 @@
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioCtx();
                 
-                // iOS Safari対策: 最初のタップでAudioContextをアンロックし、強制的に無音を再生する
                 const unlock = () => {
                     if (this.ctx.state === 'suspended') {
                         this.ctx.resume();
@@ -375,8 +374,8 @@
                 this.unsubRoom = null;
                 this.isHost = false;
                 
-                // ターン（手数）を管理し、タイムラグによる同期ズレを防ぐ
                 this.moveCount = 0; 
+                this.gameMode = null; // 【重要修正】再戦時に確実に初期化処理を通すための明示的リセット
                 
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
@@ -398,7 +397,6 @@
                 this.setupListeners();
                 this.animate();
 
-                // iOS Safari対策: バックグラウンドから復帰した際に音声を再開する
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') {
                         if (this.sfx && this.sfx.ctx.state === 'suspended') {
@@ -432,6 +430,10 @@
                 document.getElementById('timer-bottom').style.display = 'none';
                 document.getElementById('meter-ui').style.display = 'none';
                 this.initialized = false;
+                
+                // 【重要修正】タイトルに戻った際にステータスを完全にクリーンにする
+                this.gameMode = null;
+                this.roomId = null;
             }
 
             showCpuConfig() {
@@ -492,10 +494,8 @@
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                             if (this.isHost) {
-                                // ホストが退出する場合は部屋ごと削除して掃除する
                                 await deleteDoc(roomRef);
                             } else {
-                                // ゲストが退出する場合はステータスのみ更新
                                 await updateDoc(roomRef, {
                                     status: 'abandoned',
                                     whoAbandoned: this.userId
@@ -561,7 +561,6 @@
                     }
                     const data = snap.data();
                     
-                    // 部屋が終了している場合のエラーを分かりやすく
                     if (data.status !== 'waiting') {
                         return this.showConfirm(
                             "部屋に入れません", 
@@ -611,7 +610,6 @@
                 ];
 
                 try {
-                    // 古い部屋データがある場合は強制上書きして新しくする
                     await setDoc(roomRef, {
                         status: 'waiting',
                         host: this.userId,
@@ -685,7 +683,6 @@
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
                 
-                // 時間ベースの判定から、正確な「ターン（手数）ベース」の判定に切り替え
                 if (this.gameMode === 'online' && gs.moveCount <= this.moveCount && this.initialized) {
                     return; 
                 }
@@ -703,7 +700,8 @@
                 
                 this.turnStartTime = Date.now();
 
-                if (this.gameMode !== 'online') {
+                // 【重要修正】!this.initialized または gameMode が online でない場合のみ初期化画面切り替えを実行
+                if (!this.initialized || this.gameMode !== 'online') {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
                     document.getElementById('meter-ui').style.display = 'flex';
