@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess - Material Advantage Meter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+        canvas {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            border-radius: 4px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        /* Advantage Meter Styles */
+        .advantage-container {
+            width: 100%;
+            max-width: 400px;
+            height: 12px;
+            background: #444;
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            position: relative;
+        }
+        #advantage-bar-white {
+            height: 100%;
+            background: #ffffff;
+            transition: width 0.5s ease-out;
+        }
+        #advantage-bar-black {
+            height: 100%;
+            background: #333;
+            flex-grow: 1;
+        }
+        .score-text {
+            font-size: 0.75rem;
+            font-weight: bold;
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 12px;
+            mix-blend-mode: difference;
+            pointer-events: none;
+        }
+
+        .status-panel {
+            margin-top: 5px;
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .timer-box {
+            padding: 4px 8px;
+            background: #333;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            border-bottom: 3px solid transparent;
+            min-width: 80px;
+            text-align: center;
+        }
+        .timer-active { border-color: #3b82f6; background: #3e3e3e; }
+        
+        #overlay-container > div {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .btn-main { background-color: #3b82f6; color: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.2rem; width: 100%; max-width: 300px; transition: all 0.2s; }
+        .btn-main:hover { transform: scale(1.05); background-color: #2563eb; }
+        .btn-sub { background-color: #10b981; color: white; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; max-width: 300px; }
+
+        input[type=range] {
+            width: 100%;
+            height: 8px;
+            background: #444;
+            border-radius: 5px;
+            outline: none;
+            accent-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay-container">
+        <div id="mode-selection" class="w-full flex flex-col items-center">
+            <h1 class="text-4xl font-bold mb-10 text-center">CHESS</h1>
+            <div class="flex flex-col gap-4 w-full items-center">
+                <button class="btn-main" onclick="game.showCpuConfig()">VS CPU</button>
+                <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')">2人プレイ</button>
+            </div>
+        </div>
+
+        <div id="cpu-config" class="w-full flex flex-col items-center" style="display: none;">
+            <h2 class="text-2xl font-bold mb-8 text-center">CPU設定</h2>
+            <div class="w-full max-w-[300px] mb-6">
+                <div class="flex justify-between mb-2">
+                    <span class="opacity-70">難易度レベル</span>
+                    <span id="level-value" class="font-bold text-blue-400">Lv.1</span>
+                </div>
+                <input type="range" id="level-slider" min="1" max="10" value="1" step="1" 
+                    oninput="document.getElementById('level-value').innerText = 'Lv.' + this.value">
+                <div class="flex justify-between text-xs mt-2 opacity-50">
+                    <span>初級</span>
+                    <span>上級</span>
+                </div>
+            </div>
+            <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。</p>
+            <button class="btn-sub mb-4" onclick="game.showTimeSelection('cpu', document.getElementById('level-slider').value)">時間設定へ進む</button>
+            <button class="text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
+        </div>
+
+        <div id="time-selection" class="w-full flex flex-col items-center" style="display: none;">
+            <h2 class="text-2xl font-bold mb-8 text-center">時間制限</h2>
+            <div class="flex flex-col gap-3 w-full max-w-[300px] items-center">
+                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(600, 5)">10分 + 5秒</button>
+                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(300, 3)">5分 + 3秒</button>
+                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(60, 10)">1分 + 10秒</button>
+                <button class="btn-sub !bg-gray-600" onclick="game.startWithTime(0, 0)">制限なし</button>
+                <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">キャンセル</button>
+            </div>
+        </div>
+
+        <div id="promotion-modal" class="w-full flex flex-col items-center" style="display: none;">
+            <h2 class="text-2xl font-bold mb-6 text-center">プロモーション</h2>
+            <div class="flex gap-2 justify-center flex-wrap max-w-[300px]">
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('Q')">♕&#xFE0E;</div>
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('R')">♖&#xFE0E;</div>
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('B')">♗&#xFE0E;</div>
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('N')">♘&#xFE0E;</div>
+            </div>
+        </div>
+
+        <!-- 確認用モーダル -->
+        <div id="confirm-modal" class="w-full flex flex-col items-center" style="display: none;">
+            <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[300px] w-full border border-zinc-700">
+                <h2 id="confirm-title" class="text-xl font-bold mb-4">確認</h2>
+                <p id="confirm-message" class="mb-6 opacity-80 text-sm">本当に実行しますか？</p>
+                <div class="flex gap-3 justify-center">
+                    <button id="confirm-yes" class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1">はい</button>
+                    <button id="confirm-no" class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1">いいえ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advantage Meter -->
+    <div class="advantage-container" id="meter-ui" style="display: none;">
+        <div id="advantage-bar-white" style="width: 50%;"></div>
+        <div id="advantage-bar-black"></div>
+        <div id="advantage-text" class="score-text">0.0</div>
+    </div>
+
+    <div class="status-panel">
+        <div id="mode-display" class="text-[10px] uppercase tracking-tighter opacity-50 mb-1">MODE</div>
+        
+        <div class="flex justify-between items-center mb-2 border-b border-zinc-700 pb-2">
+            <div id="top-player-label" class="text-xs font-bold opacity-70">CPU</div>
+            <div id="timer-top" class="timer-box" style="display: none;">00:00</div>
+        </div>
+
+        <h2 id="game-status" class="text-lg font-bold my-2 text-white">準備完了</h2>
+
+        <div class="flex justify-between items-center mt-2 border-t border-zinc-700 pt-2">
+            <div id="bottom-player-label" class="text-xs font-bold text-blue-400">あなた</div>
+            <div id="timer-bottom" class="timer-box" style="display: none;">00:00</div>
+        </div>
+    </div>
+
+    <canvas id="chessBoard" width="400" height="400"></canvas>
+
+    <div class="mt-3 flex flex-col items-center gap-2 w-full max-w-[400px]">
+        <div class="flex w-full gap-2">
+            <button class="flex-1 bg-zinc-700 py-3 rounded font-bold hover:bg-zinc-600 transition-colors" onclick="game.confirmUndo()">1手戻る</button>
+            <button class="flex-1 bg-red-900 py-3 rounded font-bold hover:bg-red-800 transition-colors" onclick="game.confirmExit()">終了</button>
+        </div>
+        <label class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors">
+            <input type="checkbox" id="assist-mode-toggle" class="w-5 h-5 accent-blue-500" onchange="game.toggleAssistMode(this.checked)">
+            <span class="opacity-90 font-bold text-xs sm:text-sm text-center">アシストモード (最善手候補を表示)</span>
+        </label>
+    </div>
+
+    <script>
+        const SIZE = 400;
+        const CELL = SIZE / 8;
+        const COLORS = {
+            light: '#eeeed2', dark: '#769656',
+            lastMove: 'rgba(186, 202, 43, 0.6)', selected: 'rgba(50, 150, 255, 0.7)',
+            validDot: 'rgba(0, 0, 0, 0.15)', captureRing: 'rgba(255, 50, 50, 0.4)'
+        };
+        const PIECES = { 
+            'P': '♙\uFE0E', 'R': '♖\uFE0E', 'N': '♘\uFE0E', 'B': '♗\uFE0E', 'Q': '♕\uFE0E', 'K': '♔\uFE0E', 
+            'p': '♟\uFE0E', 'r': '♜\uFE0E', 'n': '♞\uFE0E', 'b': '♝\uFE0E', 'q': '♛\uFE0E', 'k': '♚\uFE0E' 
+        };
+        
+        // 駒のポイント定義
+        const MATERIAL_VALUES = {
+            'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0,
+            'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 0
+        };
+        
+        // AI評価用（Kには仮想的な高値を設定）
+        const AI_VALUES = { ...MATERIAL_VALUES, 'k': 900, 'K': 900 };
+
+        // 効果音管理クラス（Web Audio APIを使用）
+        class SoundEffects {
+            constructor() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            resume() {
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playTone(freq, type, duration, vol=0.1) {
+                this.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+            buttonClick() { this.playTone(600, 'sine', 0.1, 0.05); }
+            pieceSelect() { this.playTone(400, 'triangle', 0.1, 0.05); }
+            pieceMove()   { this.playTone(200, 'sine', 0.15, 0.1); }
+            pieceCapture(){
+                this.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+            countdown() { this.playTone(800, 'sine', 0.1, 0.05); }
+            check() {
+                this.resume();
+                this.playTone(880, 'sine', 0.2, 0.1);
+                setTimeout(() => this.playTone(880, 'sine', 0.3, 0.1), 100);
+            }
+            checkmate() {
+                this.resume();
+                [440, 554.37, 659.25, 880].forEach(f => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 2.0);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 2.0);
+                });
+            }
+        }
+
+        class ChessGame {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.sfx = new SoundEffects();
+                this.initialized = false;
+                this.board = [];
+                this.turn = 'white';
+                this.timers = { white: 0, black: 0 };
+                this.timerInterval = null;
+                this.history = [];
+                this.animatingPiece = null;
+                this.movedStatus = {
+                    whiteKing: false, blackKing: false,
+                    whiteRookLeft: false, whiteRookRight: false,
+                    blackRookLeft: false, blackRookRight: false
+                };
+                this.isAssistMode = false;
+                this.assistMoves = [];
+                this.inCheckPos = null;     // チェックされているキングの位置
+                this.setupListeners();
+                this.animate();
+            }
+
+            setupListeners() {
+                const trigger = (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+                    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+                    this.handleClick(x, y, rect.width);
+                };
+                this.canvas.addEventListener('mousedown', trigger);
+                this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); trigger(e); });
+            }
+
+            showModeSelection() {
+                this.sfx.buttonClick();
+                this.stopTimer();
+                this.hideAllOverlays();
+                document.getElementById('mode-selection').style.display = 'flex';
+                document.getElementById('timer-top').style.display = 'none';
+                document.getElementById('timer-bottom').style.display = 'none';
+                document.getElementById('meter-ui').style.display = 'none';
+                this.initialized = false;
+            }
+
+            showCpuConfig() {
+                this.sfx.buttonClick();
+                this.hideAllOverlays();
+                document.getElementById('cpu-config').style.display = 'flex';
+            }
+
+            showTimeSelection(mode, level = 1) {
+                this.sfx.buttonClick();
+                this.tempMode = mode;
+                this.tempLevel = parseInt(level);
+                this.hideAllOverlays();
+                document.getElementById('time-selection').style.display = 'flex';
+            }
+
+            hideAllOverlays() {
+                const ids = ['mode-selection', 'cpu-config', 'time-selection', 'promotion-modal', 'confirm-modal'];
+                ids.forEach(id => document.getElementById(id).style.display = 'none');
+            }
+
+            confirmUndo() {
+                this.sfx.buttonClick();
+                if (this.history.length === 0 || this.animatingPiece) return;
+                this.showConfirm("1手戻る", "1手前の状態に戻しますか？", () => {
+                    this.undoMove();
+                });
+            }
+
+            confirmExit() {
+                this.sfx.buttonClick();
+                this.showConfirm("終了確認", "現在のゲームを終了してタイトルに戻りますか？", () => {
+                    this.showModeSelection();
+                });
+            }
+
+            showConfirm(title, message, callback) {
+                const modal = document.getElementById('confirm-modal');
+                document.getElementById('confirm-title').innerText = title;
+                document.getElementById('confirm-message').innerText = message;
+                
+                const yesBtn = document.getElementById('confirm-yes');
+                const noBtn = document.getElementById('confirm-no');
+
+                // イベントの重複登録を防ぐためにノードをクローンして置き換え
+                const newYes = yesBtn.cloneNode(true);
+                const newNo = noBtn.cloneNode(true);
+                yesBtn.parentNode.replaceChild(newYes, yesBtn);
+                noBtn.parentNode.replaceChild(newNo, noBtn);
+
+                newYes.addEventListener('click', () => {
+                    this.sfx.buttonClick();
+                    modal.style.display = 'none';
+                    callback();
+                });
+
+                newNo.addEventListener('click', () => {
+                    this.sfx.buttonClick();
+                    modal.style.display = 'none';
+                });
+
+                modal.style.display = 'flex';
+            }
+
+            startWithTime(seconds, inc) {
+                this.sfx.buttonClick();
+                this.gameMode = this.tempMode;
+                this.aiLevel = this.tempLevel;
+                this.timers = { white: seconds, black: seconds };
+                this.increment = inc;
+                this.useTimer = seconds > 0;
+                this.isAssistMode = document.getElementById('assist-mode-toggle').checked;
+                this.hideAllOverlays();
+                
+                document.getElementById('meter-ui').style.display = 'flex';
+                
+                const topLabel = document.getElementById('top-player-label');
+                const bottomLabel = document.getElementById('bottom-player-label');
+                const topTimer = document.getElementById('timer-top');
+                const bottomTimer = document.getElementById('timer-bottom');
+
+                if (this.gameMode === 'cpu') {
+                    this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
+                    document.getElementById('mode-display').innerText = `VS CPU Lv.${this.aiLevel}`;
+                    bottomLabel.innerText = `あなた (${this.playerColor === 'white' ? '白・先手' : '黒・後手'})`;
+                    topLabel.innerText = `CPU (${this.playerColor === 'white' ? '黒' : '白'})`;
+                } else {
+                    this.playerColor = 'white';
+                    document.getElementById('mode-display').innerText = '2 PLAYER';
+                    bottomLabel.innerText = 'P1 (白・先手)';
+                    topLabel.innerText = 'P2 (黒・後手)';
+                }
+
+                if (this.useTimer) {
+                    topTimer.style.display = 'block';
+                    bottomTimer.style.display = 'block';
+                    this.updateTimerDisplay();
+                } else {
+                    topTimer.style.display = 'none';
+                    bottomTimer.style.display = 'none';
+                }
+
+                this.initGame();
+                if (this.useTimer) this.startTimer();
+                if (this.gameMode === 'cpu' && this.playerColor === 'black') {
+                    setTimeout(() => this.cpuMove(), 800);
+                } else {
+                    this.updateAssistMoves();
+                }
+            }
+
+            initGame() {
+                this.board = [
+                    ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+                    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+                    Array(8).fill(null), Array(8).fill(null), Array(8).fill(null), Array(8).fill(null),
+                    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+                    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+                ];
+                this.movedStatus = {
+                    whiteKing: false, blackKing: false,
+                    whiteRookLeft: false, whiteRookRight: false,
+                    blackRookLeft: false, blackRookRight: false
+                };
+                this.turn = 'white';
+                this.isGameOver = false;
+                this.history = [];
+                this.lastMove = null;
+                this.selected = null;
+                this.animatingPiece = null;
+                this.inCheckPos = null;
+                this.initialized = true;
+                
+                this.updateCheckStatus();
+                this.updateStatus("白の番です");
+                this.updateAdvantageMeter();
+            }
+
+            startTimer() {
+                this.stopTimer();
+                let lastTurn = this.turn;
+                let lastSec = Math.floor(this.timers[this.turn]);
+
+                this.timerInterval = setInterval(() => {
+                    // 手番が切り替わった場合、前回の秒数状態をリセット
+                    if (lastTurn !== this.turn) {
+                        lastTurn = this.turn;
+                        lastSec = Math.floor(this.timers[this.turn]);
+                    }
+
+                    this.timers[this.turn] -= 0.1;
+                    const currentSec = Math.floor(this.timers[this.turn]);
+
+                    // 残り時間が10秒未満になり、かつ「秒」の桁が変わるごとにカウントダウン音を鳴らす
+                    if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
+                        this.sfx.countdown();
+                    }
+                    lastSec = currentSec;
+
+                    if (this.timers[this.turn] <= 0) { 
+                        this.timers[this.turn] = 0; 
+                        this.handleTimeout(); 
+                    }
+                    this.updateTimerDisplay();
+                }, 100);
+            }
+
+            stopTimer() { clearInterval(this.timerInterval); }
+
+            handleTimeout() {
+                this.stopTimer();
+                this.isGameOver = true;
+                this.sfx.checkmate(); // メイト時と同じ効果音
+                this.updateStatus(`時間切れ！ ${this.turn === 'white' ? '黒' : '白'}の勝ち`);
+            }
+
+            updateTimerDisplay() {
+                const fmt = s => {
+                    const m = Math.floor(s/60); const sc = Math.floor(s%60);
+                    return `${m}:${sc.toString().padStart(2,'0')}.${Math.floor((s%1)*10)}`;
+                };
+                const topTimer = document.getElementById('timer-top');
+                const bottomTimer = document.getElementById('timer-bottom');
+                
+                if (this.playerColor === 'white') {
+                    bottomTimer.innerText = fmt(this.timers.white);
+                    topTimer.innerText = fmt(this.timers.black);
+                    bottomTimer.classList.toggle('timer-active', this.turn === 'white');
+                    topTimer.classList.toggle('timer-active', this.turn === 'black');
+                } else {
+                    bottomTimer.innerText = fmt(this.timers.black);
+                    topTimer.innerText = fmt(this.timers.white);
+                    bottomTimer.classList.toggle('timer-active', this.turn === 'black');
+                    topTimer.classList.toggle('timer-active', this.turn === 'white');
+                }
+            }
+
+            updateAdvantageMeter() {
+                let whiteScore = 0;
+                let blackScore = 0;
+
+                for (let y = 0; y < 8; y++) {
+                    for (let x = 0; x < 8; x++) {
+                        const p = this.board[y][x];
+                        if (!p) continue;
+                        const val = MATERIAL_VALUES[p] || 0;
+                        if (p === p.toUpperCase()) whiteScore += val;
+                        else blackScore += val;
+                    }
+                }
+
+                const diff = whiteScore - blackScore;
+                
+                let whitePercent = 50 + (diff * 2);
+                whitePercent = Math.max(5, Math.min(95, whitePercent));
+                
+                document.getElementById('advantage-bar-white').style.width = `${whitePercent}%`;
+                const text = diff > 0 ? `+${diff}` : (diff < 0 ? `${diff}` : "0");
+                document.getElementById('advantage-text').innerText = text;
+            }
+
+            handleClick(rawX, rawY, width) {
+                if (!this.initialized || this.isGameOver || this.animatingPiece) return;
+                if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
+                
+                const sx = Math.floor(rawX / (width / 8)), sy = Math.floor(rawY / (width / 8));
+                if (sx < 0 || sx > 7 || sy < 0 || sy > 7) return;
+                const { x, y } = this.playerColor === 'black' ? { x: 7 - sx, y: 7 - sy } : { x: sx, y: sy };
+
+                if (this.selected) {
+                    const move = this.validMoves.find(m => m.to.x === x && m.to.y === y);
+                    if (move) { this.startMove(move); return; }
+                }
+                const p = this.board[y][x];
+                if (p && (this.turn === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
+                    this.selected = { x, y };
+                    this.validMoves = this.getMoves(x, y, this.board);
+                    this.sfx.pieceSelect(); // 駒を選択した時の音
+                } else { 
+                    this.selected = null; 
+                }
+            }
+
+            startMove(move) {
+                this.history.push(JSON.stringify({ 
+                    board: this.board.map(r => [...r]), 
+                    timers: { ...this.timers },
+                    lastMove: this.lastMove ? {...this.lastMove} : null,
+                    movedStatus: { ...this.movedStatus }
+                }));
+
+                const piece = this.board[move.from.y][move.from.x];
+                this.animatingPiece = { piece, from: move.from, to: move.to, progress: 0, move };
+                this.board[move.from.y][move.from.x] = null;
+                this.selected = null;
+            }
+
+            executeMove(move) {
+                if (this.useTimer) this.timers[this.turn] += this.increment;
+                
+                const piece = this.animatingPiece.piece;
+                const isCapture = this.board[move.to.y][move.to.x] !== null; // キャプチャ判定
+                
+                if (move.isCastling) {
+                    const rookY = move.from.y;
+                    const oldRookX = move.to.x === 6 ? 7 : 0;
+                    const newRookX = move.to.x === 6 ? 5 : 3;
+                    this.board[rookY][newRookX] = this.board[rookY][oldRookX];
+                    this.board[rookY][oldRookX] = null;
+                }
+
+                this.board[move.to.y][move.to.x] = piece;
+                
+                if (piece === 'K') this.movedStatus.whiteKing = true;
+                if (piece === 'k') this.movedStatus.blackKing = true;
+                if (move.from.x === 0 && move.from.y === 7) this.movedStatus.whiteRookLeft = true;
+                if (move.from.x === 7 && move.from.y === 7) this.movedStatus.whiteRookRight = true;
+                if (move.from.x === 0 && move.from.y === 0) this.movedStatus.blackRookLeft = true;
+                if (move.from.x === 7 && move.from.y === 0) this.movedStatus.blackRookRight = true;
+
+                this.lastMove = move;
+                this.animatingPiece = null;
+                
+                if (isCapture) {
+                    this.sfx.pieceCapture(); // 取った時の音
+                } else {
+                    this.sfx.pieceMove(); // 置いた時の音
+                }
+                
+                this.updateAdvantageMeter();
+
+                if ((piece === 'P' && move.to.y === 0) || (piece === 'p' && move.to.y === 7)) {
+                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
+                        this.board[move.to.y][move.to.x] = this.turn === 'white' ? 'Q' : 'q';
+                        this.updateAdvantageMeter();
+                        this.finalizeTurn();
+                    } else {
+                        this.pendingPromotion = move;
+                        document.getElementById('promotion-modal').style.display = 'flex';
+                    }
+                } else { this.finalizeTurn(); }
+            }
+
+            selectPromotion(char) {
+                this.sfx.buttonClick();
+                const p = this.turn === 'white' ? char.toUpperCase() : char.toLowerCase();
+                this.board[this.pendingPromotion.to.y][this.pendingPromotion.to.x] = p;
+                document.getElementById('promotion-modal').style.display = 'none';
+                this.pendingPromotion = null;
+                this.updateAdvantageMeter();
+                this.finalizeTurn();
+            }
+
+            toggleAssistMode(checked) {
+                this.sfx.buttonClick();
+                this.isAssistMode = checked;
+                if (this.isAssistMode) {
+                    this.updateAssistMoves();
+                } else {
+                    this.assistMoves = [];
+                }
+            }
+
+            updateAssistMoves() {
+                this.assistMoves = [];
+                if (!this.isAssistMode || this.isGameOver || !this.initialized) return;
+                if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
+
+                // UIフリーズを避けるため非同期で処理
+                setTimeout(() => {
+                    const all = this.getAllValidMoves(this.turn, this.board);
+                    if (all.length === 0) return;
+
+                    // 探索の深さ（2 = 相手の返しまで読む。レベル10以上の先読み能力）
+                    const DEPTH = 2;
+
+                    all.forEach(m => {
+                        const tempBoard = this.applyMove(this.board, m);
+                        let score = this.minimax(tempBoard, DEPTH - 1, -Infinity, Infinity, false, this.turn);
+                        
+                        // キャスリングへのボーナス
+                        if (m.isCastling) score += 50;
+                        
+                        m.evalScore = score + Math.random() * 0.1;
+                    });
+
+                    all.sort((a,b) => b.evalScore - a.evalScore);
+                    this.assistMoves = all.slice(0, 3);
+                }, 10);
+            }
+
+            getAllValidMoves(color, board) {
+                const moves = [];
+                for (let y=0; y<8; y++) {
+                    for (let x=0; x<8; x++) {
+                        const p = board[y][x];
+                        if (p && (color === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
+                            moves.push(...this.getMoves(x,y,board));
+                        }
+                    }
+                }
+                return moves;
+            }
+
+            applyMove(board, move) {
+                const t = board.map(r => [...r]);
+                let piece = t[move.from.y][move.from.x];
+
+                if (move.isCastling) {
+                    const oldRookX = move.to.x === 6 ? 7 : 0;
+                    const newRookX = move.to.x === 6 ? 5 : 3;
+                    t[move.to.y][newRookX] = t[move.to.y][oldRookX];
+                    t[move.to.y][oldRookX] = null;
+                }
+
+                t[move.to.y][move.to.x] = piece;
+                t[move.from.y][move.from.x] = null;
+
+                if ((piece === 'P' && move.to.y === 0) || (piece === 'p' && move.to.y === 7)) {
+                    t[move.to.y][move.to.x] = piece === 'P' ? 'Q' : 'q';
+                }
+
+                return t;
+            }
+
+            evaluateBoardForMinimax(board, maximizingColor) {
+                let score = 0;
+                for (let y=0; y<8; y++) {
+                    for (let x=0; x<8; x++) {
+                        const p = board[y][x];
+                        if (!p) continue;
+
+                        const isMaximizing = maximizingColor === 'white' ? p === p.toUpperCase() : p === p.toLowerCase();
+                        const pType = p.toLowerCase();
+                        let val = AI_VALUES[pType] * 10;
+
+                        // 中央支配へのボーナス
+                        if (pType === 'n' || pType === 'b' || pType === 'p') {
+                            if (x >= 3 && x <= 4 && y >= 3 && y <= 4) val += 6;
+                            else if (x >= 2 && x <= 5 && y >= 2 && y <= 5) val += 3;
+                        }
+
+                        if (isMaximizing) {
+                            score += val;
+                        } else {
+                            score -= val;
+                        }
+                    }
+                }
+                return score;
+            }
+
+            minimax(board, depth, alpha, beta, isMaximizingPlayer, maximizingColor) {
+                if (depth === 0) {
+                    return this.evaluateBoardForMinimax(board, maximizingColor);
+                }
+
+                const currentColor = isMaximizingPlayer ? maximizingColor : (maximizingColor === 'white' ? 'black' : 'white');
+                const moves = this.getAllValidMoves(currentColor, board);
+
+                if (moves.length === 0) {
+                    if (this.isInCheck(currentColor, board)) {
+                        return isMaximizingPlayer ? -99999 + depth : 99999 - depth;
+                    }
+                    return 0; // ステールメイト
+                }
+
+                // 枝刈り効率化のための事前ソート（取る手を先に評価）
+                moves.sort((a,b) => {
+                    const targetA = board[a.to.y][a.to.x];
+                    const targetB = board[b.to.y][b.to.x];
+                    const scoreA = targetA ? AI_VALUES[targetA.toLowerCase()] : 0;
+                    const scoreB = targetB ? AI_VALUES[targetB.toLowerCase()] : 0;
+                    return scoreB - scoreA;
+                });
+
+                if (isMaximizingPlayer) {
+                    let maxEval = -Infinity;
+                    for (const m of moves) {
+                        const tempBoard = this.applyMove(board, m);
+                        const ev = this.minimax(tempBoard, depth - 1, alpha, beta, false, maximizingColor);
+                        maxEval = Math.max(maxEval, ev);
+                        alpha = Math.max(alpha, ev);
+                        if (beta <= alpha) break;
+                    }
+                    return maxEval;
+                } else {
+                    let minEval = Infinity;
+                    for (const m of moves) {
+                        const tempBoard = this.applyMove(board, m);
+                        const ev = this.minimax(tempBoard, depth - 1, alpha, beta, true, maximizingColor);
+                        minEval = Math.min(minEval, ev);
+                        beta = Math.min(beta, ev);
+                        if (beta <= alpha) break;
+                    }
+                    return minEval;
+                }
+            }
+
+            updateCheckStatus() {
+                this.inCheckPos = null;
+                if (this.isInCheck(this.turn, this.board)) {
+                    const kingChar = this.turn === 'white' ? 'K' : 'k';
+                    for (let y = 0; y < 8; y++) {
+                        for (let x = 0; x < 8; x++) {
+                            if (this.board[y][x] === kingChar) {
+                                this.inCheckPos = { x, y };
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            finalizeTurn() {
+                this.turn = this.turn === 'white' ? 'black' : 'white';
+                this.assistMoves = [];
+                
+                this.updateCheckStatus();
+
+                if (this.isMate()) {
+                    this.sfx.checkmate(); // メイト時の音
+                    this.isGameOver = true; this.stopTimer();
+                    this.updateStatus(`チェックメイト！ ${this.turn === 'white' ? '黒' : '白'}の勝ち`);
+                } else {
+                    if (this.inCheckPos) this.sfx.check(); // チェック時の音
+                    
+                    const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                    this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
+                        setTimeout(() => this.cpuMove(), 400);
+                    } else {
+                        this.updateAssistMoves();
+                    }
+                }
+            }
+
+            isMate() {
+                for (let y=0; y<8; y++) for (let x=0; x<8; x++) {
+                    const p = this.board[y][x];
+                    if (p && (this.turn === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
+                        if (this.getMoves(x, y, this.board).length > 0) return false;
+                    }
+                }
+                return true;
+            }
+
+            cpuMove() {
+                const all = this.getAllValidMoves(this.turn, this.board);
+                if (all.length === 0) return;
+                
+                all.forEach(m => {
+                    const target = this.board[m.to.y][m.to.x];
+                    let s = target ? AI_VALUES[target] * 10 : 0;
+                    if (m.isCastling) s += 50;
+
+                    const piece = this.board[m.from.y][m.from.x];
+                    const pieceType = piece.toLowerCase();
+
+                    // 中央支配へのボーナス（マイナーピースとポーンを優先）
+                    if (pieceType === 'n' || pieceType === 'b' || pieceType === 'p') {
+                        if (m.to.x >= 3 && m.to.x <= 4 && m.to.y >= 3 && m.to.y <= 4) s += 6;
+                        else if (m.to.x >= 2 && m.to.x <= 5 && m.to.y >= 2 && m.to.y <= 5) s += 3;
+                    } else if (pieceType === 'q') {
+                        s -= 3; // クイーンの早期展開を抑止
+                    }
+
+                    // 展開と前進のボーナス
+                    const dir = this.turn === 'white' ? -1 : 1;
+                    const forwardDist = (m.to.y - m.from.y) * dir;
+                    if (forwardDist > 0) {
+                        if (pieceType === 'p') s += 2;
+                        else s += 0.5; // 他の駒も前に出ることを微小に評価
+                    }
+                    
+                    // 初期位置からの展開ボーナス（ナイト、ビショップを優先）
+                    const startRow = this.turn === 'white' ? 7 : 0;
+                    if (m.from.y === startRow && (pieceType === 'n' || pieceType === 'b')) {
+                        s += 1.5;
+                    }
+
+                    // 攻撃されるリスクを評価（AI用）
+                    const t = this.board.map(r=>[...r]); 
+                    t[m.to.y][m.to.x] = piece;
+                    t[m.from.y][m.from.x] = null;
+                    
+                    if (this.isSquareAttacked(m.to.x, m.to.y, this.turn, t)) {
+                        s -= AI_VALUES[piece] * 10;
+                        if (target) s += AI_VALUES[piece] * 5; 
+                    }
+
+                    // 同点時のランダム性を確保
+                    m.evalScore = s + Math.random() * 0.1;
+                });
+
+                // スコア順に降順ソート
+                all.sort((a,b) => b.evalScore - a.evalScore);
+
+                let selectionPool;
+                if (this.aiLevel >= 8) {
+                    // 高レベル帯では、最高スコアと同点の手の中からのみランダムに選ぶ（最善を尽くす）
+                    const bestScore = all[0].evalScore;
+                    selectionPool = all.filter(m => m.evalScore === bestScore);
+                } else {
+                    // 低〜中レベル帯では、意図的に少し悪い手も選択肢に含める
+                    const topN = Math.max(1, 11 - this.aiLevel);
+                    selectionPool = all.slice(0, topN);
+                }
+
+                this.startMove(selectionPool[Math.floor(Math.random() * selectionPool.length)]);
+            }
+
+            undoMove() {
+                if (this.history.length === 0 || this.animatingPiece) return;
+                
+                const restore = () => {
+                    if (this.history.length === 0) return;
+                    const prev = JSON.parse(this.history.pop());
+                    this.board = prev.board; 
+                    this.timers = prev.timers;
+                    this.lastMove = prev.lastMove;
+                    this.movedStatus = prev.movedStatus;
+                    this.turn = this.turn === 'white' ? 'black' : 'white';
+                };
+
+                restore();
+                if (this.gameMode === 'cpu') restore();
+
+                this.selected = null;
+                this.animatingPiece = null;
+                this.pendingPromotion = null;
+                this.isGameOver = false;
+                document.getElementById('promotion-modal').style.display = 'none';
+                
+                this.updateCheckStatus();
+                if (this.useTimer) this.startTimer();
+                const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                this.updateTimerDisplay();
+                this.updateAdvantageMeter();
+                this.updateAssistMoves();
+            }
+
+            isSquareAttacked(x, y, color, board) {
+                const opponentColor = color === 'white' ? 'black' : 'white';
+                for (let ry=0; ry<8; ry++) {
+                    for (let rx=0; rx<8; rx++) {
+                        const p = board[ry][rx];
+                        if (p && (opponentColor === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
+                            const moves = this.getMoves(rx, ry, board, true);
+                            if (moves.some(m => m.to.x === x && m.to.y === y)) return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            isInCheck(color, board) {
+                const kingChar = color === 'white' ? 'K' : 'k';
+                let kingPos = null;
+                for (let y = 0; y < 8; y++) {
+                    for (let x = 0; x < 8; x++) {
+                        if (board[y][x] === kingChar) kingPos = { x, y };
+                    }
+                }
+                if (!kingPos) return false;
+                return this.isSquareAttacked(kingPos.x, kingPos.y, color, board);
+            }
+
+            getMoves(x, y, b, ignoreCheck = false) {
+                const p = b[y][x]; if (!p) return [];
+                const type = p.toLowerCase(), moves = [], dir = p === 'P' ? -1 : 1;
+                const isOwn = piece => (p === p.toUpperCase()) === (piece === piece.toUpperCase());
+                const color = p === p.toUpperCase() ? 'white' : 'black';
+                
+                if (type === 'p') {
+                    if (y+dir>=0 && y+dir<8 && !b[y+dir][x]) {
+                        moves.push({from:{x,y}, to:{x,y:y+dir}});
+                        if (y===(p==='P'?6:1) && !b[y+dir*2][x]) moves.push({from:{x,y}, to:{x,y:y+dir*2}});
+                    }
+                    [-1,1].forEach(dx => {
+                        const nx = x+dx, ny = y+dir;
+                        if (nx>=0 && nx<8 && ny>=0 && ny<8 && b[ny][nx] && !isOwn(b[ny][nx])) moves.push({from:{x,y}, to:{x:nx,y:ny}});
+                    });
+                } else if (type === 'n') {
+                    [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([dy,dx])=>{
+                        const nx=x+dx, ny=y+dy;
+                        if (nx>=0 && nx<8 && ny>=0 && ny<8 && (!b[ny][nx] || !isOwn(b[ny][nx]))) moves.push({from:{x,y}, to:{x:nx,y:ny}});
+                    });
+                } else {
+                    const ds = [];
+                    if (type==='r'||type==='q') ds.push([0,1],[0,-1],[1,0],[-1,0]);
+                    if (type==='b'||type==='q') ds.push([1,1],[1,-1],[-1,1],[-1,-1]);
+                    if (type==='k') ds.push([0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]);
+                    ds.forEach(([dy,dx]) => {
+                        let nx=x+dx, ny=y+dy;
+                        while(nx>=0 && nx<8 && ny>=0 && ny<8) {
+                            if (!b[ny][nx]) { moves.push({from:{x,y}, to:{x:nx,y:ny}}); if(type==='k') break; }
+                            else { if (!isOwn(b[ny][nx])) moves.push({from:{x,y}, to:{x:nx,y:ny}}); break; }
+                            nx+=dx; ny+=dy;
+                        }
+                    });
+
+                    if (type === 'k' && !ignoreCheck) {
+                        const kingMoved = color === 'white' ? this.movedStatus.whiteKing : this.movedStatus.blackKing;
+                        if (!kingMoved && !this.isSquareAttacked(x, y, color, b)) {
+                            const rMovedR = color === 'white' ? this.movedStatus.whiteRookRight : this.movedStatus.blackRookRight;
+                            if (!rMovedR && !b[y][5] && !b[y][6] && b[y][7]?.toLowerCase() === 'r') {
+                                if (!this.isSquareAttacked(5, y, color, b) && !this.isSquareAttacked(6, y, color, b)) {
+                                    moves.push({from:{x,y}, to:{x:6, y}, isCastling: true});
+                                }
+                            }
+                            const rMovedL = color === 'white' ? this.movedStatus.whiteRookLeft : this.movedStatus.blackRookLeft;
+                            if (!rMovedL && !b[y][1] && !b[y][2] && !b[y][3] && b[y][0]?.toLowerCase() === 'r') {
+                                if (!this.isSquareAttacked(3, y, color, b) && !this.isSquareAttacked(2, y, color, b)) {
+                                    moves.push({from:{x,y}, to:{x:2, y}, isCastling: true});
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (ignoreCheck) return moves;
+
+                return moves.filter(m => {
+                    const t = b.map(r=>[...r]); 
+                    t[m.to.y][m.to.x] = t[m.from.y][m.from.x]; 
+                    t[m.from.y][m.from.x] = null;
+                    const king = (color === 'white' ? 'K' : 'k'); 
+                    let kp;
+                    for (let ry=0; ry<8; ry++) for (let rx=0; rx<8; rx++) if (t[ry][rx] === king) kp = {x:rx, y:ry};
+                    if (!kp) return false;
+                    return !this.isSquareAttacked(kp.x, kp.y, color, t);
+                });
+            }
+
+            updateStatus(s) { 
+                document.getElementById('game-status').innerText = s; 
+                // PvPモード時の名前の色変更ロジック
+                if (this.gameMode === 'pvp') {
+                    const bottomLabel = document.getElementById('bottom-player-label');
+                    const topLabel = document.getElementById('top-player-label');
+                    if (this.turn === 'white') {
+                        bottomLabel.classList.add('text-blue-400');
+                        bottomLabel.classList.remove('opacity-70');
+                        topLabel.classList.remove('text-blue-400');
+                        topLabel.classList.add('opacity-70');
+                    } else {
+                        topLabel.classList.add('text-blue-400');
+                        topLabel.classList.remove('opacity-70');
+                        bottomLabel.classList.remove('text-blue-400');
+                        bottomLabel.classList.add('opacity-70');
+                    }
+                }
+            }
+
+            animate() { this.render(); requestAnimationFrame(() => this.animate()); }
+
+            render() {
+                if (!this.initialized) return;
+                this.ctx.clearRect(0,0,SIZE,SIZE);
+                for (let y=0; y<8; y++) for (let x=0; x<8; x++) {
+                    const {x:sx, y:sy} = (this.playerColor === 'black' ? {x:7-x, y:7-y} : {x,y});
+                    this.ctx.fillStyle = (x+y)%2===0 ? COLORS.light : COLORS.dark;
+                    this.ctx.fillRect(sx*CELL, sy*CELL, CELL, CELL);
+                    
+                    if (this.lastMove && ((this.lastMove.from.x === x && this.lastMove.from.y === y) || (this.lastMove.to.x === x && this.lastMove.to.y === y))) {
+                        this.ctx.fillStyle = COLORS.lastMove; this.ctx.fillRect(sx*CELL, sy*CELL, CELL, CELL);
+                    }
+                    
+                    if (this.selected && this.selected.x === x && this.selected.y === y) {
+                        this.ctx.fillStyle = COLORS.selected; this.ctx.fillRect(sx*CELL, sy*CELL, CELL, CELL);
+                    }
+                    
+                    // チェックされているキングの背景を赤くハイライト
+                    if (this.inCheckPos && this.inCheckPos.x === x && this.inCheckPos.y === y) {
+                        this.ctx.fillStyle = 'rgba(255, 50, 50, 0.7)';
+                        this.ctx.fillRect(sx*CELL, sy*CELL, CELL, CELL);
+                    }
+                }
+
+                if (this.selected) {
+                    this.validMoves.forEach(m => {
+                        const {x:sx, y:sy} = (this.playerColor === 'black' ? {x:7-m.to.x, y:7-m.to.y} : {x:m.to.x, y:m.to.y});
+                        const targetPiece = this.board[m.to.y][m.to.x];
+                        
+                        if (targetPiece) {
+                            // 相手の駒を取れる場合は「○」でマーク
+                            this.ctx.beginPath();
+                            this.ctx.arc(sx*CELL+CELL/2, sy*CELL+CELL/2, CELL/2.2, 0, Math.PI*2);
+                            this.ctx.strokeStyle = COLORS.captureRing;
+                            this.ctx.lineWidth = 4;
+                            this.ctx.stroke();
+                        } else {
+                            // 移動のみの場合はドット
+                            this.ctx.beginPath(); 
+                            this.ctx.arc(sx*CELL+CELL/2, sy*CELL+CELL/2, CELL/7, 0, Math.PI*2);
+                            this.ctx.fillStyle = COLORS.validDot; 
+                            this.ctx.fill();
+                        }
+                    });
+                }
+
+                this.ctx.font = `${CELL*0.8}px serif`; this.ctx.textAlign='center'; this.ctx.textBaseline='middle';
+                this.ctx.lineJoin = 'round';
+                for (let y=0; y<8; y++) for (let x=0; x<8; x++) {
+                    const p = this.board[y][x];
+                    if (p) { 
+                        const {x:sx, y:sy} = (this.playerColor === 'black' ? {x:7-x, y:7-y} : {x,y}); 
+                        this.drawPiece(p, sx*CELL+CELL/2, sy*CELL+CELL/2+5); 
+                    }
+                }
+
+                // アシストの描画（プレイヤーの番のみ）
+                if (this.isAssistMode && this.assistMoves.length > 0 && !this.animatingPiece && !this.isGameOver) {
+                    if (this.gameMode === 'pvp' || this.turn === this.playerColor) {
+                        this.assistMoves.forEach((m, idx) => {
+                            const color = idx === 0 ? 'rgba(50, 255, 50, 0.7)' : 'rgba(255, 200, 50, 0.6)';
+                            const f = this.playerColor === 'black' ? {x:7-m.from.x, y:7-m.from.y} : m.from;
+                            const t = this.playerColor === 'black' ? {x:7-m.to.x, y:7-m.to.y} : m.to;
+                            const fromX = f.x*CELL + CELL/2;
+                            const fromY = f.y*CELL + CELL/2;
+                            const toX = t.x*CELL + CELL/2;
+                            const toY = t.y*CELL + CELL/2;
+                            
+                            this.ctx.strokeStyle = color;
+                            this.ctx.lineWidth = 4;
+                            this.ctx.lineCap = 'round';
+                            
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(fromX, fromY);
+                            this.ctx.lineTo(toX, toY);
+                            this.ctx.stroke();
+                            
+                            const angle = Math.atan2(toY - fromY, toX - fromX);
+                            const headlen = CELL * 0.25;
+                            
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(toX, toY);
+                            this.ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+                            this.ctx.moveTo(toX, toY);
+                            this.ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+                            this.ctx.stroke();
+                        });
+                    }
+                }
+
+                if (this.animatingPiece) {
+                    const a = this.animatingPiece; a.progress += 0.15;
+                    if (a.progress >= 1) { this.executeMove(a.move); }
+                    else {
+                        const f = (this.playerColor === 'black' ? {x:7-a.from.x, y:7-a.from.y} : a.from);
+                        const t = (this.playerColor === 'black' ? {x:7-a.to.x, y:7-a.to.y} : a.to);
+                        const cx = f.x + (t.x-f.x)*a.progress, cy = f.y + (t.y-f.y)*a.progress;
+                        this.drawPiece(a.piece, cx*CELL+CELL/2, cy*CELL+CELL/2+5);
+                    }
+                }
+            }
+
+            drawPiece(piece, px, py) {
+                const isWhite = piece === piece.toUpperCase();
+                
+                // 縁取り（アウトライン）を追加して視認性を向上
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeStyle = isWhite ? '#000000' : 'rgba(255, 255, 255, 0.4)';
+                this.ctx.strokeText(PIECES[piece], px, py);
+
+                this.ctx.fillStyle = isWhite ? '#ffffff' : '#000000';
+                this.ctx.fillText(PIECES[piece], px, py);
+            }
+        }
+        const game = new ChessGame('chessBoard');
+    </script>
+</body>
+</html>
