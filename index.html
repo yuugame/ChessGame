@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chess - Material Advantage Meter</title>
+    <title>Chess - Online Multiplayer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -100,7 +100,8 @@
         
         .btn-main { background-color: #3b82f6; color: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.2rem; width: 100%; max-width: 300px; transition: all 0.2s; }
         .btn-main:hover { transform: scale(1.05); background-color: #2563eb; }
-        .btn-sub { background-color: #10b981; color: white; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; max-width: 300px; }
+        .btn-sub { background-color: #10b981; color: white; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; max-width: 300px; transition: all 0.2s; }
+        .btn-sub:hover { filter: brightness(1.1); }
 
         input[type=range] {
             width: 100%;
@@ -119,8 +120,10 @@
             <h1 class="text-4xl font-bold mb-10 text-center">CHESS</h1>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()">VS CPU</button>
-                <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')">2人プレイ</button>
+                <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')">2人プレイ(オフライン)</button>
+                <button class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()">オンライン対戦(合言葉)</button>
             </div>
+            <div id="auth-status" class="mt-6 text-xs opacity-50 text-center">通信準備中...</div>
         </div>
 
         <div id="cpu-config" class="w-full flex flex-col items-center" style="display: none;">
@@ -138,8 +141,27 @@
                 </div>
             </div>
             <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。</p>
-            <button class="btn-sub mb-4" onclick="game.showTimeSelection('cpu', document.getElementById('level-slider').value)">時間設定へ進む</button>
+            <button class="btn-sub mb-4 !bg-blue-600" onclick="game.showTimeSelection('cpu', document.getElementById('level-slider').value)">時間設定へ進む</button>
             <button class="text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
+        </div>
+
+        <div id="online-config" class="w-full flex flex-col items-center" style="display: none;">
+            <h2 class="text-2xl font-bold mb-8 text-center">オンライン対戦</h2>
+            <div class="flex flex-col gap-4 w-full max-w-[300px] items-center">
+                <input type="text" id="room-id-input" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl outline-none">
+                <button class="btn-sub !bg-orange-500" onclick="game.joinOnlineRoom()">部屋に入る</button>
+                <div class="my-2 opacity-50 border-b border-zinc-600 w-full text-center h-0 leading-0"><span class="bg-[#1a1a1a] px-2 text-xs">または</span></div>
+                <button class="btn-sub !bg-purple-600" onclick="game.showOnlineTimeSelection()">部屋を作る</button>
+                <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
+            </div>
+            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]">※「部屋を作る」場合は時間設定へ進みます。<br>「部屋に入る」場合は入力した合言葉の部屋に参加します。</p>
+        </div>
+
+        <div id="waiting-room" class="w-full flex flex-col items-center" style="display: none;">
+            <h2 class="text-2xl font-bold mb-8 text-center">対戦相手を待っています...</h2>
+            <p class="mb-6">合言葉: <span id="display-room-id" class="font-bold text-orange-400 text-2xl tracking-widest bg-zinc-800 px-4 py-2 rounded"></span></p>
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-8"></div>
+            <button class="btn-sub !bg-red-900" onclick="game.cancelOnlineRoom()">キャンセル</button>
         </div>
 
         <div id="time-selection" class="w-full flex flex-col items-center" style="display: none;">
@@ -203,7 +225,7 @@
 
     <div class="mt-3 flex flex-col items-center gap-2 w-full max-w-[400px]">
         <div class="flex w-full gap-2">
-            <button class="flex-1 bg-zinc-700 py-3 rounded font-bold hover:bg-zinc-600 transition-colors" onclick="game.confirmUndo()">1手戻る</button>
+            <button id="undo-btn" class="flex-1 bg-zinc-700 py-3 rounded font-bold hover:bg-zinc-600 transition-colors" onclick="game.confirmUndo()">1手戻る</button>
             <button class="flex-1 bg-red-900 py-3 rounded font-bold hover:bg-red-800 transition-colors" onclick="game.confirmExit()">終了</button>
         </div>
         <label class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors">
@@ -212,7 +234,17 @@
         </label>
     </div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
         const SIZE = 400;
         const CELL = SIZE / 8;
         const COLORS = {
@@ -225,16 +257,12 @@
             'p': '♟\uFE0E', 'r': '♜\uFE0E', 'n': '♞\uFE0E', 'b': '♝\uFE0E', 'q': '♛\uFE0E', 'k': '♚\uFE0E' 
         };
         
-        // 駒のポイント定義
         const MATERIAL_VALUES = {
             'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0,
             'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 0
         };
-        
-        // AI評価用（Kには仮想的な高値を設定）
         const AI_VALUES = { ...MATERIAL_VALUES, 'k': 900, 'K': 900 };
 
-        // 効果音管理クラス（Web Audio APIを使用）
         class SoundEffects {
             constructor() {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -301,6 +329,14 @@
                 this.ctx = this.canvas.getContext('2d');
                 this.sfx = new SoundEffects();
                 this.initialized = false;
+                this.userId = null;
+                
+                // Online State
+                this.roomId = null;
+                this.unsubRoom = null;
+                this.baseTimers = { white: 0, black: 0 };
+                this.lastUpdate = 0;
+
                 this.board = [];
                 this.turn = 'white';
                 this.timers = { white: 0, black: 0 };
@@ -314,7 +350,7 @@
                 };
                 this.isAssistMode = false;
                 this.assistMoves = [];
-                this.inCheckPos = null;     // チェックされているキングの位置
+                this.inCheckPos = null;
                 this.setupListeners();
                 this.animate();
             }
@@ -333,6 +369,10 @@
             showModeSelection() {
                 this.sfx.buttonClick();
                 this.stopTimer();
+                if (this.unsubRoom) {
+                    this.unsubRoom();
+                    this.unsubRoom = null;
+                }
                 this.hideAllOverlays();
                 document.getElementById('mode-selection').style.display = 'flex';
                 document.getElementById('timer-top').style.display = 'none';
@@ -347,6 +387,24 @@
                 document.getElementById('cpu-config').style.display = 'flex';
             }
 
+            showOnlineConfig() {
+                this.sfx.buttonClick();
+                this.hideAllOverlays();
+                document.getElementById('online-config').style.display = 'flex';
+            }
+
+            showOnlineTimeSelection() {
+                this.sfx.buttonClick();
+                this.roomId = document.getElementById('room-id-input').value.trim();
+                if (!this.roomId) {
+                    this.showConfirm("エラー", "合言葉を入力してください", ()=>{});
+                    return;
+                }
+                this.hideAllOverlays();
+                this.tempMode = 'online';
+                document.getElementById('time-selection').style.display = 'flex';
+            }
+
             showTimeSelection(mode, level = 1) {
                 this.sfx.buttonClick();
                 this.tempMode = mode;
@@ -356,12 +414,15 @@
             }
 
             hideAllOverlays() {
-                const ids = ['mode-selection', 'cpu-config', 'time-selection', 'promotion-modal', 'confirm-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'confirm-modal'];
                 ids.forEach(id => document.getElementById(id).style.display = 'none');
             }
 
             confirmUndo() {
                 this.sfx.buttonClick();
+                if (this.gameMode === 'online') {
+                    return this.showConfirm("エラー", "オンライン対戦中は「待った」を使用できません。", ()=>{});
+                }
                 if (this.history.length === 0 || this.animatingPiece) return;
                 this.showConfirm("1手戻る", "1手前の状態に戻しますか？", () => {
                     this.undoMove();
@@ -383,7 +444,6 @@
                 const yesBtn = document.getElementById('confirm-yes');
                 const noBtn = document.getElementById('confirm-no');
 
-                // イベントの重複登録を防ぐためにノードをクローンして置き換え
                 const newYes = yesBtn.cloneNode(true);
                 const newNo = noBtn.cloneNode(true);
                 yesBtn.parentNode.replaceChild(newYes, yesBtn);
@@ -403,7 +463,240 @@
                 modal.style.display = 'flex';
             }
 
+            async joinOnlineRoom() {
+                this.sfx.buttonClick();
+                this.roomId = document.getElementById('room-id-input').value.trim();
+                if (!this.roomId) return this.showConfirm("エラー", "合言葉を入力してください", ()=>{});
+                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{});
+
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                try {
+                    const snap = await getDoc(roomRef);
+                    if (!snap.exists()) {
+                        return this.showConfirm("エラー", "指定された合言葉の部屋が見つかりません。", ()=>{});
+                    }
+                    const data = snap.data();
+                    if (data.status !== 'waiting') {
+                        return this.showConfirm("エラー", "この部屋は既に対戦中か終了しています。", ()=>{});
+                    }
+
+                    // 白黒をランダムに決定
+                    const isHostWhite = Math.random() < 0.5;
+                    await updateDoc(roomRef, {
+                        status: 'playing',
+                        guest: this.userId,
+                        white: isHostWhite ? data.host : this.userId,
+                        black: isHostWhite ? this.userId : data.host,
+                        'gameState.lastUpdate': Date.now()
+                    });
+                    
+                    this.listenToRoom();
+                } catch (e) {
+                    console.error(e);
+                    this.showConfirm("エラー", "通信に失敗しました。", ()=>{});
+                }
+            }
+
+            async createOnlineRoom(seconds, inc) {
+                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{});
+                
+                this.hideAllOverlays();
+                document.getElementById('waiting-room').style.display = 'flex';
+                document.getElementById('display-room-id').innerText = this.roomId;
+
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                const initialBoard = [
+                    ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+                    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+                    Array(8).fill(null), Array(8).fill(null), Array(8).fill(null), Array(8).fill(null),
+                    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+                    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+                ];
+
+                try {
+                    await setDoc(roomRef, {
+                        status: 'waiting',
+                        host: this.userId,
+                        guest: null,
+                        timeConfig: { seconds, inc },
+                        gameState: {
+                            board: JSON.stringify(initialBoard),
+                            turn: 'white',
+                            timers: { white: seconds, black: seconds },
+                            lastUpdate: Date.now(),
+                            movedStatus: {
+                                whiteKing: false, blackKing: false,
+                                whiteRookLeft: false, whiteRookRight: false,
+                                blackRookLeft: false, blackRookRight: false
+                            },
+                            lastMove: null
+                        }
+                    });
+                    this.listenToRoom();
+                } catch(e) {
+                    console.error(e);
+                    this.showModeSelection();
+                }
+            }
+
+            async cancelOnlineRoom() {
+                this.sfx.buttonClick();
+                if (this.unsubRoom) this.unsubRoom();
+                if (this.roomId && this.userId) {
+                    try {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                        await deleteDoc(roomRef);
+                    } catch(e) { console.error(e); }
+                }
+                this.showModeSelection();
+            }
+
+            listenToRoom() {
+                if (this.unsubRoom) this.unsubRoom();
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                
+                this.unsubRoom = onSnapshot(roomRef, (snap) => {
+                    if (!snap.exists()) {
+                        // 部屋が削除された場合
+                        if (this.gameMode === 'online' && !this.isGameOver) {
+                            this.isGameOver = true;
+                            this.stopTimer();
+                            this.showConfirm("切断", "対戦相手が退出したか部屋が削除されました。", () => { this.showModeSelection(); });
+                        }
+                        return;
+                    }
+                    const data = snap.data();
+                    
+                    if (data.status === 'playing' || data.status === 'finished_mate' || data.status === 'finished_timeout') {
+                        this.handleOnlineUpdate(data);
+                    }
+                }, (error) => {
+                    console.error("Room listener error:", error);
+                });
+            }
+
+            handleOnlineUpdate(data) {
+                // 初回UI設定
+                if (this.gameMode !== 'online') {
+                    this.gameMode = 'online';
+                    this.hideAllOverlays();
+                    document.getElementById('meter-ui').style.display = 'flex';
+                    
+                    this.playerColor = data.white === this.userId ? 'white' : 'black';
+                    this.increment = data.timeConfig.inc;
+                    this.useTimer = data.timeConfig.seconds > 0;
+                    
+                    // undoボタンを隠す
+                    document.getElementById('undo-btn').style.display = 'none';
+
+                    const topLabel = document.getElementById('top-player-label');
+                    const bottomLabel = document.getElementById('bottom-player-label');
+                    document.getElementById('mode-display').innerText = `オンライン対戦 [${this.roomId}]`;
+                    bottomLabel.innerText = `あなた (${this.playerColor === 'white' ? '白・先手' : '黒・後手'})`;
+                    topLabel.innerText = `あいて (${this.playerColor === 'white' ? '黒' : '白'})`;
+                    
+                    if (this.useTimer) {
+                        document.getElementById('timer-top').style.display = 'block';
+                        document.getElementById('timer-bottom').style.display = 'block';
+                    }
+                    
+                    this.initGameLocalVariables();
+                    this.startTimer();
+                }
+
+                const gs = data.gameState;
+                const newTurn = gs.turn;
+                const oldTurn = this.turn;
+                
+                // 盤面の同期
+                this.board = JSON.parse(gs.board);
+                this.movedStatus = gs.movedStatus;
+                this.lastMove = gs.lastMove;
+                this.baseTimers = gs.timers;
+                this.lastUpdate = gs.lastUpdate;
+                this.turn = gs.turn;
+
+                this.updateCheckStatus();
+                this.updateAdvantageMeter();
+
+                // 相手が動かして自分の番になった時に音を鳴らす
+                if (oldTurn !== newTurn && this.turn === this.playerColor) {
+                    if (this.lastMove) {
+                        this.sfx.pieceMove(); // 簡易的にmove音
+                    }
+                    if (this.inCheckPos) this.sfx.check();
+                }
+
+                // タイマー強制同期
+                if (this.useTimer && !this.isGameOver) {
+                    const elapsed = (Date.now() - this.lastUpdate) / 1000;
+                    this.timers.white = this.turn === 'white' ? Math.max(0, this.baseTimers.white - elapsed) : this.baseTimers.white;
+                    this.timers.black = this.turn === 'black' ? Math.max(0, this.baseTimers.black - elapsed) : this.baseTimers.black;
+                    this.updateTimerDisplay();
+                }
+
+                // ゲーム終了判定
+                if (data.status === 'finished_mate') {
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    if (oldTurn !== newTurn) this.sfx.checkmate(); // 送信側は既に鳴らしているので受信側のみ
+                    const winner = gs.turn === 'white' ? '黒' : '白';
+                    this.updateStatus(`チェックメイト！ ${winner}の勝ち`);
+                } else if (data.status === 'finished_timeout') {
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    this.sfx.checkmate();
+                    const winnerColor = data.winner === 'white' ? '白' : '黒';
+                    this.updateStatus(`時間切れ！ ${winnerColor}の勝ち`);
+                } else {
+                    const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                    this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                    
+                    if (this.turn === this.playerColor) {
+                        this.updateAssistMoves();
+                    } else {
+                        this.assistMoves = [];
+                    }
+                }
+                
+                this.initialized = true;
+            }
+
+            async sendOnlineMove(isMate) {
+                if (!this.roomId) return;
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                    let status = isMate ? 'finished_mate' : 'playing';
+                    
+                    await updateDoc(roomRef, {
+                        status: status,
+                        'gameState.board': JSON.stringify(this.board),
+                        'gameState.turn': this.turn,
+                        'gameState.timers': this.timers, // 自分のターン終了時の残り時間を送信
+                        'gameState.lastUpdate': Date.now(),
+                        'gameState.movedStatus': this.movedStatus,
+                        'gameState.lastMove': this.lastMove
+                    });
+                } catch(e) { console.error(e); }
+            }
+
+            async sendTimeout() {
+                if (!this.roomId || this.gameMode !== 'online') return;
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                    await updateDoc(roomRef, {
+                        status: 'finished_timeout',
+                        winner: this.turn === 'white' ? 'black' : 'white'
+                    });
+                } catch(e) { console.error(e); }
+            }
+
             startWithTime(seconds, inc) {
+                if (this.tempMode === 'online') {
+                    this.createOnlineRoom(seconds, inc);
+                    return;
+                }
+
                 this.sfx.buttonClick();
                 this.gameMode = this.tempMode;
                 this.aiLevel = this.tempLevel;
@@ -413,6 +706,7 @@
                 this.isAssistMode = document.getElementById('assist-mode-toggle').checked;
                 this.hideAllOverlays();
                 
+                document.getElementById('undo-btn').style.display = 'block';
                 document.getElementById('meter-ui').style.display = 'flex';
                 
                 const topLabel = document.getElementById('top-player-label');
@@ -450,6 +744,16 @@
                 }
             }
 
+            initGameLocalVariables() {
+                this.isGameOver = false;
+                this.history = [];
+                this.lastMove = null;
+                this.selected = null;
+                this.animatingPiece = null;
+                this.inCheckPos = null;
+                this.updateCheckStatus();
+            }
+
             initGame() {
                 this.board = [
                     ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -464,15 +768,8 @@
                     blackRookLeft: false, blackRookRight: false
                 };
                 this.turn = 'white';
-                this.isGameOver = false;
-                this.history = [];
-                this.lastMove = null;
-                this.selected = null;
-                this.animatingPiece = null;
-                this.inCheckPos = null;
+                this.initGameLocalVariables();
                 this.initialized = true;
-                
-                this.updateCheckStatus();
                 this.updateStatus("白の番です");
                 this.updateAdvantageMeter();
             }
@@ -483,24 +780,37 @@
                 let lastSec = Math.floor(this.timers[this.turn]);
 
                 this.timerInterval = setInterval(() => {
-                    // 手番が切り替わった場合、前回の秒数状態をリセット
-                    if (lastTurn !== this.turn) {
-                        lastTurn = this.turn;
-                        lastSec = Math.floor(this.timers[this.turn]);
+                    if (this.gameMode === 'online') {
+                        // オンライン時は Date.now() と lastUpdate を使って時間を計算
+                        const elapsed = (Date.now() - this.lastUpdate) / 1000;
+                        this.timers[this.turn] = Math.max(0, this.baseTimers[this.turn] - elapsed);
+                    } else {
+                        // オフライン時は単純に引いていく
+                        if (lastTurn !== this.turn) {
+                            lastTurn = this.turn;
+                            lastSec = Math.floor(this.timers[this.turn]);
+                        }
+                        this.timers[this.turn] -= 0.1;
                     }
 
-                    this.timers[this.turn] -= 0.1;
                     const currentSec = Math.floor(this.timers[this.turn]);
 
-                    // 残り時間が10秒未満になり、かつ「秒」の桁が変わるごとにカウントダウン音を鳴らす
+                    // カウントダウン音
                     if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
-                        this.sfx.countdown();
+                        // オンライン時は自分の番の時だけ鳴らす
+                        if (this.gameMode !== 'online' || this.turn === this.playerColor) {
+                            this.sfx.countdown();
+                        }
                     }
                     lastSec = currentSec;
 
-                    if (this.timers[this.turn] <= 0) { 
+                    if (this.timers[this.turn] <= 0 && !this.isGameOver) { 
                         this.timers[this.turn] = 0; 
-                        this.handleTimeout(); 
+                        
+                        // 時間切れの処理（オンライン時は自分の番の時だけ自分が申告する）
+                        if (this.gameMode !== 'online' || this.turn === this.playerColor) {
+                            this.handleTimeout(); 
+                        }
                     }
                     this.updateTimerDisplay();
                 }, 100);
@@ -511,8 +821,12 @@
             handleTimeout() {
                 this.stopTimer();
                 this.isGameOver = true;
-                this.sfx.checkmate(); // メイト時と同じ効果音
+                this.sfx.checkmate(); 
                 this.updateStatus(`時間切れ！ ${this.turn === 'white' ? '黒' : '白'}の勝ち`);
+                
+                if (this.gameMode === 'online') {
+                    this.sendTimeout();
+                }
             }
 
             updateTimerDisplay() {
@@ -562,7 +876,7 @@
 
             handleClick(rawX, rawY, width) {
                 if (!this.initialized || this.isGameOver || this.animatingPiece) return;
-                if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
+                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) return;
                 
                 const sx = Math.floor(rawX / (width / 8)), sy = Math.floor(rawY / (width / 8));
                 if (sx < 0 || sx > 7 || sy < 0 || sy > 7) return;
@@ -576,19 +890,21 @@
                 if (p && (this.turn === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
                     this.selected = { x, y };
                     this.validMoves = this.getMoves(x, y, this.board);
-                    this.sfx.pieceSelect(); // 駒を選択した時の音
+                    this.sfx.pieceSelect(); 
                 } else { 
                     this.selected = null; 
                 }
             }
 
             startMove(move) {
-                this.history.push(JSON.stringify({ 
-                    board: this.board.map(r => [...r]), 
-                    timers: { ...this.timers },
-                    lastMove: this.lastMove ? {...this.lastMove} : null,
-                    movedStatus: { ...this.movedStatus }
-                }));
+                if (this.gameMode !== 'online') {
+                    this.history.push(JSON.stringify({ 
+                        board: this.board.map(r => [...r]), 
+                        timers: { ...this.timers },
+                        lastMove: this.lastMove ? {...this.lastMove} : null,
+                        movedStatus: { ...this.movedStatus }
+                    }));
+                }
 
                 const piece = this.board[move.from.y][move.from.x];
                 this.animatingPiece = { piece, from: move.from, to: move.to, progress: 0, move };
@@ -600,7 +916,7 @@
                 if (this.useTimer) this.timers[this.turn] += this.increment;
                 
                 const piece = this.animatingPiece.piece;
-                const isCapture = this.board[move.to.y][move.to.x] !== null; // キャプチャ判定
+                const isCapture = this.board[move.to.y][move.to.x] !== null; 
                 
                 if (move.isCastling) {
                     const rookY = move.from.y;
@@ -623,15 +939,15 @@
                 this.animatingPiece = null;
                 
                 if (isCapture) {
-                    this.sfx.pieceCapture(); // 取った時の音
+                    this.sfx.pieceCapture(); 
                 } else {
-                    this.sfx.pieceMove(); // 置いた時の音
+                    this.sfx.pieceMove(); 
                 }
                 
                 this.updateAdvantageMeter();
 
                 if ((piece === 'P' && move.to.y === 0) || (piece === 'p' && move.to.y === 7)) {
-                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
+                    if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) {
                         this.board[move.to.y][move.to.x] = this.turn === 'white' ? 'Q' : 'q';
                         this.updateAdvantageMeter();
                         this.finalizeTurn();
@@ -639,7 +955,9 @@
                         this.pendingPromotion = move;
                         document.getElementById('promotion-modal').style.display = 'flex';
                     }
-                } else { this.finalizeTurn(); }
+                } else { 
+                    this.finalizeTurn(); 
+                }
             }
 
             selectPromotion(char) {
@@ -665,23 +983,18 @@
             updateAssistMoves() {
                 this.assistMoves = [];
                 if (!this.isAssistMode || this.isGameOver || !this.initialized) return;
-                if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
+                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) return;
 
-                // UIフリーズを避けるため非同期で処理
                 setTimeout(() => {
                     const all = this.getAllValidMoves(this.turn, this.board);
                     if (all.length === 0) return;
 
-                    // 探索の深さ（2 = 相手の返しまで読む。レベル10以上の先読み能力）
                     const DEPTH = 2;
 
                     all.forEach(m => {
                         const tempBoard = this.applyMove(this.board, m);
                         let score = this.minimax(tempBoard, DEPTH - 1, -Infinity, Infinity, false, this.turn);
-                        
-                        // キャスリングへのボーナス
                         if (m.isCastling) score += 50;
-                        
                         m.evalScore = score + Math.random() * 0.1;
                     });
 
@@ -735,7 +1048,6 @@
                         const pType = p.toLowerCase();
                         let val = AI_VALUES[pType] * 10;
 
-                        // 中央支配へのボーナス
                         if (pType === 'n' || pType === 'b' || pType === 'p') {
                             if (x >= 3 && x <= 4 && y >= 3 && y <= 4) val += 6;
                             else if (x >= 2 && x <= 5 && y >= 2 && y <= 5) val += 3;
@@ -766,7 +1078,6 @@
                     return 0; // ステールメイト
                 }
 
-                // 枝刈り効率化のための事前ソート（取る手を先に評価）
                 moves.sort((a,b) => {
                     const targetA = board[a.to.y][a.to.x];
                     const targetB = board[b.to.y][b.to.x];
@@ -818,19 +1129,27 @@
                 this.assistMoves = [];
                 
                 this.updateCheckStatus();
+                const isMate = this.isMate();
 
-                if (this.isMate()) {
-                    this.sfx.checkmate(); // メイト時の音
-                    this.isGameOver = true; this.stopTimer();
+                // オンライン対戦の場合、自分が操作を終えたらFirestoreに送信
+                if (this.gameMode === 'online' && this.turn !== this.playerColor) {
+                    this.sendOnlineMove(isMate);
+                }
+
+                if (isMate) {
+                    this.sfx.checkmate(); 
+                    this.isGameOver = true; 
+                    this.stopTimer();
                     this.updateStatus(`チェックメイト！ ${this.turn === 'white' ? '黒' : '白'}の勝ち`);
                 } else {
-                    if (this.inCheckPos) this.sfx.check(); // チェック時の音
+                    if (this.inCheckPos) this.sfx.check(); 
                     
                     const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
                     this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                    
                     if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
                         setTimeout(() => this.cpuMove(), 400);
-                    } else {
+                    } else if (this.gameMode !== 'online' || this.turn === this.playerColor) {
                         this.updateAssistMoves();
                     }
                 }
@@ -858,29 +1177,25 @@
                     const piece = this.board[m.from.y][m.from.x];
                     const pieceType = piece.toLowerCase();
 
-                    // 中央支配へのボーナス（マイナーピースとポーンを優先）
                     if (pieceType === 'n' || pieceType === 'b' || pieceType === 'p') {
                         if (m.to.x >= 3 && m.to.x <= 4 && m.to.y >= 3 && m.to.y <= 4) s += 6;
                         else if (m.to.x >= 2 && m.to.x <= 5 && m.to.y >= 2 && m.to.y <= 5) s += 3;
                     } else if (pieceType === 'q') {
-                        s -= 3; // クイーンの早期展開を抑止
+                        s -= 3; 
                     }
 
-                    // 展開と前進のボーナス
                     const dir = this.turn === 'white' ? -1 : 1;
                     const forwardDist = (m.to.y - m.from.y) * dir;
                     if (forwardDist > 0) {
                         if (pieceType === 'p') s += 2;
-                        else s += 0.5; // 他の駒も前に出ることを微小に評価
+                        else s += 0.5; 
                     }
                     
-                    // 初期位置からの展開ボーナス（ナイト、ビショップを優先）
                     const startRow = this.turn === 'white' ? 7 : 0;
                     if (m.from.y === startRow && (pieceType === 'n' || pieceType === 'b')) {
                         s += 1.5;
                     }
 
-                    // 攻撃されるリスクを評価（AI用）
                     const t = this.board.map(r=>[...r]); 
                     t[m.to.y][m.to.x] = piece;
                     t[m.from.y][m.from.x] = null;
@@ -890,20 +1205,16 @@
                         if (target) s += AI_VALUES[piece] * 5; 
                     }
 
-                    // 同点時のランダム性を確保
                     m.evalScore = s + Math.random() * 0.1;
                 });
 
-                // スコア順に降順ソート
                 all.sort((a,b) => b.evalScore - a.evalScore);
 
                 let selectionPool;
                 if (this.aiLevel >= 8) {
-                    // 高レベル帯では、最高スコアと同点の手の中からのみランダムに選ぶ（最善を尽くす）
                     const bestScore = all[0].evalScore;
                     selectionPool = all.filter(m => m.evalScore === bestScore);
                 } else {
-                    // 低〜中レベル帯では、意図的に少し悪い手も選択肢に含める
                     const topN = Math.max(1, 11 - this.aiLevel);
                     selectionPool = all.slice(0, topN);
                 }
@@ -912,6 +1223,7 @@
             }
 
             undoMove() {
+                if (this.gameMode === 'online') return; // オンライン時は無効
                 if (this.history.length === 0 || this.animatingPiece) return;
                 
                 const restore = () => {
@@ -1037,11 +1349,19 @@
 
             updateStatus(s) { 
                 document.getElementById('game-status').innerText = s; 
-                // PvPモード時の名前の色変更ロジック
-                if (this.gameMode === 'pvp') {
+                // PvP/Onlineモード時の名前の色変更ロジック
+                if (this.gameMode === 'pvp' || this.gameMode === 'online') {
                     const bottomLabel = document.getElementById('bottom-player-label');
                     const topLabel = document.getElementById('top-player-label');
-                    if (this.turn === 'white') {
+                    
+                    let isBottomActive = false;
+                    if (this.gameMode === 'online') {
+                        isBottomActive = this.turn === this.playerColor;
+                    } else {
+                        isBottomActive = this.turn === 'white';
+                    }
+
+                    if (isBottomActive) {
                         bottomLabel.classList.add('text-blue-400');
                         bottomLabel.classList.remove('opacity-70');
                         topLabel.classList.remove('text-blue-400');
@@ -1073,7 +1393,6 @@
                         this.ctx.fillStyle = COLORS.selected; this.ctx.fillRect(sx*CELL, sy*CELL, CELL, CELL);
                     }
                     
-                    // チェックされているキングの背景を赤くハイライト
                     if (this.inCheckPos && this.inCheckPos.x === x && this.inCheckPos.y === y) {
                         this.ctx.fillStyle = 'rgba(255, 50, 50, 0.7)';
                         this.ctx.fillRect(sx*CELL, sy*CELL, CELL, CELL);
@@ -1086,14 +1405,12 @@
                         const targetPiece = this.board[m.to.y][m.to.x];
                         
                         if (targetPiece) {
-                            // 相手の駒を取れる場合は「○」でマーク
                             this.ctx.beginPath();
                             this.ctx.arc(sx*CELL+CELL/2, sy*CELL+CELL/2, CELL/2.2, 0, Math.PI*2);
                             this.ctx.strokeStyle = COLORS.captureRing;
                             this.ctx.lineWidth = 4;
                             this.ctx.stroke();
                         } else {
-                            // 移動のみの場合はドット
                             this.ctx.beginPath(); 
                             this.ctx.arc(sx*CELL+CELL/2, sy*CELL+CELL/2, CELL/7, 0, Math.PI*2);
                             this.ctx.fillStyle = COLORS.validDot; 
@@ -1112,7 +1429,6 @@
                     }
                 }
 
-                // アシストの描画（プレイヤーの番のみ）
                 if (this.isAssistMode && this.assistMoves.length > 0 && !this.animatingPiece && !this.isGameOver) {
                     if (this.gameMode === 'pvp' || this.turn === this.playerColor) {
                         this.assistMoves.forEach((m, idx) => {
@@ -1161,7 +1477,6 @@
             drawPiece(piece, px, py) {
                 const isWhite = piece === piece.toUpperCase();
                 
-                // 縁取り（アウトライン）を追加して視認性を向上
                 this.ctx.lineWidth = 3;
                 this.ctx.strokeStyle = isWhite ? '#000000' : 'rgba(255, 255, 255, 0.4)';
                 this.ctx.strokeText(PIECES[piece], px, py);
@@ -1170,7 +1485,29 @@
                 this.ctx.fillText(PIECES[piece], px, py);
             }
         }
-        const game = new ChessGame('chessBoard');
+        
+        // グローバルにインスタンスを割り当てる（HTMLのonclickから呼ぶため）
+        window.game = new ChessGame('chessBoard');
+
+        // Firebase Authの初期化と状態監視
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch(e) { console.error(e); }
+        };
+        initAuth();
+
+        onAuthStateChanged(auth, user => { 
+            if (user) {
+                window.game.userId = user.uid;
+                document.getElementById('auth-status').innerText = "オンライン接続準備完了";
+            }
+        });
+
     </script>
 </body>
 </html>
