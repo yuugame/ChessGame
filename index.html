@@ -289,7 +289,8 @@
                 opponentDisconnectedMsg: "対戦相手の通信が切断されました。", inputRoomWordMsg: "合言葉を入力してください", firebaseErrorMsg: "Firebaseの設定が見つかりません。",
                 connectingMsg: "サーバーに接続しています。数秒後にお試しください。", roomNotFoundMsg: "指定された合言葉の部屋が見つかりません。", createRoomFailedMsg: "部屋の作成に失敗しました。\n",
                 noUndoOnlineMsg: "オンライン対戦中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
-                colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)"
+                colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
+                stalemate: "ステイルメイト", drawMsg: "引き分け"
             },
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
@@ -311,7 +312,8 @@
                 opponentDisconnectedMsg: "Opponent disconnected.", inputRoomWordMsg: "Please enter a room word.", firebaseErrorMsg: "Firebase config not found.",
                 connectingMsg: "Connecting. Try again in a few seconds.", roomNotFoundMsg: "Room not found.", createRoomFailedMsg: "Failed to create room.\n",
                 noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
-                colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)"
+                colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
+                stalemate: "Stalemate", drawMsg: "Draw"
             },
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
@@ -333,7 +335,8 @@
                 opponentDisconnectedMsg: "对手的连接已断开。", inputRoomWordMsg: "请输入房间口令", firebaseErrorMsg: "未找到Firebase配置。",
                 connectingMsg: "正在连接，请稍后再试。", roomNotFoundMsg: "未找到该口令的房间。", createRoomFailedMsg: "创建房间失败。\n",
                 noUndoOnlineMsg: "在线对战中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
-                colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)"
+                colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
+                stalemate: "逼和", drawMsg: "平局"
             }
         };
 
@@ -532,9 +535,31 @@
                 if (this.initialized) {
                     this.updatePlayerLabels();
                     if (this.isGameOver) {
-                        const isMate = this.isMate();
-                        const winnerColor = this.turn === 'white' ? 'black' : 'white';
-                        this.showWinLoseMessage(isMate ? window.t('checkmate') : window.t('timeout'), winnerColor);
+                        let isStale = false;
+                        let isTime = false;
+                        let isMate = false;
+                        
+                        if (this.gameMode === 'online' && this.currentRoomData) {
+                            isStale = this.currentRoomData.status === 'finished_stalemate';
+                            isTime = this.currentRoomData.status === 'finished_timeout';
+                            isMate = this.currentRoomData.status === 'finished_mate';
+                        } else {
+                            if (this.timers[this.turn] <= 0 && this.useTimer) isTime = true;
+                            else if (this.isMate()) {
+                                if (this.inCheckPos) isMate = true;
+                                else isStale = true;
+                            }
+                        }
+
+                        if (isStale) {
+                            this.showDrawMessage(window.t('stalemate'));
+                        } else if (isTime) {
+                            const winnerColor = this.gameMode === 'online' && this.currentRoomData ? this.currentRoomData.winner : (this.turn === 'white' ? 'black' : 'white');
+                            this.showWinLoseMessage(window.t('timeout'), winnerColor);
+                        } else if (isMate) {
+                            const winnerColor = this.turn === 'white' ? 'black' : 'white';
+                            this.showWinLoseMessage(window.t('checkmate'), winnerColor);
+                        }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                         this.showTurnMessage(checkStr);
@@ -554,14 +579,14 @@
                     topLabel.innerText = `${window.t('p2Black')}`;
                 } else if (this.gameMode === 'online') {
                     let myName = window.t('you');
-                    let opponentName = window.t('opponent');
+                    let opponentName = window.t('anonymous');
                     if (this.currentRoomData) {
                         if (this.currentRoomData.host === this.userId) {
                             myName = this.currentRoomData.hostName || window.t('you');
-                            opponentName = this.currentRoomData.guestName || window.t('opponent');
+                            opponentName = this.currentRoomData.guestName || window.t('anonymous');
                         } else {
                             myName = this.currentRoomData.guestName || window.t('you');
-                            opponentName = this.currentRoomData.hostName || window.t('opponent');
+                            opponentName = this.currentRoomData.hostName || window.t('anonymous');
                         }
                     }
                     bottomLabel.innerText = `${myName}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
@@ -622,7 +647,7 @@
             showOnlineTimeSelection() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                this.playerName = document.getElementById('player-name-input').value.trim() || window.t('anonymous');
+                this.playerName = document.getElementById('player-name-input').value.trim();
                 if (!this.roomId) {
                     this.showConfirm(window.t('error'), window.t('inputRoomWordMsg'), ()=>{}, true);
                     return;
@@ -728,7 +753,7 @@
             async joinOnlineRoom() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                this.playerName = document.getElementById('player-name-input').value.trim() || window.t('anonymous');
+                this.playerName = document.getElementById('player-name-input').value.trim();
                 
                 if (!this.roomId) return this.showConfirm(window.t('error'), window.t('inputRoomWordMsg'), ()=>{}, true);
                 if (!this.userId) return this.showConfirm(window.t('authStatusPreparing'), window.t('connectingMsg'), ()=>{}, true);
@@ -897,15 +922,15 @@
                         if (data.whoAbandoned !== this.userId && !this.isGameOver) {
                             this.isGameOver = true;
                             this.stopTimer();
-                            let leaverName = window.t('opponent');
-                            if (data.host === data.whoAbandoned) leaverName = data.hostName || window.t('opponent');
-                            else if (data.guest === data.whoAbandoned) leaverName = data.guestName || window.t('opponent');
+                            let leaverName = window.t('anonymous');
+                            if (data.host === data.whoAbandoned) leaverName = data.hostName || window.t('anonymous');
+                            else if (data.guest === data.whoAbandoned) leaverName = data.guestName || window.t('anonymous');
                             this.showConfirm(window.t('abandonTitle'), `${leaverName}${window.t('abandonMsg')}`, () => { this.showModeSelection(); }, true);
                         }
                         return;
                     }
                     
-                    if (data.status === 'playing' || data.status === 'finished_mate' || data.status === 'finished_timeout') {
+                    if (data.status === 'playing' || data.status === 'finished_mate' || data.status === 'finished_stalemate' || data.status === 'finished_timeout') {
                         this.handleOnlineUpdate(data);
                     }
                 }, (error) => {
@@ -1016,6 +1041,12 @@
                     const winnerColor = gs.turn === 'white' ? 'black' : 'white';
                     this.showWinLoseMessage(window.t('checkmate'), winnerColor);
                     this.showRematchButton();
+                } else if (data.status === 'finished_stalemate') {
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.showDrawMessage(window.t('stalemate'));
+                    this.showRematchButton();
                 } else if (data.status === 'finished_timeout') {
                     this.isGameOver = true;
                     this.stopTimer();
@@ -1043,9 +1074,9 @@
                     if (winnerColor === this.playerColor) {
                         this.updateStatus(`${reason} ${window.t('youWin')}`);
                     } else {
-                        let opponentName = window.t('opponent');
+                        let opponentName = window.t('anonymous');
                         if (this.currentRoomData) {
-                            opponentName = this.isHost ? (this.currentRoomData.guestName || window.t('opponent')) : (this.currentRoomData.hostName || window.t('opponent'));
+                            opponentName = this.isHost ? (this.currentRoomData.guestName || window.t('anonymous')) : (this.currentRoomData.hostName || window.t('anonymous'));
                         }
                         this.updateStatus(`${reason} ${opponentName}${window.t('winSuffix')}`);
                     }
@@ -1056,6 +1087,10 @@
                         this.updateStatus(`${reason} ${window.t('youLose')}`);
                     }
                 }
+            }
+
+            showDrawMessage(reason) {
+                this.updateStatus(`${reason} - ${window.t('drawMsg')}`);
             }
             
             showTurnMessage(prefix) {
@@ -1074,12 +1109,14 @@
                 }
             }
 
-            async sendOnlineMove(isMate) {
+            async sendOnlineMove(isCheckmate, isStalemate) {
                 if (!this.roomId) return;
                 try {
                     this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                    let status = isMate ? 'finished_mate' : 'playing';
+                    let status = 'playing';
+                    if (isCheckmate) status = 'finished_mate';
+                    if (isStalemate) status = 'finished_stalemate';
                     
                     await updateDoc(roomRef, {
                         status: status,
@@ -1579,18 +1616,26 @@
                 this.baseTimers = { ...this.timers };
                 
                 this.updateCheckStatus();
-                const isMate = this.isMate();
+                const noMoves = this.isMate();
+                const isCheckmate = noMoves && this.inCheckPos !== null;
+                const isStalemate = noMoves && this.inCheckPos === null;
 
                 if (this.gameMode === 'online' && this.turn !== this.playerColor) {
-                    this.sendOnlineMove(isMate);
+                    this.sendOnlineMove(isCheckmate, isStalemate);
                 }
 
-                if (isMate) {
+                if (isCheckmate) {
                     this.sfx.checkmate(); 
                     this.isGameOver = true; 
                     this.stopTimer();
                     const winnerColor = this.turn === 'white' ? 'black' : 'white';
                     this.showWinLoseMessage(window.t('checkmate'), winnerColor);
+                    this.showRematchButton();
+                } else if (isStalemate) {
+                    this.sfx.checkmate(); 
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    this.showDrawMessage(window.t('stalemate'));
                     this.showRematchButton();
                 } else {
                     if (this.inCheckPos) this.sfx.check(); 
