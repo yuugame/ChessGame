@@ -154,7 +154,7 @@
                 <button class="btn-sub !bg-purple-600" onclick="game.showOnlineTimeSelection()">部屋を作る</button>
                 <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
             </div>
-            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]">※同じ合言葉で再戦する場合は、どちらかが「部屋を作る」で部屋を上書きしてください。</p>
+            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]">※同じ合言葉で再戦する場合は、どちらかが「部屋を作る」で新しく作り直してください。</p>
         </div>
 
         <div id="waiting-room" class="w-full flex flex-col items-center" style="display: none;">
@@ -289,7 +289,6 @@
                         this.ctx.resume();
                     }
                     
-                    // 無音のバッファを再生してオーディオエンジンを完全に起動させる
                     const buffer = this.ctx.createBuffer(1, 1, 22050);
                     const source = this.ctx.createBufferSource();
                     source.buffer = buffer;
@@ -297,14 +296,13 @@
                     if (source.start) {
                         source.start(0);
                     } else if (source.noteOn) {
-                        source.noteOn(0); // 古いiOS用フォールバック
+                        source.noteOn(0);
                     }
 
                     document.body.removeEventListener('touchstart', unlock);
                     document.body.removeEventListener('click', unlock);
                 };
                 
-                // タップイベントにフック
                 document.body.addEventListener('touchstart', unlock, { once: true, passive: false });
                 document.body.addEventListener('click', unlock, { once: true, passive: false });
             }
@@ -375,14 +373,10 @@
                 // Online State
                 this.roomId = null;
                 this.unsubRoom = null;
-                this.pingInterval = null;
                 this.isHost = false;
-                this.lastOpponentPing = 0;
-                this.lastPingLocalTime = 0;
                 
-                // 【重要】ターン（手数）を管理し、タイムラグによる同期ズレを防ぐ
+                // ターン（手数）を管理し、タイムラグによる同期ズレを防ぐ
                 this.moveCount = 0; 
-                this.isOpponentDisconnected = false;
                 
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
@@ -404,10 +398,9 @@
                 this.setupListeners();
                 this.animate();
 
-                // iOS Safari対策: バックグラウンドから復帰した際にPing基準時間をリセットし、誤爆を防ぐ
+                // iOS Safari対策: バックグラウンドから復帰した際に音声を再開する
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') {
-                        this.lastPingLocalTime = Date.now();
                         if (this.sfx && this.sfx.ctx.state === 'suspended') {
                             this.sfx.ctx.resume();
                         }
@@ -432,10 +425,6 @@
                 if (this.unsubRoom) {
                     this.unsubRoom();
                     this.unsubRoom = null;
-                }
-                if (this.pingInterval) {
-                    clearInterval(this.pingInterval);
-                    this.pingInterval = null;
                 }
                 this.hideAllOverlays();
                 document.getElementById('mode-selection').style.display = 'flex';
@@ -498,14 +487,20 @@
 
             confirmExit() {
                 this.sfx.buttonClick();
-                this.showConfirm("終了確認", "現在のゲームを終了してタイトルに戻りますか？", async () => {
-                    if (this.gameMode === 'online' && this.roomId && this.userId && !this.isGameOver) {
+                this.showConfirm("終了確認", "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）", async () => {
+                    if (this.gameMode === 'online' && this.roomId && this.userId) {
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                            await updateDoc(roomRef, {
-                                status: 'abandoned',
-                                whoAbandoned: this.userId
-                            });
+                            if (this.isHost) {
+                                // ホストが退出する場合は部屋ごと削除して掃除する
+                                await deleteDoc(roomRef);
+                            } else {
+                                // ゲストが退出する場合はステータスのみ更新
+                                await updateDoc(roomRef, {
+                                    status: 'abandoned',
+                                    whoAbandoned: this.userId
+                                });
+                            }
                         } catch(e) { console.error(e); }
                     }
                     this.showModeSelection();
@@ -566,11 +561,11 @@
                     }
                     const data = snap.data();
                     
-                    // 【修正】部屋が終了している場合の案内を親切にする
+                    // 部屋が終了している場合のエラーを分かりやすく
                     if (data.status !== 'waiting') {
                         return this.showConfirm(
                             "部屋に入れません", 
-                            "この合言葉の部屋は既に対戦中か、終了しています。\n\n再戦する場合は、どちらかが「部屋を作る」を押して部屋を上書きしてください。", 
+                            "この合言葉の部屋は既に対戦中か、過去の対戦データが残っています。\n\n再戦する場合は、どちらかが「部屋を作る」を押して部屋を新しく上書きしてください。", 
                             ()=>{}, true
                         );
                     }
@@ -580,21 +575,16 @@
                     }
 
                     this.isHost = false;
-                    this.lastOpponentPing = 0;
-                    this.lastPingLocalTime = Date.now();
-                    this.isOpponentDisconnected = false;
 
                     const isHostWhite = Math.random() < 0.5;
                     await updateDoc(roomRef, {
                         status: 'playing',
                         guest: this.userId,
                         white: isHostWhite ? data.host : this.userId,
-                        black: isHostWhite ? this.userId : data.host,
-                        'ping.guest': Date.now()
+                        black: isHostWhite ? this.userId : data.host
                     });
                     
                     this.listenToRoom();
-                    this.startPing();
                 } catch (e) {
                     console.error(e);
                     this.showConfirm("通信エラー", `エラーが発生しました。\n${e.message}`, ()=>{}, true);
@@ -609,9 +599,6 @@
                 document.getElementById('display-room-id').innerText = this.roomId;
                 
                 this.isHost = true;
-                this.lastOpponentPing = 0;
-                this.lastPingLocalTime = Date.now();
-                this.isOpponentDisconnected = false;
                 this.moveCount = 0;
 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -624,12 +611,12 @@
                 ];
 
                 try {
+                    // 古い部屋データがある場合は強制上書きして新しくする
                     await setDoc(roomRef, {
                         status: 'waiting',
                         host: this.userId,
                         guest: null,
                         timeConfig: { seconds, inc },
-                        ping: { host: Date.now(), guest: 0 },
                         gameState: {
                             board: JSON.stringify(initialBoard),
                             turn: 'white',
@@ -644,7 +631,6 @@
                         }
                     });
                     this.listenToRoom();
-                    this.startPing();
                 } catch(e) {
                     console.error(e);
                     this.showConfirm("通信エラー", `部屋の作成に失敗しました。\n${e.message}`, ()=>{}, true);
@@ -655,7 +641,6 @@
             async cancelOnlineRoom() {
                 this.sfx.buttonClick();
                 if (this.unsubRoom) this.unsubRoom();
-                if (this.pingInterval) clearInterval(this.pingInterval);
                 if (this.roomId && this.userId) {
                     try {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -663,20 +648,6 @@
                     } catch(e) { console.error(e); }
                 }
                 this.showModeSelection();
-            }
-
-            startPing() {
-                if (this.pingInterval) clearInterval(this.pingInterval);
-                this.pingInterval = setInterval(() => {
-                    if (!this.roomId || !this.userId || this.isGameOver || this.gameMode !== 'online') {
-                        clearInterval(this.pingInterval);
-                        return;
-                    }
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                    const updateData = {};
-                    updateData[`ping.${this.isHost ? 'host' : 'guest'}`] = Date.now();
-                    updateDoc(roomRef, updateData).catch(e => {});
-                }, 3000);
             }
 
             listenToRoom() {
@@ -702,27 +673,6 @@
                         }
                         return;
                     }
-
-                    // 【修正】通信遅延・タイムアウトによる「強制エラー」を廃止し、ステータス表示のみに留める
-                    if (data.status === 'playing') {
-                        const opponentPing = this.isHost ? data.ping.guest : data.ping.host;
-                        if (this.lastOpponentPing !== opponentPing) {
-                            this.lastOpponentPing = opponentPing;
-                            this.lastPingLocalTime = Date.now();
-                            // 相手が復帰した場合
-                            if (this.isOpponentDisconnected) {
-                                this.isOpponentDisconnected = false;
-                                const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
-                                this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
-                            }
-                        } else if (this.lastPingLocalTime > 0 && (Date.now() - this.lastPingLocalTime) > 30000) {
-                            // Safariなどのバックグラウンド遅延を考慮し、判定を30秒に延長
-                            if (!this.isGameOver && !this.isOpponentDisconnected) {
-                                this.isOpponentDisconnected = true;
-                                this.updateStatus("通信待機中 (相手の応答がありません...)");
-                            }
-                        }
-                    }
                     
                     if (data.status === 'playing' || data.status === 'finished_mate' || data.status === 'finished_timeout') {
                         this.handleOnlineUpdate(data);
@@ -735,7 +685,7 @@
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
                 
-                // 【修正】時間ベースの判定から、正確な「ターン（手数）ベース」の判定に切り替え
+                // 時間ベースの判定から、正確な「ターン（手数）ベース」の判定に切り替え
                 if (this.gameMode === 'online' && gs.moveCount <= this.moveCount && this.initialized) {
                     return; 
                 }
@@ -803,10 +753,8 @@
                     const winnerColor = data.winner === 'white' ? '白' : '黒';
                     this.updateStatus(`時間切れ！ ${winnerColor}の勝ち`);
                 } else {
-                    if (!this.isOpponentDisconnected) {
-                        const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
-                        this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
-                    }
+                    const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                    this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
                     
                     if (this.turn === this.playerColor) {
                         this.updateAssistMoves();
@@ -1300,9 +1248,7 @@
                     if (this.inCheckPos) this.sfx.check(); 
                     
                     const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
-                    if (!this.isOpponentDisconnected) {
-                        this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
-                    }
+                    this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
                     
                     if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
                         setTimeout(() => this.cpuMove(), 400);
