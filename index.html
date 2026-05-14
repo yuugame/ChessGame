@@ -1060,7 +1060,17 @@
             }
 
             executeMove(move) {
-                if (this.useTimer) this.timers[this.turn] += this.increment;
+                if (this.useTimer) {
+                    // 各プレイヤーの最初の1手目かどうかを判定
+                    const isFirstMove = (this.gameMode === 'online') 
+                        ? (this.turn === 'white' ? this.moveCount === 0 : this.moveCount === 1)
+                        : (this.turn === 'white' ? this.history.length === 1 : this.history.length === 2);
+
+                    // 1手目以外の場合のみ、インクリメント（加算秒）を追加する
+                    if (!isFirstMove) {
+                        this.timers[this.turn] += this.increment;
+                    }
+                }
                 
                 const piece = this.animatingPiece.piece;
                 const isCapture = this.board[move.to.y][move.to.x] !== null; 
