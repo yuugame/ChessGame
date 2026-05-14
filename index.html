@@ -239,11 +239,34 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // ==========================================
+        // 【重要】GitHub等で動かす場合の設定
+        // 下記の myFirebaseConfig にご自身のFirebaseの
+        // 設定情報を貼り付けてください。
+        // ==========================================
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyCkUBUExKBbhuMzMnyxZbmrgsfGWK9lTt0",
+            authDomain: "chessonline-ab5ac.firebaseapp.com",
+            projectId: "chessonline-ab5ac",
+            storageBucket: "chessonline-ab5ac.firebasestorage.app",
+            messagingSenderId: "1093034532095",
+            appId: "1:1093034532095:web:7009f76c02110c6eb080ca",
+            measurementId: "G-1KK4ZB1PJS"
+        };
+
+        // Canvas環境と外部環境を自動で切り替える
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        
+        // 設定が空の場合はエラーを防ぐために初期化をスキップ（オフラインのみ動作）
+        let app, auth, db;
+        if (Object.keys(firebaseConfig).length > 0) {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        }
+        
+        // 外部環境用にカスタムアプリIDを設定
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'my-chess-app-v1';
 
         const SIZE = 400;
         const CELL = SIZE / 8;
@@ -389,6 +412,12 @@
 
             showOnlineConfig() {
                 this.sfx.buttonClick();
+                
+                // 外部環境で設定がない場合のエラーハンドリング
+                if (!auth || !db) {
+                    return this.showConfirm("エラー", "Firebaseの設定が見つかりません。コード内の myFirebaseConfig に設定を書き込んでください。", ()=>{});
+                }
+                
                 this.hideAllOverlays();
                 document.getElementById('online-config').style.display = 'flex';
             }
@@ -493,7 +522,7 @@
                     this.listenToRoom();
                 } catch (e) {
                     console.error(e);
-                    this.showConfirm("エラー", "通信に失敗しました。", ()=>{});
+                    this.showConfirm("エラー", "通信に失敗しました。Firebaseのセキュリティルール等を確認してください。", ()=>{});
                 }
             }
 
@@ -535,6 +564,7 @@
                     this.listenToRoom();
                 } catch(e) {
                     console.error(e);
+                    this.showConfirm("エラー", "通信に失敗しました。Firebaseのセキュリティルール等を確認してください。", ()=>{});
                     this.showModeSelection();
                 }
             }
@@ -1494,19 +1524,21 @@
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
+                } else if (auth) {
                     await signInAnonymously(auth);
                 }
             } catch(e) { console.error(e); }
         };
         initAuth();
 
-        onAuthStateChanged(auth, user => { 
-            if (user) {
-                window.game.userId = user.uid;
-                document.getElementById('auth-status').innerText = "オンライン接続準備完了";
-            }
-        });
+        if (auth) {
+            onAuthStateChanged(auth, user => { 
+                if (user) {
+                    window.game.userId = user.uid;
+                    document.getElementById('auth-status').innerText = "オンライン接続準備完了";
+                }
+            });
+        }
 
     </script>
 </body>
