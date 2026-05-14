@@ -378,6 +378,7 @@
                 this.unsubRoom = null;
                 this.isHost = false;
                 
+                // 無駄な通信制限（遅延の元）を解消したためサクサク動く
                 this.moveCount = 0; 
                 this.gameMode = null; 
                 
@@ -437,6 +438,7 @@
                 
                 this.gameMode = null;
                 this.roomId = null;
+                this.moveCount = 0;
             }
 
             showCpuConfig() {
@@ -686,22 +688,7 @@
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
                 
-                if (this.gameMode === 'online' && gs.moveCount <= this.moveCount && this.initialized) {
-                    return; 
-                }
-                this.moveCount = gs.moveCount || 0;
-
-                const newTurn = gs.turn;
-                const oldTurn = this.turn;
-                
-                this.movedStatus = gs.movedStatus;
-                this.timers = gs.timers; 
-                this.baseTimers = { ...gs.timers };
-                this.turn = gs.turn;
-                
-                this.turnStartTime = Date.now();
-
-                // 【修正】盤面準備エラーを防ぐため、チェック判定を初期化処理から外した
+                // 初回ゲーム開始時（盤面などの初期構築を先に行いバグを防ぐ）
                 if (!this.initialized || this.gameMode !== 'online') {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
@@ -728,15 +715,33 @@
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove;
                     
-                    this.updateCheckStatus(); // 盤面ロード後にチェック判定を行う
+                    this.updateCheckStatus(); 
                     
                     this.initialized = true;
                     if (this.useTimer) this.startTimer();
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
-                    this.checkGameEnd(data, gs, oldTurn, newTurn);
+                    this.checkGameEnd(data, gs, this.turn, gs.turn);
+                    
+                    this.moveCount = gs.moveCount || 0;
                     return;
                 }
+
+                // すでに初期化済みの場合は、手数（ターン）が進んでいなければ無視して遅延・重複を防ぐ
+                if (gs.moveCount <= this.moveCount) {
+                    return; 
+                }
+                this.moveCount = gs.moveCount;
+
+                const newTurn = gs.turn;
+                const oldTurn = this.turn;
+                
+                this.movedStatus = gs.movedStatus;
+                this.timers = gs.timers; 
+                this.baseTimers = { ...gs.timers };
+                this.turn = gs.turn;
+                
+                this.turnStartTime = Date.now();
 
                 const isOpponentMove = (oldTurn !== newTurn && newTurn === this.playerColor && gs.lastMove);
 
@@ -886,7 +891,6 @@
                 this.animatingPiece = null;
                 this.inCheckPos = null;
                 this.moveCount = 0;
-                // ここにあった updateCheckStatus(); を削除
             }
 
             initGame() {
@@ -905,7 +909,7 @@
                 this.turn = 'white';
                 this.initGameLocalVariables();
                 
-                this.updateCheckStatus(); // 盤面セット後に呼ぶ
+                this.updateCheckStatus(); 
                 this.initialized = true;
                 
                 this.turnStartTime = Date.now();
