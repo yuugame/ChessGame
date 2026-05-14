@@ -280,7 +280,19 @@
 
         class SoundEffects {
             constructor() {
-                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+                
+                // iOS Safari対策: 最初のタップでAudioContextをアンロック
+                const unlock = () => {
+                    if (this.ctx.state === 'suspended') {
+                        this.ctx.resume();
+                    }
+                    document.body.removeEventListener('touchstart', unlock);
+                    document.body.removeEventListener('click', unlock);
+                };
+                document.body.addEventListener('touchstart', unlock, { once: true, passive: true });
+                document.body.addEventListener('click', unlock, { once: true, passive: true });
             }
             resume() {
                 if(this.ctx.state === 'suspended') this.ctx.resume();
@@ -377,6 +389,16 @@
                 this.inCheckPos = null;
                 this.setupListeners();
                 this.animate();
+
+                // iOS Safari対策: バックグラウンドから復帰した際にPing基準時間をリセットし、誤爆を防ぐ
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        this.lastPingLocalTime = Date.now();
+                        if (this.sfx && this.sfx.ctx.state === 'suspended') {
+                            this.sfx.ctx.resume();
+                        }
+                    }
+                });
             }
 
             setupListeners() {
@@ -679,8 +701,8 @@
                                 const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
                                 this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
                             }
-                        } else if (this.lastPingLocalTime > 0 && (Date.now() - this.lastPingLocalTime) > 15000) {
-                            // 15秒以上Pingが来ない場合は待機中表示にする（切断はしない）
+                        } else if (this.lastPingLocalTime > 0 && (Date.now() - this.lastPingLocalTime) > 30000) {
+                            // Safariなどのバックグラウンド遅延を考慮し、判定を30秒に延長
                             if (!this.isGameOver && !this.isOpponentDisconnected) {
                                 this.isOpponentDisconnected = true;
                                 this.updateStatus("通信待機中 (相手の応答がありません...)");
