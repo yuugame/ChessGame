@@ -188,11 +188,11 @@
         <!-- 確認用モーダル -->
         <div id="confirm-modal" class="w-full flex flex-col items-center" style="display: none;">
             <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[300px] w-full border border-zinc-700">
-                <h2 id="confirm-title" class="text-xl font-bold mb-4">確認</h2>
-                <p id="confirm-message" class="mb-6 opacity-80 text-sm whitespace-pre-wrap">本当に実行しますか？</p>
+                <h2 id="confirm-title" class="text-xl font-bold mb-4 text-white">確認</h2>
+                <p id="confirm-message" class="mb-6 opacity-80 text-sm whitespace-pre-wrap text-white">本当に実行しますか？</p>
                 <div class="flex gap-3 justify-center w-full">
-                    <button id="confirm-yes" class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1">はい</button>
-                    <button id="confirm-no" class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1">いいえ</button>
+                    <button id="confirm-yes" class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white">はい</button>
+                    <button id="confirm-no" class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white">いいえ</button>
                 </div>
             </div>
         </div>
@@ -349,6 +349,9 @@
                 // Online State
                 this.roomId = null;
                 this.unsubRoom = null;
+                this.pingInterval = null; // ハートビート用
+                this.isHost = false;
+                
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
 
@@ -388,6 +391,10 @@
                     this.unsubRoom();
                     this.unsubRoom = null;
                 }
+                if (this.pingInterval) {
+                    clearInterval(this.pingInterval);
+                    this.pingInterval = null;
+                }
                 this.hideAllOverlays();
                 document.getElementById('mode-selection').style.display = 'flex';
                 document.getElementById('timer-top').style.display = 'none';
@@ -404,11 +411,9 @@
 
             showOnlineConfig() {
                 this.sfx.buttonClick();
-                
                 if (!auth || !db) {
-                    return this.showConfirm("エラー", "Firebaseの設定が見つかりません。", ()=>{});
+                    return this.showConfirm("エラー", "Firebaseの設定が見つかりません。", ()=>{}, true);
                 }
-                
                 this.hideAllOverlays();
                 document.getElementById('online-config').style.display = 'flex';
             }
@@ -417,7 +422,7 @@
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
                 if (!this.roomId) {
-                    this.showConfirm("エラー", "合言葉を入力してください", ()=>{});
+                    this.showConfirm("エラー", "合言葉を入力してください", ()=>{}, true);
                     return;
                 }
                 this.hideAllOverlays();
@@ -441,7 +446,7 @@
             confirmUndo() {
                 this.sfx.buttonClick();
                 if (this.gameMode === 'online') {
-                    return this.showConfirm("エラー", "オンライン対戦中は「待った」を使用できません。", ()=>{});
+                    return this.showConfirm("エラー", "オンライン対戦中は「待った」を使用できません。", ()=>{}, true);
                 }
                 if (this.history.length === 0 || this.animatingPiece) return;
                 this.showConfirm("1手戻る", "1手前の状態に戻しますか？", () => {
@@ -501,52 +506,57 @@
                     modal.style.display = 'none';
                 });
 
+                this.hideAllOverlays();
                 modal.style.display = 'flex';
             }
 
             async joinOnlineRoom() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                if (!this.roomId) return this.showConfirm("エラー", "合言葉を入力してください", ()=>{});
-                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{});
+                if (!this.roomId) return this.showConfirm("エラー", "合言葉を入力してください", ()=>{}, true);
+                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{}, true);
 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                 try {
                     const snap = await getDoc(roomRef);
                     if (!snap.exists()) {
-                        return this.showConfirm("エラー", "指定された合言葉の部屋が見つかりません。", ()=>{});
+                        return this.showConfirm("エラー", "指定された合言葉の部屋が見つかりません。", ()=>{}, true);
                     }
                     const data = snap.data();
                     if (data.status !== 'waiting') {
-                        return this.showConfirm("エラー", "この部屋は既に対戦中か終了しています。", ()=>{});
+                        return this.showConfirm("エラー", "この部屋は既に対戦中か終了しています。", ()=>{}, true);
                     }
 
-                    // 【修正】同一ブラウザの別タブでテストした際にIDが被る問題への対策
                     if (data.host === this.userId) {
                         this.userId = this.userId + "_guest";
                     }
+
+                    this.isHost = false;
 
                     const isHostWhite = Math.random() < 0.5;
                     await updateDoc(roomRef, {
                         status: 'playing',
                         guest: this.userId,
                         white: isHostWhite ? data.host : this.userId,
-                        black: isHostWhite ? this.userId : data.host
+                        black: isHostWhite ? this.userId : data.host,
+                        'ping.guest': Date.now()
                     });
                     
                     this.listenToRoom();
+                    this.startPing();
                 } catch (e) {
                     console.error(e);
-                    this.showConfirm("通信エラー", `エラーが発生しました。\n${e.message}`, ()=>{});
+                    this.showConfirm("通信エラー", `エラーが発生しました。\n${e.message}`, ()=>{}, true);
                 }
             }
 
             async createOnlineRoom(seconds, inc) {
-                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{});
+                if (!this.userId) return this.showConfirm("通信準備中", "サーバーに接続しています。数秒後にお試しください。", ()=>{}, true);
                 
                 this.hideAllOverlays();
                 document.getElementById('waiting-room').style.display = 'flex';
                 document.getElementById('display-room-id').innerText = this.roomId;
+                this.isHost = true;
 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                 const initialBoard = [
@@ -563,6 +573,7 @@
                         host: this.userId,
                         guest: null,
                         timeConfig: { seconds, inc },
+                        ping: { host: Date.now(), guest: 0 },
                         gameState: {
                             board: JSON.stringify(initialBoard),
                             turn: 'white',
@@ -576,9 +587,10 @@
                         }
                     });
                     this.listenToRoom();
+                    this.startPing();
                 } catch(e) {
                     console.error(e);
-                    this.showConfirm("通信エラー", `部屋の作成に失敗しました。\n${e.message}`, ()=>{});
+                    this.showConfirm("通信エラー", `部屋の作成に失敗しました。\n${e.message}`, ()=>{}, true);
                     this.showModeSelection();
                 }
             }
@@ -586,6 +598,7 @@
             async cancelOnlineRoom() {
                 this.sfx.buttonClick();
                 if (this.unsubRoom) this.unsubRoom();
+                if (this.pingInterval) clearInterval(this.pingInterval);
                 if (this.roomId && this.userId) {
                     try {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -593,6 +606,20 @@
                     } catch(e) { console.error(e); }
                 }
                 this.showModeSelection();
+            }
+
+            startPing() {
+                if (this.pingInterval) clearInterval(this.pingInterval);
+                this.pingInterval = setInterval(() => {
+                    if (!this.roomId || !this.userId || this.isGameOver || this.gameMode !== 'online') {
+                        clearInterval(this.pingInterval);
+                        return;
+                    }
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                    const updateData = {};
+                    updateData[`ping.${this.isHost ? 'host' : 'guest'}`] = Date.now();
+                    updateDoc(roomRef, updateData).catch(e => {});
+                }, 3000);
             }
 
             listenToRoom() {
@@ -618,6 +645,20 @@
                         }
                         return;
                     }
+
+                    // ハートビートによる通信切断の検知 (12秒以上応答がなければ切断)
+                    if (data.status === 'playing') {
+                        const opponentPing = this.isHost ? data.ping.guest : data.ping.host;
+                        const now = Date.now();
+                        if (opponentPing > 0 && (now - opponentPing) > 12000) {
+                            if (!this.isGameOver) {
+                                this.isGameOver = true;
+                                this.stopTimer();
+                                this.showConfirm("通信切断", "対戦相手の通信が切断されました。", () => { this.showModeSelection(); }, true);
+                            }
+                            return;
+                        }
+                    }
                     
                     if (data.status === 'playing' || data.status === 'finished_mate' || data.status === 'finished_timeout') {
                         this.handleOnlineUpdate(data);
@@ -639,7 +680,6 @@
                 this.baseTimers = { ...gs.timers };
                 this.turn = gs.turn;
                 
-                // 【重要】端末間の時計ズレを回避するため、データを受信した「今」を基準時間にする
                 this.turnStartTime = Date.now();
 
                 if (this.gameMode !== 'online') {
@@ -828,7 +868,6 @@
                 let lastSec = Math.floor(this.timers[this.turn] || 0);
 
                 this.timerInterval = setInterval(() => {
-                    // 【修正】経過時間を絶対時間（Date.now()）の差分で計算し、機種ごとの遅延を完全に防ぐ
                     const now = Date.now();
                     const elapsed = (now - this.turnStartTime) / 1000;
                     
@@ -851,7 +890,7 @@
                         }
                     }
                     this.updateTimerDisplay();
-                }, 50); // 描画頻度を上げて滑らかに更新
+                }, 50); 
             }
 
             stopTimer() { clearInterval(this.timerInterval); }
@@ -1166,7 +1205,6 @@
                 this.turn = this.turn === 'white' ? 'black' : 'white';
                 this.assistMoves = [];
                 
-                // 【修正】ターンが切り替わったタイミングでタイマーの基準をリセットする
                 this.turnStartTime = Date.now();
                 this.baseTimers = { ...this.timers };
                 
@@ -1550,6 +1588,17 @@
                 }
             });
         }
+
+        // ブラウザ（タブ）を閉じた時や他のページへ移動した時に切断を通知
+        window.addEventListener('pagehide', () => {
+            if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId && !window.game.isGameOver) {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
+                updateDoc(roomRef, {
+                    status: 'abandoned',
+                    whoAbandoned: window.game.userId
+                }).catch(()=>{});
+            }
+        });
 
     </script>
 </body>
