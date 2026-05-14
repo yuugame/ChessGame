@@ -349,8 +349,11 @@
                 // Online State
                 this.roomId = null;
                 this.unsubRoom = null;
-                this.pingInterval = null; // ハートビート用
+                this.pingInterval = null;
                 this.isHost = false;
+                this.lastOpponentPing = 0;
+                this.lastPingLocalTime = 0;
+                this.lastGameStateUpdate = 0;
                 
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
@@ -532,6 +535,8 @@
                     }
 
                     this.isHost = false;
+                    this.lastOpponentPing = 0;
+                    this.lastPingLocalTime = Date.now();
 
                     const isHostWhite = Math.random() < 0.5;
                     await updateDoc(roomRef, {
@@ -539,7 +544,8 @@
                         guest: this.userId,
                         white: isHostWhite ? data.host : this.userId,
                         black: isHostWhite ? this.userId : data.host,
-                        'ping.guest': Date.now()
+                        'ping.guest': Date.now(),
+                        'gameState.lastUpdate': Date.now()
                     });
                     
                     this.listenToRoom();
@@ -557,6 +563,8 @@
                 document.getElementById('waiting-room').style.display = 'flex';
                 document.getElementById('display-room-id').innerText = this.roomId;
                 this.isHost = true;
+                this.lastOpponentPing = 0;
+                this.lastPingLocalTime = Date.now();
 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                 const initialBoard = [
@@ -583,7 +591,8 @@
                                 whiteRookLeft: false, whiteRookRight: false,
                                 blackRookLeft: false, blackRookRight: false
                             },
-                            lastMove: null
+                            lastMove: null,
+                            lastUpdate: Date.now()
                         }
                     });
                     this.listenToRoom();
@@ -646,11 +655,13 @@
                         return;
                     }
 
-                    // ハートビートによる通信切断の検知 (12秒以上応答がなければ切断)
+                    // 時計ズレに依存しない、ローカル時間ベースの切断検知
                     if (data.status === 'playing') {
                         const opponentPing = this.isHost ? data.ping.guest : data.ping.host;
-                        const now = Date.now();
-                        if (opponentPing > 0 && (now - opponentPing) > 12000) {
+                        if (this.lastOpponentPing !== opponentPing) {
+                            this.lastOpponentPing = opponentPing;
+                            this.lastPingLocalTime = Date.now();
+                        } else if (this.lastPingLocalTime > 0 && (Date.now() - this.lastPingLocalTime) > 15000) {
                             if (!this.isGameOver) {
                                 this.isGameOver = true;
                                 this.stopTimer();
@@ -670,6 +681,13 @@
 
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
+                
+                // 【重要】Pingなどの更新でタイマーや盤面がリセットされるのを防ぐ
+                if (this.lastGameStateUpdate === gs.lastUpdate && this.gameMode === 'online') {
+                    return; 
+                }
+                this.lastGameStateUpdate = gs.lastUpdate;
+
                 const newTurn = gs.turn;
                 const oldTurn = this.turn;
                 
@@ -728,7 +746,7 @@
                 } else if (data.status === 'finished_timeout') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    this.sfx.checkmate();
+                    if (oldTurn !== newTurn) this.sfx.checkmate();
                     const winnerColor = data.winner === 'white' ? '白' : '黒';
                     this.updateStatus(`時間切れ！ ${winnerColor}の勝ち`);
                 } else {
@@ -757,7 +775,8 @@
                         'gameState.turn': this.turn,
                         'gameState.timers': this.timers,
                         'gameState.movedStatus': this.movedStatus,
-                        'gameState.lastMove': this.lastMove
+                        'gameState.lastMove': this.lastMove,
+                        'gameState.lastUpdate': Date.now()
                     });
                 } catch(e) { console.error(e); }
             }
@@ -923,7 +942,7 @@
                     bottomTimer.innerText = fmt(this.timers.black);
                     topTimer.innerText = fmt(this.timers.white);
                     bottomTimer.classList.toggle('timer-active', this.turn === 'black');
-                    topTimer.classList.toggle('timer-active', this.turn === 'white');
+                    bottomTimer.classList.toggle('timer-active', this.turn === 'white');
                 }
             }
 
