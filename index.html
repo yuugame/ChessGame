@@ -122,7 +122,8 @@
 </head>
 <body>
 
-    <div class="fixed top-2 right-2 z-50">
+    <!-- z-indexを大きくして、他のどの画面よりも常に一番手前に表示させるように修正 -->
+    <div class="fixed top-2 right-2" style="z-index: 999;">
         <select id="language-select" class="bg-zinc-800 text-white py-1 px-2 rounded outline-none border border-zinc-600 text-sm cursor-pointer" onchange="window.setLanguage(this.value)">
             <option value="ja">日本語</option>
             <option value="en">English</option>
