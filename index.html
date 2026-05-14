@@ -154,7 +154,7 @@
                 <button class="btn-sub !bg-purple-600" onclick="game.showOnlineTimeSelection()">部屋を作る</button>
                 <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()">戻る</button>
             </div>
-            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]">※「部屋を作る」場合は時間設定へ進みます。<br>「部屋に入る」場合は入力した合言葉の部屋に参加します。</p>
+            <p class="text-xs opacity-60 mt-6 text-center w-full max-w-[300px]">※同じ合言葉で再戦する場合は、どちらかが「部屋を作る」で部屋を上書きしてください。</p>
         </div>
 
         <div id="waiting-room" class="w-full flex flex-col items-center" style="display: none;">
@@ -353,7 +353,10 @@
                 this.isHost = false;
                 this.lastOpponentPing = 0;
                 this.lastPingLocalTime = 0;
-                this.lastGameStateUpdate = 0;
+                
+                // 【重要】ターン（手数）を管理し、タイムラグによる同期ズレを防ぐ
+                this.moveCount = 0; 
+                this.isOpponentDisconnected = false;
                 
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
@@ -526,8 +529,14 @@
                         return this.showConfirm("エラー", "指定された合言葉の部屋が見つかりません。", ()=>{}, true);
                     }
                     const data = snap.data();
+                    
+                    // 【修正】部屋が終了している場合の案内を親切にする
                     if (data.status !== 'waiting') {
-                        return this.showConfirm("エラー", "この部屋は既に対戦中か終了しています。", ()=>{}, true);
+                        return this.showConfirm(
+                            "部屋に入れません", 
+                            "この合言葉の部屋は既に対戦中か、終了しています。\n\n再戦する場合は、どちらかが「部屋を作る」を押して部屋を上書きしてください。", 
+                            ()=>{}, true
+                        );
                     }
 
                     if (data.host === this.userId) {
@@ -537,6 +546,7 @@
                     this.isHost = false;
                     this.lastOpponentPing = 0;
                     this.lastPingLocalTime = Date.now();
+                    this.isOpponentDisconnected = false;
 
                     const isHostWhite = Math.random() < 0.5;
                     await updateDoc(roomRef, {
@@ -544,8 +554,7 @@
                         guest: this.userId,
                         white: isHostWhite ? data.host : this.userId,
                         black: isHostWhite ? this.userId : data.host,
-                        'ping.guest': Date.now(),
-                        'gameState.lastUpdate': Date.now()
+                        'ping.guest': Date.now()
                     });
                     
                     this.listenToRoom();
@@ -562,9 +571,12 @@
                 this.hideAllOverlays();
                 document.getElementById('waiting-room').style.display = 'flex';
                 document.getElementById('display-room-id').innerText = this.roomId;
+                
                 this.isHost = true;
                 this.lastOpponentPing = 0;
                 this.lastPingLocalTime = Date.now();
+                this.isOpponentDisconnected = false;
+                this.moveCount = 0;
 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                 const initialBoard = [
@@ -592,7 +604,7 @@
                                 blackRookLeft: false, blackRookRight: false
                             },
                             lastMove: null,
-                            lastUpdate: Date.now()
+                            moveCount: 0
                         }
                     });
                     this.listenToRoom();
@@ -655,19 +667,24 @@
                         return;
                     }
 
-                    // 時計ズレに依存しない、ローカル時間ベースの切断検知
+                    // 【修正】通信遅延・タイムアウトによる「強制エラー」を廃止し、ステータス表示のみに留める
                     if (data.status === 'playing') {
                         const opponentPing = this.isHost ? data.ping.guest : data.ping.host;
                         if (this.lastOpponentPing !== opponentPing) {
                             this.lastOpponentPing = opponentPing;
                             this.lastPingLocalTime = Date.now();
-                        } else if (this.lastPingLocalTime > 0 && (Date.now() - this.lastPingLocalTime) > 15000) {
-                            if (!this.isGameOver) {
-                                this.isGameOver = true;
-                                this.stopTimer();
-                                this.showConfirm("通信切断", "対戦相手の通信が切断されました。", () => { this.showModeSelection(); }, true);
+                            // 相手が復帰した場合
+                            if (this.isOpponentDisconnected) {
+                                this.isOpponentDisconnected = false;
+                                const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                                this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
                             }
-                            return;
+                        } else if (this.lastPingLocalTime > 0 && (Date.now() - this.lastPingLocalTime) > 15000) {
+                            // 15秒以上Pingが来ない場合は待機中表示にする（切断はしない）
+                            if (!this.isGameOver && !this.isOpponentDisconnected) {
+                                this.isOpponentDisconnected = true;
+                                this.updateStatus("通信待機中 (相手の応答がありません...)");
+                            }
                         }
                     }
                     
@@ -682,11 +699,11 @@
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
                 
-                // 【重要】Pingなどの更新でタイマーや盤面がリセットされるのを防ぐ
-                if (this.lastGameStateUpdate === gs.lastUpdate && this.gameMode === 'online') {
+                // 【修正】時間ベースの判定から、正確な「ターン（手数）ベース」の判定に切り替え
+                if (this.gameMode === 'online' && gs.moveCount <= this.moveCount && this.initialized) {
                     return; 
                 }
-                this.lastGameStateUpdate = gs.lastUpdate;
+                this.moveCount = gs.moveCount || 0;
 
                 const newTurn = gs.turn;
                 const oldTurn = this.turn;
@@ -750,8 +767,10 @@
                     const winnerColor = data.winner === 'white' ? '白' : '黒';
                     this.updateStatus(`時間切れ！ ${winnerColor}の勝ち`);
                 } else {
-                    const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
-                    this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                    if (!this.isOpponentDisconnected) {
+                        const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
+                        this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                    }
                     
                     if (this.turn === this.playerColor) {
                         this.updateAssistMoves();
@@ -766,6 +785,7 @@
             async sendOnlineMove(isMate) {
                 if (!this.roomId) return;
                 try {
+                    this.moveCount++; // ターン数を進める
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = isMate ? 'finished_mate' : 'playing';
                     
@@ -776,7 +796,7 @@
                         'gameState.timers': this.timers,
                         'gameState.movedStatus': this.movedStatus,
                         'gameState.lastMove': this.lastMove,
-                        'gameState.lastUpdate': Date.now()
+                        'gameState.moveCount': this.moveCount
                     });
                 } catch(e) { console.error(e); }
             }
@@ -852,6 +872,7 @@
                 this.selected = null;
                 this.animatingPiece = null;
                 this.inCheckPos = null;
+                this.moveCount = 0;
                 this.updateCheckStatus();
             }
 
@@ -1243,7 +1264,9 @@
                     if (this.inCheckPos) this.sfx.check(); 
                     
                     const checkStr = this.inCheckPos ? "⚠️ チェック！ " : "";
-                    this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                    if (!this.isOpponentDisconnected) {
+                        this.updateStatus(checkStr + (this.turn === 'white' ? "白の番です" : "黒の番です"));
+                    }
                     
                     if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
                         setTimeout(() => this.cpuMove(), 400);
