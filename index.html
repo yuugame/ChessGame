@@ -712,8 +712,15 @@
                     }
                     
                     this.initGameLocalVariables();
+                    
+                    // 【重要修正】ゲーム開始時に必要なステータス（盤面、ターン、タイマー、キャスリング履歴）を全てロードする
                     this.board = JSON.parse(gs.board);
+                    this.movedStatus = gs.movedStatus;
+                    this.timers = gs.timers;
+                    this.baseTimers = { ...gs.timers };
+                    this.turn = gs.turn;
                     this.lastMove = gs.lastMove;
+                    this.turnStartTime = Date.now();
                     
                     this.updateCheckStatus(); 
                     
