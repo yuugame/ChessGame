@@ -369,13 +369,12 @@
                 this.initialized = false;
                 this.userId = null;
                 
-                // Online State
                 this.roomId = null;
                 this.unsubRoom = null;
                 this.isHost = false;
                 
                 this.moveCount = 0; 
-                this.gameMode = null; // 【重要修正】再戦時に確実に初期化処理を通すための明示的リセット
+                this.gameMode = null; 
                 
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
@@ -431,7 +430,6 @@
                 document.getElementById('meter-ui').style.display = 'none';
                 this.initialized = false;
                 
-                // 【重要修正】タイトルに戻った際にステータスを完全にクリーンにする
                 this.gameMode = null;
                 this.roomId = null;
             }
@@ -700,7 +698,6 @@
                 
                 this.turnStartTime = Date.now();
 
-                // 【重要修正】!this.initialized または gameMode が online でない場合のみ初期化画面切り替えを実行
                 if (!this.initialized || this.gameMode !== 'online') {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
@@ -904,12 +901,10 @@
                     }
                     lastSec = currentSec;
 
+                    // 【修正】どちらの画面でも時間切れを検知したら即座に終了処理を行う
                     if (this.timers[this.turn] <= 0 && !this.isGameOver) { 
                         this.timers[this.turn] = 0; 
-                        
-                        if (this.gameMode !== 'online' || this.turn === this.playerColor) {
-                            this.handleTimeout(); 
-                        }
+                        this.handleTimeout(); 
                     }
                     this.updateTimerDisplay();
                 }, 50); 
@@ -923,7 +918,8 @@
                 this.sfx.checkmate(); 
                 this.updateStatus(`時間切れ！ ${this.turn === 'white' ? '黒' : '白'}の勝ち`);
                 
-                if (this.gameMode === 'online') {
+                // 【修正】サーバーへの送信は自分のターンの時に時間切れになった場合のみ行う
+                if (this.gameMode === 'online' && this.turn === this.playerColor) {
                     this.sendTimeout();
                 }
             }
@@ -939,13 +935,23 @@
                 if (this.playerColor === 'white') {
                     bottomTimer.innerText = fmt(this.timers.white);
                     topTimer.innerText = fmt(this.timers.black);
-                    bottomTimer.classList.toggle('timer-active', this.turn === 'white');
-                    topTimer.classList.toggle('timer-active', this.turn === 'black');
                 } else {
                     bottomTimer.innerText = fmt(this.timers.black);
                     topTimer.innerText = fmt(this.timers.white);
-                    bottomTimer.classList.toggle('timer-active', this.turn === 'black');
-                    bottomTimer.classList.toggle('timer-active', this.turn === 'white');
+                }
+
+                // ゲーム終了時は青いラインを消す
+                if (this.isGameOver) {
+                    bottomTimer.classList.remove('timer-active');
+                    topTimer.classList.remove('timer-active');
+                } else {
+                    if (this.playerColor === 'white') {
+                        bottomTimer.classList.toggle('timer-active', this.turn === 'white');
+                        topTimer.classList.toggle('timer-active', this.turn === 'black');
+                    } else {
+                        bottomTimer.classList.toggle('timer-active', this.turn === 'black');
+                        topTimer.classList.toggle('timer-active', this.turn === 'white');
+                    }
                 }
             }
 
@@ -1223,6 +1229,23 @@
                 }
             }
 
+            clearActiveStyles() {
+                const bottomLabel = document.getElementById('bottom-player-label');
+                const topLabel = document.getElementById('top-player-label');
+                if (bottomLabel && topLabel) {
+                    bottomLabel.classList.remove('text-blue-400');
+                    bottomLabel.classList.add('opacity-70');
+                    topLabel.classList.remove('text-blue-400');
+                    topLabel.classList.add('opacity-70');
+                }
+                const bottomTimer = document.getElementById('timer-bottom');
+                const topTimer = document.getElementById('timer-top');
+                if (bottomTimer && topTimer) {
+                    bottomTimer.classList.remove('timer-active');
+                    topTimer.classList.remove('timer-active');
+                }
+            }
+
             finalizeTurn() {
                 this.turn = this.turn === 'white' ? 'black' : 'white';
                 this.assistMoves = [];
@@ -1453,6 +1476,12 @@
 
             updateStatus(s) { 
                 document.getElementById('game-status').innerText = s; 
+                
+                if (this.isGameOver) {
+                    this.clearActiveStyles();
+                    return;
+                }
+
                 if (this.gameMode === 'pvp' || this.gameMode === 'online') {
                     const bottomLabel = document.getElementById('bottom-player-label');
                     const topLabel = document.getElementById('top-player-label');
