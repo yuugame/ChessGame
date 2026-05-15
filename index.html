@@ -135,7 +135,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.53</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.54</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -578,7 +578,7 @@
                 this.turn = 'white';
                 this.timers = { white: 0, black: 0 };
                 this.timerInterval = null;
-                this.heartbeatInterval = null; // 切断検知用のハートビート
+                this.heartbeatInterval = null;
                 this.history = [];
                 this.animatingPiece = null;
                 this.movedStatus = {
@@ -623,7 +623,7 @@
             
             startHeartbeat() {
                 if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
-                this.heartbeatInterval = setInterval(async () => {
+                const sendHeartbeat = async () => {
                     if (this.gameMode === 'online' && this.roomId && this.userId && !this.isGameOver) {
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -632,7 +632,9 @@
                             });
                         } catch (e) {}
                     }
-                }, 5000);
+                };
+                sendHeartbeat();
+                this.heartbeatInterval = setInterval(sendHeartbeat, 5000);
             }
 
             getPositionString() {
@@ -693,7 +695,6 @@
                         }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                        // startTimer内の切断表示が優先されるため、ここは通常表示
                         if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
                             const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                             this.updateStatus(checkStr + turnText + " - " + window.t('waitingOpponentAck'));
@@ -1152,16 +1153,15 @@
                 
                 const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.moveCount > 0;
                 
-                // リロード復帰などによって切断フラグが立っていた場合、クリアする
                 if (gs.disconnected === this.userId) {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     updateDoc(roomRef, {
                         'gameState.disconnected': null,
-                        'gameState.disconnectedAt': null
+                        'gameState.disconnectedAt': null,
+                        [`lastSeen.${this.userId}`]: Date.now()
                     }).catch(()=>{});
                 }
 
-                // pagehide等による明示的な切断検知
                 if (gs.disconnected && gs.disconnected !== this.userId) {
                     this.isOpponentDisconnected = true;
                     this.opponentDisconnectedAt = gs.disconnectedAt;
@@ -1171,7 +1171,6 @@
                 }
                 
                 if (this.gameMode === 'online' && !isRematch && gs.moveCount <= this.moveCount && this.initialized) {
-                    // ACK（受信確認）の処理
                     if (gs.turn === this.playerColor && gs.ack === false) {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                         updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
@@ -1634,7 +1633,6 @@
                     }
                     this.updateTimerDisplay();
 
-                    // 相手の切断ペナルティ処理およびステータス表示の毎フレーム更新
                     if (!this.isGameOver && this.gameMode === 'online' && this.currentRoomData && this.currentRoomData.status === 'playing') {
                         const opponentId = this.currentRoomData.white === this.userId ? this.currentRoomData.black : this.currentRoomData.white;
                         let isOffline = false;
@@ -1661,9 +1659,9 @@
                                 this.handleDisconnectWin();
                             }
                         } else if (this.turn !== this.playerColor && this.waitingForOpponentTimeout) {
-                            // waitingCommunication 表示維持のため何もしない
+                            
                         } else if (this.turn !== this.playerColor && !this.currentRoomData.gameState.ack) {
-                            // ack待ち 表示維持のため何もしない
+                            
                         } else {
                             const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                             this.showTurnMessage(checkStr);
@@ -2570,6 +2568,7 @@
                         document.getElementById('mode-selection').style.display = 'none';
                         window.game.updateStatus(window.t('reconnecting'));
                         
+                        window.game.startHeartbeat();
                         window.game.listenToRoom();
                     } else {
                         window.game.userId = user.uid;
@@ -2579,13 +2578,11 @@
             });
         }
 
-        // --- 修正: 切断検知ロジックの強化（visibilitychangeを利用） ---
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 if (window.game && window.game.sfx && window.game.sfx.ctx.state === 'suspended') {
                     window.game.sfx.ctx.resume();
                 }
-                // アプリに戻ってきたら切断フラグを解除
                 if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId && !window.game.isGameOver) {
                     if (window.game.currentRoomData && window.game.currentRoomData.status === 'playing') {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
@@ -2596,7 +2593,6 @@
                     }
                 }
             } else if (document.visibilityState === 'hidden') {
-                // バックグラウンドに回った（または閉じられた）瞬間に切断フラグを立てる
                 if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId && !window.game.isGameOver) {
                     if (window.game.currentRoomData && window.game.currentRoomData.status === 'playing') {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
@@ -2609,7 +2605,6 @@
             }
         });
 
-        // 念のための pagehide 処理（visibilitychangeが効かない古いブラウザ用）
         window.addEventListener('pagehide', () => {
             if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId) {
                 if (window.game.currentRoomData && window.game.currentRoomData.status === 'waiting' && window.game.isHost) {
@@ -2625,7 +2620,6 @@
             }
         });
 
-        // 誤操作によるリロードやタブ閉じを防止するための警告（ブラウザ標準機能）
         window.addEventListener('beforeunload', (e) => {
             if (window.game && window.game.gameMode === 'online' && !window.game.isGameOver && window.game.initialized) {
                 e.preventDefault();
@@ -2634,12 +2628,9 @@
             }
         });
 
-        // スマホのブラウザバック（スワイプ等）を検知してゲーム内警告ダイアログを出す
         window.addEventListener('popstate', (e) => {
             if (window.game && window.game.gameMode === 'online' && !window.game.isGameOver && window.game.initialized) {
-                // キャンセルして現在のページに留める
                 history.pushState({ playing: true }, '', location.href);
-                // ゲーム内の終了確認ポップアップを表示
                 window.game.confirmExit();
             }
         });
