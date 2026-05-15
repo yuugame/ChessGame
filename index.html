@@ -134,7 +134,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.39</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.41</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -279,7 +279,7 @@
                 roomWordInfo: "合言葉:", cancel: "キャンセル", timeSettings: "設定", turnConfig: "先攻/後攻", random: "ランダム",
                 fixedHostWhite: "ホスト(親機)が先攻・白", timeLimitText: "時間制限", time10m5s: "10分 + 5秒", time5m3s: "5分 + 3秒", time1m10s: "1分 + 10秒",
                 noLimit: "制限なし", promotion: "プロモーション", confirmTitle: "確認", confirmMessage: "本当に実行しますか？", yes: "はい", no: "いいえ",
-                modeText: "MODE", cpuName: "CPU", you: "あなた", opponent: "相手", p1White: "P1", p2Black: "P2", statusReady: "準備完了",
+                modeText: "MODE", cpuName: "CPU", you: "あなた", opponent: "相手", p1White: "白(先手)", p2Black: "黒(後手)", statusReady: "準備完了",
                 undoMove: "1手戻る", rematch: "もう一回やる", exit: "終了", assistMode: "アシストモード (最善手候補を表示)", anonymous: "匿名プレイヤー",
                 whiteTurn: "白の番です", blackTurn: "黒の番です", yourTurn: "あなたの番です", opponentTurn: "相手の番です", checkmate: "チェックメイト！",
                 timeout: "時間切れ！", winSuffix: "の勝ち", youWin: "あなたの勝ち！ 🎉", youLose: "あなたの負け...", checkWarning: "⚠️ チェック！ ",
@@ -303,7 +303,7 @@
                 roomWordInfo: "Word:", cancel: "Cancel", timeSettings: "Settings", turnConfig: "First/Second", random: "Random",
                 fixedHostWhite: "Host plays First(White)", timeLimitText: "Time Control", time10m5s: "10m + 5s", time5m3s: "5m + 3s", time1m10s: "1m + 10s",
                 noLimit: "No Limit", promotion: "Promotion", confirmTitle: "Confirm", confirmMessage: "Are you sure?", yes: "Yes", no: "No",
-                modeText: "MODE", cpuName: "CPU", you: "You", opponent: "Opponent", p1White: "P1", p2Black: "P2", statusReady: "Ready",
+                modeText: "MODE", cpuName: "CPU", you: "You", opponent: "Opponent", p1White: "White (First)", p2Black: "Black (Second)", statusReady: "Ready",
                 undoMove: "Undo", rematch: "Rematch", exit: "Exit", assistMode: "Assist Mode (Show hints)", anonymous: "Anonymous",
                 whiteTurn: "White's turn", blackTurn: "Black's turn", yourTurn: "Your turn", opponentTurn: "Opponent's turn", checkmate: "Checkmate!",
                 timeout: "Time Out!", winSuffix: " wins", youWin: "You Win! 🎉", youLose: "You Lose...", checkWarning: "⚠️ Check! ",
@@ -327,7 +327,7 @@
                 roomWordInfo: "房间口令:", cancel: "取消", timeSettings: "设置", turnConfig: "先后手", random: "随机",
                 fixedHostWhite: "房主先手(白方)", timeLimitText: "时间限制", time10m5s: "10分 + 5秒", time5m3s: "5分 + 3秒", time1m10s: "1分 + 10秒",
                 noLimit: "无限制", promotion: "升变", confirmTitle: "确认", confirmMessage: "确定要执行此操作吗？", yes: "是", no: "否",
-                modeText: "模式", cpuName: "CPU", you: "你", opponent: "对手", p1White: "P1", p2Black: "P2", statusReady: "准备就绪",
+                modeText: "模式", cpuName: "CPU", you: "你", opponent: "对手", p1White: "白方 (先手)", p2Black: "黑方 (后手)", statusReady: "准备就绪",
                 undoMove: "悔棋", rematch: "再来一局", exit: "退出", assistMode: "辅助模式 (显示提示)", anonymous: "匿名玩家",
                 whiteTurn: "白方回合", blackTurn: "黑方回合", yourTurn: "你的回合", opponentTurn: "对手回合", checkmate: "将死！",
                 timeout: "超时！", winSuffix: " 获胜", youWin: "你赢了！ 🎉", youLose: "你输了...", checkWarning: "⚠️ 将军！ ",
