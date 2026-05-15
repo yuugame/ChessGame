@@ -135,7 +135,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.54</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.55</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -195,7 +195,6 @@
 
             <h3 class="text-lg font-bold mb-4 text-center" data-i18n="timeLimitText">時間制限</h3>
             
-            <!-- カスタム時間設定UI -->
             <div class="w-full max-w-[300px] bg-zinc-800 p-4 rounded-lg mb-4 border border-zinc-700 shadow-inner">
                 <div class="mb-5">
                     <div class="flex justify-between mb-2">
@@ -586,6 +585,7 @@
                     whiteRookLeft: false, whiteRookRight: false,
                     blackRookLeft: false, blackRookRight: false
                 };
+                this.enPassantTarget = null; // アンパッサン用のターゲット位置
                 this.isAssistMode = false;
                 this.assistMoves = [];
                 this.inCheckPos = null;
@@ -640,7 +640,8 @@
             getPositionString() {
                 const ms = this.movedStatus || {};
                 const msStr = `${ms.whiteKing ? 1 : 0}${ms.blackKing ? 1 : 0}${ms.whiteRookLeft ? 1 : 0}${ms.whiteRookRight ? 1 : 0}${ms.blackRookLeft ? 1 : 0}${ms.blackRookRight ? 1 : 0}`;
-                return JSON.stringify(this.board) + "|" + this.turn + "|" + msStr;
+                const epStr = this.enPassantTarget ? `${this.enPassantTarget.x},${this.enPassantTarget.y}` : "null";
+                return JSON.stringify(this.board) + "|" + this.turn + "|" + msStr + "|" + epStr;
             }
 
             updateLanguageUI() {
@@ -695,6 +696,7 @@
                         }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
+                        // startTimer内の切断表示が優先されるため、ここは通常表示
                         if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
                             const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                             this.updateStatus(checkStr + turnText + " - " + window.t('waitingOpponentAck'));
@@ -1016,6 +1018,7 @@
                                 whiteRookLeft: false, whiteRookRight: false,
                                 blackRookLeft: false, blackRookRight: false
                             },
+                            enPassantTarget: null,
                             lastMove: null,
                             moveCount: 0,
                             halfMoveClock: 0,
@@ -1071,6 +1074,7 @@
                                 whiteRookLeft: false, whiteRookRight: false,
                                 blackRookLeft: false, blackRookRight: false
                             },
+                            enPassantTarget: null,
                             lastMove: null,
                             moveCount: 0,
                             halfMoveClock: 0,
@@ -1153,6 +1157,7 @@
                 
                 const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.moveCount > 0;
                 
+                // リロード復帰などによって切断フラグが立っていた場合、クリアする
                 if (gs.disconnected === this.userId) {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     updateDoc(roomRef, {
@@ -1162,6 +1167,7 @@
                     }).catch(()=>{});
                 }
 
+                // pagehide等による明示的な切断検知
                 if (gs.disconnected && gs.disconnected !== this.userId) {
                     this.isOpponentDisconnected = true;
                     this.opponentDisconnectedAt = gs.disconnectedAt;
@@ -1171,6 +1177,7 @@
                 }
                 
                 if (this.gameMode === 'online' && !isRematch && gs.moveCount <= this.moveCount && this.initialized) {
+                    // ACK（受信確認）の処理
                     if (gs.turn === this.playerColor && gs.ack === false) {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                         updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
@@ -1195,6 +1202,7 @@
                 const oldTurn = this.turn;
                 
                 this.movedStatus = JSON.parse(JSON.stringify(gs.movedStatus || {}));
+                this.enPassantTarget = gs.enPassantTarget || null;
                 
                 this.baseTimers = { ...gs.timers };
                 this.timers = { ...gs.timers };
@@ -1288,7 +1296,7 @@
                 const isOpponentMove = (oldTurn !== newTurn && newTurn === this.playerColor && gs.lastMove);
 
                 if (isOpponentMove && !this.animatingPiece) {
-                    const isCapture = this.board[gs.lastMove.to.y][gs.lastMove.to.x] !== null;
+                    const isCapture = this.board[gs.lastMove.to.y][gs.lastMove.to.x] !== null || gs.lastMove.isEnPassant;
                     
                     this.animatingPiece = {
                         piece: this.board[gs.lastMove.from.y][gs.lastMove.from.x] || (oldTurn === 'white' ? 'P' : 'p'),
@@ -1304,6 +1312,11 @@
                     };
                     
                     this.board[gs.lastMove.from.y][gs.lastMove.from.x] = null;
+                    if (gs.lastMove.isEnPassant) {
+                        const dir = this.animatingPiece.piece === 'P' ? 1 : -1;
+                        this.board[gs.lastMove.to.y + dir][gs.lastMove.to.x] = null;
+                    }
+                    
                     this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
                     this.updateTimerDisplay();
                     this.needsRender = true;
@@ -1426,7 +1439,6 @@
             async sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove) {
                 if (!this.roomId) return;
                 try {
-                    this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = 'playing';
                     if (isCheckmate) status = 'finished_mate';
@@ -1441,6 +1453,7 @@
                         'gameState.turn': this.turn,
                         'gameState.timers': this.timers, 
                         'gameState.movedStatus': this.movedStatus,
+                        'gameState.enPassantTarget': this.enPassantTarget,
                         'gameState.lastMove': this.lastMove,
                         'gameState.moveCount': this.moveCount,
                         'gameState.halfMoveClock': this.halfMoveClock,
@@ -1528,6 +1541,7 @@
                 this.opponentAckTime = null;
                 this.isOpponentDisconnected = false;
                 this.opponentDisconnectedAt = null;
+                this.enPassantTarget = null;
             }
 
             initGame() {
@@ -1789,6 +1803,7 @@
                         timers: { ...this.timers },
                         lastMove: this.lastMove ? {...this.lastMove} : null,
                         movedStatus: { ...this.movedStatus },
+                        enPassantTarget: this.enPassantTarget ? { ...this.enPassantTarget } : null,
                         halfMoveClock: this.halfMoveClock,
                         positionHistory: [...this.positionHistory],
                         moveCount: this.moveCount
@@ -1812,7 +1827,7 @@
                 }
                 
                 const piece = this.animatingPiece.piece;
-                const isCapture = this.board[move.to.y][move.to.x] !== null; 
+                const isCapture = this.board[move.to.y][move.to.x] !== null || move.isEnPassant; 
                 const isPawnMove = piece.toLowerCase() === 'p';
 
                 if (isCapture || isPawnMove) {
@@ -1832,6 +1847,11 @@
                     this.board[rookY][oldRookX] = null;
                 }
 
+                if (move.isEnPassant) {
+                    const dir = piece === 'P' ? 1 : -1;
+                    this.board[move.to.y + dir][move.to.x] = null;
+                }
+
                 this.board[move.to.y][move.to.x] = piece;
                 
                 if (piece === 'K') this.movedStatus.whiteKing = true;
@@ -1840,6 +1860,13 @@
                 if (move.from.x === 7 && move.from.y === 7) this.movedStatus.whiteRookRight = true;
                 if (move.from.x === 0 && move.from.y === 0) this.movedStatus.blackRookLeft = true;
                 if (move.from.x === 7 && move.from.y === 0) this.movedStatus.blackRookRight = true;
+
+                if (move.isDoublePawn) {
+                    const dir = piece === 'P' ? -1 : 1;
+                    this.enPassantTarget = { x: move.from.x, y: move.from.y + dir };
+                } else {
+                    this.enPassantTarget = null;
+                }
 
                 this.lastMove = move;
                 this.animatingPiece = null;
@@ -1898,14 +1925,15 @@
                 if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
 
                 setTimeout(() => {
-                    const all = this.getAllValidMoves(this.turn, this.board);
+                    const all = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
                     if (all.length === 0) return;
 
                     const DEPTH = 2;
 
                     all.forEach(m => {
                         const tempBoard = this.applyMove(this.board, m);
-                        let score = this.minimax(tempBoard, DEPTH - 1, -Infinity, Infinity, false, this.turn);
+                        const nextEnPassantTarget = m.isDoublePawn ? { x: m.from.x, y: m.from.y + (this.board[m.from.y][m.from.x] === 'P' ? -1 : 1) } : null;
+                        let score = this.minimax(tempBoard, DEPTH - 1, -Infinity, Infinity, false, this.turn, nextEnPassantTarget);
                         if (m.isCastling) score += 50;
                         m.evalScore = score + Math.random() * 0.1;
                     });
@@ -1916,13 +1944,13 @@
                 }, 10);
             }
 
-            getAllValidMoves(color, board) {
+            getAllValidMoves(color, board, epTarget = this.enPassantTarget) {
                 const moves = [];
                 for (let y=0; y<8; y++) {
                     for (let x=0; x<8; x++) {
                         const p = board[y][x];
                         if (p && (color === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
-                            moves.push(...this.getMoves(x,y,board));
+                            moves.push(...this.getMoves(x,y,board, false, epTarget));
                         }
                     }
                 }
@@ -1938,6 +1966,11 @@
                     const newRookX = move.to.x === 6 ? 5 : 3;
                     t[move.to.y][newRookX] = t[move.to.y][oldRookX];
                     t[move.to.y][oldRookX] = null;
+                }
+
+                if (move.isEnPassant) {
+                    const dir = piece === 'P' ? 1 : -1;
+                    t[move.to.y + dir][move.to.x] = null;
                 }
 
                 t[move.to.y][move.to.x] = piece;
@@ -1976,13 +2009,13 @@
                 return score;
             }
 
-            minimax(board, depth, alpha, beta, isMaximizingPlayer, maximizingColor) {
+            minimax(board, depth, alpha, beta, isMaximizingPlayer, maximizingColor, currentEnPassantTarget = null) {
                 if (depth === 0) {
                     return this.evaluateBoardForMinimax(board, maximizingColor);
                 }
 
                 const currentColor = isMaximizingPlayer ? maximizingColor : (maximizingColor === 'white' ? 'black' : 'white');
-                const moves = this.getAllValidMoves(currentColor, board);
+                const moves = this.getAllValidMoves(currentColor, board, currentEnPassantTarget);
 
                 if (moves.length === 0) {
                     if (this.isInCheck(currentColor, board)) {
@@ -1994,8 +2027,10 @@
                 moves.sort((a,b) => {
                     const targetA = board[a.to.y][a.to.x];
                     const targetB = board[b.to.y][b.to.x];
-                    const scoreA = targetA ? AI_VALUES[targetA.toLowerCase()] : 0;
-                    const scoreB = targetB ? AI_VALUES[targetB.toLowerCase()] : 0;
+                    let scoreA = targetA ? AI_VALUES[targetA.toLowerCase()] : 0;
+                    let scoreB = targetB ? AI_VALUES[targetB.toLowerCase()] : 0;
+                    if (a.isEnPassant) scoreA = 10; 
+                    if (b.isEnPassant) scoreB = 10;
                     return scoreB - scoreA;
                 });
 
@@ -2003,7 +2038,8 @@
                     let maxEval = -Infinity;
                     for (const m of moves) {
                         const tempBoard = this.applyMove(board, m);
-                        const ev = this.minimax(tempBoard, depth - 1, alpha, beta, false, maximizingColor);
+                        const nextEnPassantTarget = m.isDoublePawn ? { x: m.from.x, y: m.from.y + (board[m.from.y][m.from.x] === 'P' ? -1 : 1) } : null;
+                        const ev = this.minimax(tempBoard, depth - 1, alpha, beta, false, maximizingColor, nextEnPassantTarget);
                         maxEval = Math.max(maxEval, ev);
                         alpha = Math.max(alpha, ev);
                         if (beta <= alpha) break;
@@ -2013,7 +2049,8 @@
                     let minEval = Infinity;
                     for (const m of moves) {
                         const tempBoard = this.applyMove(board, m);
-                        const ev = this.minimax(tempBoard, depth - 1, alpha, beta, true, maximizingColor);
+                        const nextEnPassantTarget = m.isDoublePawn ? { x: m.from.x, y: m.from.y + (board[m.from.y][m.from.x] === 'P' ? -1 : 1) } : null;
+                        const ev = this.minimax(tempBoard, depth - 1, alpha, beta, true, maximizingColor, nextEnPassantTarget);
                         minEval = Math.min(minEval, ev);
                         beta = Math.min(beta, ev);
                         if (beta <= alpha) break;
@@ -2179,13 +2216,14 @@
             }
 
             cpuMove() {
-                const all = this.getAllValidMoves(this.turn, this.board);
+                const all = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
                 if (all.length === 0) return;
                 
                 all.forEach(m => {
                     const target = this.board[m.to.y][m.to.x];
-                    let s = target ? AI_VALUES[target] * 10 : 0;
+                    let s = target ? AI_VALUES[target.toLowerCase()] * 10 : 0;
                     if (m.isCastling) s += 50;
+                    if (m.isEnPassant) s += 10;
 
                     const piece = this.board[m.from.y][m.from.x];
                     const pieceType = piece.toLowerCase();
@@ -2212,10 +2250,14 @@
                     const t = this.board.map(r=>[...r]); 
                     t[m.to.y][m.to.x] = piece;
                     t[m.from.y][m.from.x] = null;
+                    if (m.isEnPassant) {
+                        const epDir = piece === 'P' ? 1 : -1;
+                        t[m.to.y + epDir][m.to.x] = null;
+                    }
                     
                     if (this.isSquareAttacked(m.to.x, m.to.y, this.turn, t)) {
-                        s -= AI_VALUES[piece] * 10;
-                        if (target) s += AI_VALUES[piece] * 5; 
+                        s -= AI_VALUES[pieceType] * 10;
+                        if (target) s += AI_VALUES[pieceType] * 5; 
                     }
 
                     m.evalScore = s + Math.random() * 0.1;
@@ -2246,6 +2288,7 @@
                     this.timers = prev.timers;
                     this.lastMove = prev.lastMove;
                     this.movedStatus = prev.movedStatus;
+                    this.enPassantTarget = prev.enPassantTarget ? { ...prev.enPassantTarget } : null;
                     this.halfMoveClock = prev.halfMoveClock;
                     this.positionHistory = prev.positionHistory;
                     this.moveCount = prev.moveCount || 0;
@@ -2301,7 +2344,7 @@
                 return this.isSquareAttacked(kingPos.x, kingPos.y, color, board);
             }
 
-            getMoves(x, y, b, ignoreCheck = false) {
+            getMoves(x, y, b, ignoreCheck = false, epTarget = this.enPassantTarget) {
                 const p = b[y][x]; if (!p) return [];
                 const type = p.toLowerCase(), moves = [], dir = p === 'P' ? -1 : 1;
                 const isOwn = piece => (p === p.toUpperCase()) === (piece === piece.toUpperCase());
@@ -2310,11 +2353,17 @@
                 if (type === 'p') {
                     if (y+dir>=0 && y+dir<8 && !b[y+dir][x]) {
                         moves.push({from:{x,y}, to:{x,y:y+dir}});
-                        if (y===(p==='P'?6:1) && !b[y+dir*2][x]) moves.push({from:{x,y}, to:{x,y:y+dir*2}});
+                        if (y===(p==='P'?6:1) && !b[y+dir*2][x]) moves.push({from:{x,y}, to:{x,y:y+dir*2}, isDoublePawn: true});
                     }
                     [-1,1].forEach(dx => {
                         const nx = x+dx, ny = y+dir;
-                        if (nx>=0 && nx<8 && ny>=0 && ny<8 && b[ny][nx] && !isOwn(b[ny][nx])) moves.push({from:{x,y}, to:{x:nx,y:ny}});
+                        if (nx>=0 && nx<8 && ny>=0 && ny<8) {
+                            if (b[ny][nx] && !isOwn(b[ny][nx])) {
+                                moves.push({from:{x,y}, to:{x:nx,y:ny}});
+                            } else if (epTarget && epTarget.x === nx && epTarget.y === ny) {
+                                moves.push({from:{x,y}, to:{x:nx,y:ny}, isEnPassant: true});
+                            }
+                        }
                     });
                 } else if (type === 'n') {
                     [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([dy,dx])=>{
@@ -2360,6 +2409,10 @@
                     const t = b.map(r=>[...r]); 
                     t[m.to.y][m.to.x] = t[m.from.y][m.from.x]; 
                     t[m.from.y][m.from.x] = null;
+                    if (m.isEnPassant) {
+                        const epDir = p === 'P' ? 1 : -1;
+                        t[m.to.y + epDir][m.to.x] = null;
+                    }
                     const king = (color === 'white' ? 'K' : 'k'); 
                     let kp;
                     for (let ry=0; ry<8; ry++) for (let rx=0; rx<8; rx++) if (t[ry][rx] === king) kp = {x:rx, y:ry};
@@ -2436,7 +2489,7 @@
                         const {x:sx, y:sy} = (this.playerColor === 'black' ? {x:7-m.to.x, y:7-m.to.y} : {x:m.to.x, y:m.to.y});
                         const targetPiece = this.board[m.to.y][m.to.x];
                         
-                        if (targetPiece) {
+                        if (targetPiece || m.isEnPassant) {
                             this.ctx.beginPath();
                             this.ctx.arc(sx*CELL+CELL/2, sy*CELL+CELL/2, CELL/2.2, 0, Math.PI*2);
                             this.ctx.strokeStyle = COLORS.captureRing;
