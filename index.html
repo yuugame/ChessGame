@@ -289,7 +289,8 @@
                 connectingMsg: "サーバーに接続しています。数秒後にお試しください。", roomNotFoundMsg: "指定された合言葉の部屋が見つかりません。", createRoomFailedMsg: "部屋の作成に失敗しました。\n",
                 noUndoOnlineMsg: "オンライン対戦中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
                 colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
-                stalemate: "ステイルメイト", drawMsg: "引き分け"
+                stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
+                threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール"
             },
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
@@ -312,7 +313,8 @@
                 connectingMsg: "Connecting. Try again in a few seconds.", roomNotFoundMsg: "Room not found.", createRoomFailedMsg: "Failed to create room.\n",
                 noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
-                stalemate: "Stalemate", drawMsg: "Draw"
+                stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
+                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule"
             },
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
@@ -335,7 +337,8 @@
                 connectingMsg: "正在连接，请稍后再试。", roomNotFoundMsg: "未找到该口令的房间。", createRoomFailedMsg: "创建房间失败。\n",
                 noUndoOnlineMsg: "在线对战中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
                 colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
-                stalemate: "逼和", drawMsg: "平局"
+                stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
+                threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则"
             }
         };
 
@@ -514,6 +517,10 @@
                 this.assistMoves = [];
                 this.inCheckPos = null;
                 this.firstMoveDone = { white: false, black: false };
+                
+                // 千日手・50手ルール用の変数
+                this.halfMoveClock = 0;
+                this.positionHistory = [];
 
                 this.setupListeners();
                 this.animate();
@@ -530,16 +537,26 @@
                 setTimeout(() => window.setLanguage(window.currentLang), 100);
             }
 
+            getPositionString() {
+                return JSON.stringify(this.board) + "|" + this.turn + "|" + JSON.stringify(this.movedStatus);
+            }
+
             updateLanguageUI() {
                 if (this.initialized) {
                     this.updatePlayerLabels();
                     if (this.isGameOver) {
                         let isStale = false;
+                        let isInsuff = false;
+                        let isThreefold = false;
+                        let isFiftyMove = false;
                         let isTime = false;
                         let isMate = false;
                         
                         if (this.gameMode === 'online' && this.currentRoomData) {
                             isStale = this.currentRoomData.status === 'finished_stalemate';
+                            isInsuff = this.currentRoomData.status === 'finished_insufficient';
+                            isThreefold = this.currentRoomData.status === 'finished_threefold';
+                            isFiftyMove = this.currentRoomData.status === 'finished_fiftymove';
                             isTime = this.currentRoomData.status === 'finished_timeout';
                             isMate = this.currentRoomData.status === 'finished_mate';
                         } else {
@@ -547,11 +564,26 @@
                             else if (this.isMate()) {
                                 if (this.inCheckPos) isMate = true;
                                 else isStale = true;
+                            } else if (this.isInsufficientMaterial()) {
+                                isInsuff = true;
+                            } else if (this.halfMoveClock >= 100) {
+                                isFiftyMove = true;
+                            } else {
+                                const posStr = this.getPositionString();
+                                if (this.positionHistory.filter(p => p === posStr).length >= 3) {
+                                    isThreefold = true;
+                                }
                             }
                         }
 
                         if (isStale) {
                             this.showDrawMessage(window.t('stalemate'));
+                        } else if (isInsuff) {
+                            this.showDrawMessage(window.t('insufficientMaterial'));
+                        } else if (isThreefold) {
+                            this.showDrawMessage(window.t('threefoldRepetition'));
+                        } else if (isFiftyMove) {
+                            this.showDrawMessage(window.t('fiftyMoveRule'));
                         } else if (isTime) {
                             const winnerColor = this.gameMode === 'online' && this.currentRoomData ? this.currentRoomData.winner : (this.turn === 'white' ? 'black' : 'white');
                             this.showWinLoseMessage(window.t('timeout'), winnerColor);
@@ -848,7 +880,9 @@
                                 blackRookLeft: false, blackRookRight: false
                             },
                             lastMove: null,
-                            moveCount: 0
+                            moveCount: 0,
+                            halfMoveClock: 0,
+                            positionHistory: []
                         }
                     });
                     this.listenToRoom();
@@ -896,7 +930,9 @@
                                 blackRookLeft: false, blackRookRight: false
                             },
                             lastMove: null,
-                            moveCount: 0
+                            moveCount: 0,
+                            halfMoveClock: 0,
+                            positionHistory: []
                         }
                     });
                 } catch(e) {
@@ -952,7 +988,7 @@
                         return;
                     }
                     
-                    if (data.status === 'playing' || data.status === 'finished_mate' || data.status === 'finished_stalemate' || data.status === 'finished_timeout') {
+                    if (data.status.startsWith('finished_') || data.status === 'playing') {
                         this.handleOnlineUpdate(data);
                     }
                 }, (error) => {
@@ -983,6 +1019,8 @@
                 this.timers = gs.timers; 
                 this.baseTimers = { ...gs.timers };
                 this.turn = gs.turn;
+                this.halfMoveClock = gs.halfMoveClock || 0;
+                this.positionHistory = gs.positionHistory || [];
                 
                 this.turnStartTime = Date.now();
 
@@ -1013,6 +1051,10 @@
                     this.firstMoveDone = { white: false, black: false };
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove;
+                    
+                    if (gs.moveCount === 0) {
+                        this.positionHistory.push(this.getPositionString());
+                    }
                     
                     this.updateCheckStatus(); 
                     
@@ -1072,6 +1114,24 @@
                     if (oldTurn !== newTurn) this.sfx.checkmate();
                     this.showDrawMessage(window.t('stalemate'));
                     this.showRematchButton();
+                } else if (data.status === 'finished_insufficient') {
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.showDrawMessage(window.t('insufficientMaterial'));
+                    this.showRematchButton();
+                } else if (data.status === 'finished_threefold') {
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.showDrawMessage(window.t('threefoldRepetition'));
+                    this.showRematchButton();
+                } else if (data.status === 'finished_fiftymove') {
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.showDrawMessage(window.t('fiftyMoveRule'));
+                    this.showRematchButton();
                 } else if (data.status === 'finished_timeout') {
                     this.isGameOver = true;
                     this.stopTimer();
@@ -1130,14 +1190,17 @@
                 }
             }
 
-            async sendOnlineMove(isCheckmate, isStalemate) {
+            async sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove) {
                 if (!this.roomId) return;
                 try {
                     this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = 'playing';
                     if (isCheckmate) status = 'finished_mate';
-                    if (isStalemate) status = 'finished_stalemate';
+                    else if (isStalemate) status = 'finished_stalemate';
+                    else if (isInsufficient) status = 'finished_insufficient';
+                    else if (isThreefold) status = 'finished_threefold';
+                    else if (isFiftyMove) status = 'finished_fiftymove';
                     
                     await updateDoc(roomRef, {
                         status: status,
@@ -1146,7 +1209,9 @@
                         'gameState.timers': this.timers,
                         'gameState.movedStatus': this.movedStatus,
                         'gameState.lastMove': this.lastMove,
-                        'gameState.moveCount': this.moveCount
+                        'gameState.moveCount': this.moveCount,
+                        'gameState.halfMoveClock': this.halfMoveClock,
+                        'gameState.positionHistory': this.positionHistory
                     });
                 } catch(e) { console.error(e); }
             }
@@ -1223,6 +1288,8 @@
                 this.inCheckPos = null;
                 this.moveCount = 0;
                 this.firstMoveDone = { white: false, black: false }; 
+                this.halfMoveClock = 0;
+                this.positionHistory = [];
             }
 
             initGame() {
@@ -1240,6 +1307,8 @@
                 };
                 this.turn = 'white';
                 this.initGameLocalVariables();
+                
+                this.positionHistory.push(this.getPositionString());
                 
                 this.updateCheckStatus(); 
                 this.initialized = true;
@@ -1349,7 +1418,6 @@
 
                 const diff = whiteScore - blackScore;
                 
-                // 自分が後攻（黒）の時は、黒視点の有利不利に数値を反転させ、メーターの左右も反転させる
                 let displayDiff = diff;
                 const meterUi = document.getElementById('meter-ui');
                 if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.playerColor === 'black') {
@@ -1395,7 +1463,9 @@
                         board: this.board.map(r => [...r]), 
                         timers: { ...this.timers },
                         lastMove: this.lastMove ? {...this.lastMove} : null,
-                        movedStatus: { ...this.movedStatus }
+                        movedStatus: { ...this.movedStatus },
+                        halfMoveClock: this.halfMoveClock,
+                        positionHistory: [...this.positionHistory]
                     }));
                 }
 
@@ -1416,6 +1486,14 @@
                 
                 const piece = this.animatingPiece.piece;
                 const isCapture = this.board[move.to.y][move.to.x] !== null; 
+                const isPawnMove = piece.toLowerCase() === 'p';
+
+                if (isCapture || isPawnMove) {
+                    this.halfMoveClock = 0;
+                    this.positionHistory = []; 
+                } else {
+                    this.halfMoveClock++;
+                }
                 
                 if (move.isCastling) {
                     const rookY = move.from.y;
@@ -1575,7 +1653,7 @@
                     if (this.isInCheck(currentColor, board)) {
                         return isMaximizingPlayer ? -99999 + depth : 99999 - depth;
                     }
-                    return 0; // ステールメイト
+                    return 0; 
                 }
 
                 moves.sort((a,b) => {
@@ -1649,12 +1727,26 @@
                 this.baseTimers = { ...this.timers };
                 
                 this.updateCheckStatus();
+                
+                const posStr = this.getPositionString();
+                this.positionHistory.push(posStr);
+                
+                let isThreefold = false;
+                let isFiftyMove = false;
+                if (this.positionHistory.filter(p => p === posStr).length >= 3) {
+                    isThreefold = true;
+                }
+                if (this.halfMoveClock >= 100) {
+                    isFiftyMove = true;
+                }
+
                 const noMoves = this.isMate();
                 const isCheckmate = noMoves && this.inCheckPos !== null;
                 const isStalemate = noMoves && this.inCheckPos === null;
+                const isInsufficient = this.isInsufficientMaterial();
 
                 if (this.gameMode === 'online' && this.turn !== this.playerColor) {
-                    this.sendOnlineMove(isCheckmate, isStalemate);
+                    this.sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove);
                 }
 
                 if (isCheckmate) {
@@ -1669,6 +1761,24 @@
                     this.isGameOver = true;
                     this.stopTimer();
                     this.showDrawMessage(window.t('stalemate'));
+                    this.showRematchButton();
+                } else if (isInsufficient) {
+                    this.sfx.checkmate(); 
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    this.showDrawMessage(window.t('insufficientMaterial'));
+                    this.showRematchButton();
+                } else if (isThreefold) {
+                    this.sfx.checkmate(); 
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    this.showDrawMessage(window.t('threefoldRepetition'));
+                    this.showRematchButton();
+                } else if (isFiftyMove) {
+                    this.sfx.checkmate(); 
+                    this.isGameOver = true;
+                    this.stopTimer();
+                    this.showDrawMessage(window.t('fiftyMoveRule'));
                     this.showRematchButton();
                 } else {
                     if (this.inCheckPos) this.sfx.check(); 
@@ -1692,6 +1802,46 @@
                     }
                 }
                 return true;
+            }
+
+            isInsufficientMaterial() {
+                let whiteBishops = [];
+                let blackBishops = [];
+                let whiteKnights = 0;
+                let blackKnights = 0;
+
+                for (let y = 0; y < 8; y++) {
+                    for (let x = 0; x < 8; x++) {
+                        const p = this.board[y][x];
+                        if (!p) continue;
+                        
+                        const type = p.toLowerCase();
+                        if (type === 'p' || type === 'r' || type === 'q') {
+                            return false;
+                        }
+
+                        if (p === 'B') whiteBishops.push((x + y) % 2);
+                        else if (p === 'b') blackBishops.push((x + y) % 2);
+                        else if (p === 'N') whiteKnights++;
+                        else if (p === 'n') blackKnights++;
+                    }
+                }
+
+                if (whiteBishops.length === 0 && blackBishops.length === 0 && whiteKnights === 0 && blackKnights === 0) {
+                    return true;
+                }
+
+                if (whiteBishops.length + whiteKnights + blackBishops.length + blackKnights === 1) {
+                    return true;
+                }
+
+                if (whiteBishops.length === 1 && blackBishops.length === 1 && whiteKnights === 0 && blackKnights === 0) {
+                    if (whiteBishops[0] === blackBishops[0]) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             cpuMove() {
@@ -1762,6 +1912,8 @@
                     this.timers = prev.timers;
                     this.lastMove = prev.lastMove;
                     this.movedStatus = prev.movedStatus;
+                    this.halfMoveClock = prev.halfMoveClock;
+                    this.positionHistory = prev.positionHistory;
                     this.turn = this.turn === 'white' ? 'black' : 'white';
                 };
 
