@@ -122,7 +122,6 @@
 </head>
 <body>
 
-    <!-- z-indexをさらに大きくし、スマホ等での表示優先度を強制的に上げる -->
     <div class="fixed top-2 right-2 z-[9999]" style="z-index: 9999;">
         <select id="language-select" class="bg-zinc-800 text-white py-2 px-3 rounded outline-none border border-zinc-600 text-sm cursor-pointer shadow-xl drop-shadow-2xl" onchange="window.setLanguage(this.value)">
             <option value="ja">日本語</option>
@@ -133,7 +132,8 @@
 
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
-            <h1 class="text-4xl font-bold mb-10 text-center" data-i18n="title">CHESS</h1>
+            <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.37</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
