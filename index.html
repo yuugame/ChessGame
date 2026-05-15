@@ -133,7 +133,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.50</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.51</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -183,7 +183,7 @@
         <div id="time-selection" class="w-full flex flex-col items-center" style="display: none;">
             <h2 class="text-2xl font-bold mb-6 text-center" data-i18n="timeSettings">設定</h2>
             
-            <div id="online-turn-config" class="w-full max-w-[300px] mb-6 flex flex-col gap-2 p-3 bg-zinc-800 rounded border border-zinc-700" style="display: none;">
+            <div id="online-turn-config" class="w-full max-w-[300px] mb-4 flex flex-col gap-2 p-3 bg-zinc-800 rounded border border-zinc-700" style="display: none;">
                 <span class="text-sm font-bold opacity-70" data-i18n="turnConfig">先攻/後攻</span>
                 <select id="online-turn-select" class="bg-zinc-900 text-white p-2 rounded outline-none border border-zinc-600 w-full">
                     <option value="random" data-i18n="random">ランダム</option>
@@ -192,12 +192,31 @@
             </div>
 
             <h3 class="text-lg font-bold mb-4 text-center" data-i18n="timeLimitText">時間制限</h3>
-            <div class="flex flex-col gap-3 w-full max-w-[300px] items-center">
-                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(600, 5)" data-i18n="time10m5s">10分 + 5秒</button>
-                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(300, 3)" data-i18n="time5m3s">5分 + 3秒</button>
-                <button class="btn-sub !bg-slate-700" onclick="game.startWithTime(60, 10)" data-i18n="time1m10s">1分 + 10秒</button>
-                <button class="btn-sub !bg-gray-600" onclick="game.startWithTime(0, 0)" data-i18n="noLimit">制限なし</button>
-                <button class="mt-4 text-sm underline opacity-50 py-2" onclick="game.showModeSelection()" data-i18n="cancel">キャンセル</button>
+            
+            <!-- カスタム時間設定UI -->
+            <div class="w-full max-w-[300px] bg-zinc-800 p-4 rounded-lg mb-4 border border-zinc-700 shadow-inner">
+                <div class="mb-5">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm font-bold opacity-80" data-i18n="baseTime">持ち時間</span>
+                        <span id="base-time-val" class="text-sm font-bold text-blue-400 bg-zinc-900 px-2 py-0.5 rounded">10分</span>
+                    </div>
+                    <input type="range" id="base-time-slider" min="30" max="6000" step="30" value="600" 
+                        oninput="game.updateCustomTimeUI()" class="w-full h-2 bg-zinc-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div class="mb-5">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm font-bold opacity-80" data-i18n="incTime">追加時間 (1手ごと)</span>
+                        <span id="inc-time-val" class="text-sm font-bold text-blue-400 bg-zinc-900 px-2 py-0.5 rounded">5秒</span>
+                    </div>
+                    <input type="range" id="inc-time-slider" min="1" max="60" step="1" value="5" 
+                        oninput="game.updateCustomTimeUI()" class="w-full h-2 bg-zinc-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <button class="btn-main w-full !bg-blue-600 shadow-lg" onclick="game.startCustomTime()" data-i18n="startGame">ゲーム開始</button>
+            </div>
+
+            <div class="w-full max-w-[300px] flex flex-col gap-2">
+                <button class="btn-sub !bg-zinc-700 w-full" onclick="game.startWithTime(0, 0)" data-i18n="noLimit">制限なしで開始</button>
+                <button class="mt-2 text-sm underline opacity-50 py-2 w-full text-center" onclick="game.showModeSelection()" data-i18n="cancel">キャンセル</button>
             </div>
         </div>
 
@@ -278,7 +297,7 @@
                 waitingOpponent: "対戦相手を待っています...",
                 roomWordInfo: "合言葉:", cancel: "キャンセル", timeSettings: "設定", turnConfig: "先攻/後攻", random: "ランダム",
                 fixedHostWhite: "ホスト(親機)が先攻・白", timeLimitText: "時間制限", time10m5s: "10分 + 5秒", time5m3s: "5分 + 3秒", time1m10s: "1分 + 10秒",
-                noLimit: "制限なし", promotion: "プロモーション", confirmTitle: "確認", confirmMessage: "本当に実行しますか？", yes: "はい", no: "いいえ",
+                noLimit: "制限なしで開始", promotion: "プロモーション", confirmTitle: "確認", confirmMessage: "本当に実行しますか？", yes: "はい", no: "いいえ",
                 modeText: "MODE", cpuName: "CPU", you: "あなた", opponent: "相手", p1White: "白(先手)", p2Black: "黒(後手)", statusReady: "準備完了",
                 undoMove: "1手戻る", rematch: "もう一回やる", exit: "終了", assistMode: "アシストモード (最善手候補を表示)", anonymous: "匿名プレイヤー",
                 whiteTurn: "白の番です", blackTurn: "黒の番です", yourTurn: "あなたの番です", opponentTurn: "相手の番です", checkmate: "チェックメイト！",
@@ -291,7 +310,8 @@
                 noUndoOnlineMsg: "オンライン対戦中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
                 colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
-                threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: "
+                threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: ",
+                baseTime: "持ち時間", incTime: "追加時間 (1手)", startGame: "ゲーム開始", min: "分", sec: "秒"
             },
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
@@ -315,7 +335,8 @@
                 noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
-                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "Reconnecting...", moveCountPrefix: "Moves: "
+                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "Reconnecting...", moveCountPrefix: "Moves: ",
+                baseTime: "Base Time", incTime: "Increment", startGame: "Start Game", min: "m", sec: "s"
             },
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
@@ -339,7 +360,8 @@
                 noUndoOnlineMsg: "在线对战中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
                 colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
-                threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: "
+                threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: ",
+                baseTime: "初始时间", incTime: "每步加时", startGame: "开始游戏", min: "分", sec: "秒"
             }
         };
 
@@ -358,7 +380,10 @@
                     el.innerText = window.t(key);
                 }
             });
-            if (window.game) window.game.updateLanguageUI();
+            if (window.game) {
+                window.game.updateLanguageUI();
+                window.game.updateCustomTimeUI();
+            }
         };
 
         const myFirebaseConfig = {
@@ -530,14 +555,6 @@
                 this.setupListeners();
                 this.animate();
 
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') {
-                        if (this.sfx && this.sfx.ctx.state === 'suspended') {
-                            this.sfx.ctx.resume();
-                        }
-                    }
-                });
-                
                 setTimeout(() => window.setLanguage(window.currentLang), 100);
             }
 
@@ -615,7 +632,6 @@
                         }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                        // 切断時のメッセージは startTimer 内でリアルタイムに (xx s) と更新されるためここでは簡易表示
                         if (this.isOpponentDisconnected) {
                             this.updateStatus(checkStr + window.t('opponentDisconnectedMsg'));
                         } else if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
@@ -627,6 +643,36 @@
                     }
                     this.updateMoveCountDisplay();
                 }
+            }
+
+            updateCustomTimeUI() {
+                const baseSlider = document.getElementById('base-time-slider');
+                const incSlider = document.getElementById('inc-time-slider');
+                if (!baseSlider || !incSlider) return;
+
+                const baseSec = parseInt(baseSlider.value);
+                const incSec = parseInt(incSlider.value);
+                
+                let baseStr = '';
+                if (baseSec >= 60) {
+                    const m = Math.floor(baseSec / 60);
+                    const s = baseSec % 60;
+                    baseStr = `${m}${window.t('min')}`;
+                    if (s > 0) baseStr += ` ${s}${window.t('sec')}`;
+                } else {
+                    baseStr = `${baseSec}${window.t('sec')}`;
+                }
+                
+                let incStr = `${incSec}${window.t('sec')}`;
+                
+                document.getElementById('base-time-val').innerText = baseStr;
+                document.getElementById('inc-time-val').innerText = incStr;
+            }
+
+            startCustomTime() {
+                const baseSec = parseInt(document.getElementById('base-time-slider').value);
+                const incSec = parseInt(document.getElementById('inc-time-slider').value);
+                this.startWithTime(baseSec, incSec);
             }
 
             updateMoveCountDisplay() {
@@ -726,6 +772,7 @@
                 this.tempMode = 'online';
                 document.getElementById('online-turn-config').style.display = 'flex';
                 document.getElementById('time-selection').style.display = 'flex';
+                this.updateCustomTimeUI();
             }
 
             showTimeSelection(mode, level = 1) {
@@ -741,6 +788,7 @@
                 }
                 
                 document.getElementById('time-selection').style.display = 'flex';
+                this.updateCustomTimeUI();
             }
 
             hideAllOverlays() {
@@ -1322,6 +1370,7 @@
             async sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove) {
                 if (!this.roomId) return;
                 try {
+                    this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = 'playing';
                     if (isCheckmate) status = 'finished_mate';
@@ -2454,13 +2503,43 @@
             });
         }
 
+        // --- 修正: 切断検知ロジックの強化（visibilitychangeを利用） ---
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                if (window.game && window.game.sfx && window.game.sfx.ctx.state === 'suspended') {
+                    window.game.sfx.ctx.resume();
+                }
+                // アプリに戻ってきたら切断フラグを解除
+                if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId && !window.game.isGameOver) {
+                    if (window.game.currentRoomData && window.game.currentRoomData.status === 'playing') {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
+                        updateDoc(roomRef, {
+                            'gameState.disconnected': null,
+                            'gameState.disconnectedAt': null
+                        }).catch(()=>{});
+                    }
+                }
+            } else if (document.visibilityState === 'hidden') {
+                // バックグラウンドに回った（または閉じられた）瞬間に切断フラグを立てる
+                if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId && !window.game.isGameOver) {
+                    if (window.game.currentRoomData && window.game.currentRoomData.status === 'playing') {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
+                        updateDoc(roomRef, {
+                            'gameState.disconnected': window.game.userId,
+                            'gameState.disconnectedAt': Date.now()
+                        }).catch(()=>{});
+                    }
+                }
+            }
+        });
+
+        // 念のための pagehide 処理（visibilitychangeが効かない古いブラウザ用）
         window.addEventListener('pagehide', () => {
             if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId) {
                 if (window.game.currentRoomData && window.game.currentRoomData.status === 'waiting' && window.game.isHost) {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
                     deleteDoc(roomRef).catch(()=>{});
                 } else if (window.game.currentRoomData && window.game.currentRoomData.status === 'playing' && !window.game.isGameOver) {
-                    // 対戦中にページを閉じた場合、切断フラグを記録する
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
                     updateDoc(roomRef, {
                         'gameState.disconnected': window.game.userId,
@@ -2479,7 +2558,7 @@
             }
         });
 
-        // スマホのブラウザバック（スワイプ等）を検知して警告ダイアログを出す
+        // スマホのブラウザバック（スワイプ等）を検知してゲーム内警告ダイアログを出す
         window.addEventListener('popstate', (e) => {
             if (window.game && window.game.gameMode === 'online' && !window.game.isGameOver && window.game.initialized) {
                 // キャンセルして現在のページに留める
