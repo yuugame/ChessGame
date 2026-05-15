@@ -134,7 +134,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.42</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.43</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1308,6 +1308,7 @@
                 this.halfMoveClock = 0;
                 this.positionHistory = [];
                 this.waitingForOpponentTimeout = false;
+                this.opponentTimeoutGrace = 0;
             }
 
             initGame() {
@@ -1346,6 +1347,7 @@
                 
                 let lastSec = Math.floor(this.timers[this.turn] || 0);
                 this.waitingForOpponentTimeout = false;
+                this.opponentTimeoutGrace = 0;
 
                 this.timerInterval = setInterval(() => {
                     const now = Date.now();
@@ -1378,9 +1380,17 @@
                             } else {
                                 if (!this.waitingForOpponentTimeout) {
                                     this.waitingForOpponentTimeout = true;
+                                    this.opponentTimeoutGrace = 0;
                                     const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                                     const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                                     this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
+                                } else {
+                                    // ラグ補正の待機時間（10秒）をカウント
+                                    this.opponentTimeoutGrace += 0.05;
+                                    if (this.opponentTimeoutGrace >= 10) {
+                                        // 10秒待っても応答がなければ強制タイムアウト（自分の勝利）
+                                        this.handleTimeout();
+                                    }
                                 }
                             }
                         } else {
