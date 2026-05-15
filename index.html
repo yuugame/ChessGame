@@ -538,7 +538,10 @@
             }
 
             getPositionString() {
-                return JSON.stringify(this.board) + "|" + this.turn + "|" + JSON.stringify(this.movedStatus);
+                // データベースを経由しても並び順が変わらないように、固定の文字列フォーマットに変換して記録する
+                const ms = this.movedStatus || {};
+                const msStr = `${ms.whiteKing ? 1 : 0}${ms.blackKing ? 1 : 0}${ms.whiteRookLeft ? 1 : 0}${ms.whiteRookRight ? 1 : 0}${ms.blackRookLeft ? 1 : 0}${ms.blackRookRight ? 1 : 0}`;
+                return JSON.stringify(this.board) + "|" + this.turn + "|" + msStr;
             }
 
             updateLanguageUI() {
@@ -1048,11 +1051,15 @@
                     }
                     
                     this.initGameLocalVariables();
+                    // 初期化時に消えてしまう千日手・50手ルールの履歴を正しく復元する
+                    this.positionHistory = gs.positionHistory || [];
+                    this.halfMoveClock = gs.halfMoveClock || 0;
+
                     this.firstMoveDone = { white: false, black: false };
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove;
                     
-                    if (gs.moveCount === 0) {
+                    if (gs.moveCount === 0 && this.positionHistory.length === 0) {
                         this.positionHistory.push(this.getPositionString());
                     }
                     
