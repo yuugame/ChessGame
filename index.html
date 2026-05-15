@@ -122,7 +122,6 @@
 </head>
 <body>
 
-    <!-- z-indexをさらに大きくし、スマホ等での表示優先度を強制的に上げる -->
     <div class="fixed top-2 right-2 z-[9999]" style="z-index: 9999;">
         <select id="language-select" class="bg-zinc-800 text-white py-2 px-3 rounded outline-none border border-zinc-600 text-sm cursor-pointer shadow-xl drop-shadow-2xl" onchange="window.setLanguage(this.value)">
             <option value="ja">日本語</option>
@@ -134,7 +133,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.43</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.45</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -291,7 +290,7 @@
                 noUndoOnlineMsg: "オンライン対戦中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
                 colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
-                threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール"
+                threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています..."
             },
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
@@ -315,7 +314,7 @@
                 noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
-                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule"
+                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "Reconnecting..."
             },
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
@@ -339,7 +338,7 @@
                 noUndoOnlineMsg: "在线对战中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
                 colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
-                threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则"
+                threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接..."
             }
         };
 
@@ -522,6 +521,7 @@
                 this.halfMoveClock = 0;
                 this.positionHistory = [];
                 this.waitingForOpponentTimeout = false;
+                this.opponentTimeoutGrace = 0;
 
                 this.needsRender = true;
 
@@ -537,6 +537,20 @@
                 });
                 
                 setTimeout(() => window.setLanguage(window.currentLang), 100);
+            }
+
+            saveSession() {
+                if (this.gameMode === 'online' && this.roomId && this.userId) {
+                    localStorage.setItem('chessRoomId', this.roomId);
+                    localStorage.setItem('chessUserId', this.userId);
+                    localStorage.setItem('chessIsHost', this.isHost);
+                }
+            }
+
+            clearSession() {
+                localStorage.removeItem('chessRoomId');
+                localStorage.removeItem('chessUserId');
+                localStorage.removeItem('chessIsHost');
             }
 
             getPositionString() {
@@ -659,6 +673,7 @@
                 document.getElementById('meter-ui').style.display = 'none';
                 document.getElementById('rematch-btn').style.display = 'none';
                 
+                this.clearSession();
                 this.initialized = false;
                 this.isGameOver = false;
                 this.gameMode = null;
@@ -844,6 +859,7 @@
                         black: isHostWhite ? this.userId : data.host
                     });
                     
+                    this.saveSession();
                     this.listenToRoom();
                 } catch (e) {
                     console.error(e);
@@ -894,6 +910,7 @@
                             positionHistory: []
                         }
                     });
+                    this.saveSession();
                     this.listenToRoom();
                 } catch(e) {
                     console.error(e);
@@ -1037,6 +1054,9 @@
                 if (!this.initialized || this.gameMode !== 'online' || isRematch) {
                     this.gameMode = 'online';
                     this.hideAllOverlays();
+                    
+                    history.pushState({ playing: true }, '', location.href);
+
                     document.getElementById('meter-ui').style.display = 'flex';
                     
                     this.playerColor = data.white === this.userId ? 'white' : 'black';
@@ -1385,10 +1405,8 @@
                                     const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                                     this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
                                 } else {
-                                    // ラグ補正の待機時間（10秒）をカウント
                                     this.opponentTimeoutGrace += 0.05;
                                     if (this.opponentTimeoutGrace >= 10) {
-                                        // 10秒待っても応答がなければ強制タイムアウト（自分の勝利）
                                         this.handleTimeout();
                                     }
                                 }
@@ -2278,22 +2296,52 @@
             onAuthStateChanged(auth, user => { 
                 if (user) {
                     window.game.userId = user.uid;
-                    document.getElementById('auth-status').innerText = window.t('authStatusReady');
+                    
+                    const savedRoomId = localStorage.getItem('chessRoomId');
+                    const savedUserId = localStorage.getItem('chessUserId');
+                    const savedIsHost = localStorage.getItem('chessIsHost');
+                    
+                    if (savedRoomId && savedUserId) {
+                        window.game.userId = savedUserId;
+                        window.game.roomId = savedRoomId;
+                        window.game.isHost = savedIsHost === 'true';
+                        window.game.gameMode = 'online';
+                        
+                        document.getElementById('mode-selection').style.display = 'none';
+                        window.game.updateStatus(window.t('reconnecting'));
+                        
+                        window.game.listenToRoom();
+                    } else {
+                        document.getElementById('auth-status').innerText = window.t('authStatusReady');
+                    }
                 }
             });
         }
 
         window.addEventListener('pagehide', () => {
             if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId) {
-                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
-                updateDoc(roomRef, {
-                    status: 'abandoned',
-                    whoAbandoned: window.game.userId
-                }).catch(()=>{});
-                
-                if (window.game.isHost) {
-                    setTimeout(() => deleteDoc(roomRef).catch(()=>{}), 1000);
+                if (window.game.currentRoomData && window.game.currentRoomData.status === 'waiting' && window.game.isHost) {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
+                    deleteDoc(roomRef).catch(()=>{});
                 }
+            }
+        });
+
+        // 誤操作によるリロードやタブ閉じを防止する
+        window.addEventListener('beforeunload', (e) => {
+            if (window.game && window.game.gameMode === 'online' && !window.game.isGameOver && window.game.initialized) {
+                e.preventDefault();
+                e.returnValue = ''; 
+            }
+        });
+
+        // スマホのブラウザバック（スワイプ等）を検知して警告ダイアログを出す
+        window.addEventListener('popstate', (e) => {
+            if (window.game && window.game.gameMode === 'online' && !window.game.isGameOver && window.game.initialized) {
+                // キャンセルして現在のページに留める
+                history.pushState({ playing: true }, '', location.href);
+                // ゲーム内の終了確認ポップアップを表示
+                window.game.confirmExit();
             }
         });
 
