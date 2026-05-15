@@ -133,7 +133,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.47</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.48</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1091,7 +1091,10 @@
                         document.getElementById('timer-bottom').style.display = 'block';
                     }
                     
+                    // ここで moveCount が 0 にリセットされないように、引数を渡して再設定する
                     this.initGameLocalVariables();
+                    this.moveCount = gs.moveCount || 0;
+                    
                     this.positionHistory = [...(gs.positionHistory || [])];
                     this.halfMoveClock = gs.halfMoveClock || 0;
 
@@ -1447,7 +1450,8 @@
                                     this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
                                 } else {
                                     this.opponentTimeoutGrace += 0.05;
-                                    if (this.opponentTimeoutGrace >= 10) {
+                                    // 30秒間に延長
+                                    if (this.opponentTimeoutGrace >= 30) {
                                         this.handleTimeout();
                                     }
                                 }
