@@ -133,7 +133,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.37</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.38</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1018,12 +1018,13 @@
                 const newTurn = gs.turn;
                 const oldTurn = this.turn;
                 
-                this.movedStatus = gs.movedStatus;
-                this.timers = gs.timers; 
+                // 【重要修正】Firestoreのデータを直接参照せず、ディープコピーしてローカルで扱う
+                this.movedStatus = JSON.parse(JSON.stringify(gs.movedStatus || {}));
+                this.timers = { ...gs.timers }; 
                 this.baseTimers = { ...gs.timers };
                 this.turn = gs.turn;
                 this.halfMoveClock = gs.halfMoveClock || 0;
-                this.positionHistory = gs.positionHistory || [];
+                this.positionHistory = [...(gs.positionHistory || [])];
                 
                 this.turnStartTime = Date.now();
 
@@ -1051,13 +1052,12 @@
                     }
                     
                     this.initGameLocalVariables();
-                    // 初期化時に消えてしまう千日手・50手ルールの履歴を正しく復元する
-                    this.positionHistory = gs.positionHistory || [];
+                    this.positionHistory = [...(gs.positionHistory || [])];
                     this.halfMoveClock = gs.halfMoveClock || 0;
 
                     this.firstMoveDone = { white: false, black: false };
                     this.board = JSON.parse(gs.board);
-                    this.lastMove = gs.lastMove;
+                    this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
                     
                     if (gs.moveCount === 0 && this.positionHistory.length === 0) {
                         this.positionHistory.push(this.getPositionString());
@@ -1095,11 +1095,11 @@
                     };
                     
                     this.board[gs.lastMove.from.y][gs.lastMove.from.x] = null;
-                    this.lastMove = gs.lastMove;
+                    this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
                     this.updateTimerDisplay();
                 } else {
                     this.board = JSON.parse(gs.board);
-                    this.lastMove = gs.lastMove;
+                    this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
                     this.updateCheckStatus();
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
