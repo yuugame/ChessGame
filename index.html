@@ -122,6 +122,7 @@
 </head>
 <body>
 
+    <!-- z-indexをさらに大きくし、スマホ等での表示優先度を強制的に上げる -->
     <div class="fixed top-2 right-2 z-[9999]" style="z-index: 9999;">
         <select id="language-select" class="bg-zinc-800 text-white py-2 px-3 rounded outline-none border border-zinc-600 text-sm cursor-pointer shadow-xl drop-shadow-2xl" onchange="window.setLanguage(this.value)">
             <option value="ja">日本語</option>
@@ -133,7 +134,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.38</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.39</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -518,9 +519,10 @@
                 this.inCheckPos = null;
                 this.firstMoveDone = { white: false, black: false };
                 
-                // 千日手・50手ルール用の変数
                 this.halfMoveClock = 0;
                 this.positionHistory = [];
+
+                this.needsRender = true; // ★追加：再描画フラグ
 
                 this.setupListeners();
                 this.animate();
@@ -533,12 +535,10 @@
                     }
                 });
                 
-                // 初回言語UI適用
                 setTimeout(() => window.setLanguage(window.currentLang), 100);
             }
 
             getPositionString() {
-                // データベースを経由しても並び順が変わらないように、固定の文字列フォーマットに変換して記録する
                 const ms = this.movedStatus || {};
                 const msStr = `${ms.whiteKing ? 1 : 0}${ms.blackKing ? 1 : 0}${ms.whiteRookLeft ? 1 : 0}${ms.whiteRookRight ? 1 : 0}${ms.blackRookLeft ? 1 : 0}${ms.blackRookRight ? 1 : 0}`;
                 return JSON.stringify(this.board) + "|" + this.turn + "|" + msStr;
@@ -1018,7 +1018,6 @@
                 const newTurn = gs.turn;
                 const oldTurn = this.turn;
                 
-                // 【重要修正】Firestoreのデータを直接参照せず、ディープコピーしてローカルで扱う
                 this.movedStatus = JSON.parse(JSON.stringify(gs.movedStatus || {}));
                 this.timers = { ...gs.timers }; 
                 this.baseTimers = { ...gs.timers };
@@ -1073,6 +1072,7 @@
                     
                     const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                     this.showTurnMessage(checkStr);
+                    this.needsRender = true;
                     return;
                 }
 
@@ -1097,6 +1097,7 @@
                     this.board[gs.lastMove.from.y][gs.lastMove.from.x] = null;
                     this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
                     this.updateTimerDisplay();
+                    this.needsRender = true;
                 } else {
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
@@ -1104,6 +1105,7 @@
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
                     this.checkGameEnd(data, gs, oldTurn, newTurn);
+                    this.needsRender = true;
                 }
             }
 
@@ -1156,6 +1158,7 @@
                         this.assistMoves = [];
                     }
                 }
+                this.needsRender = true;
             }
 
             showWinLoseMessage(reason, winnerColor) {
@@ -1325,6 +1328,7 @@
                 
                 this.showTurnMessage("");
                 this.updateAdvantageMeter();
+                this.needsRender = true;
             }
 
             startTimer() {
@@ -1388,23 +1392,31 @@
                 const topTimer = document.getElementById('timer-top');
                 const bottomTimer = document.getElementById('timer-bottom');
                 
+                let bottomText = "";
+                let topText = "";
+
                 if (this.playerColor === 'white') {
-                    bottomTimer.innerText = fmt(this.timers.white);
-                    topTimer.innerText = fmt(this.timers.black);
+                    bottomText = fmt(this.timers.white);
+                    topText = fmt(this.timers.black);
                 } else {
-                    bottomTimer.innerText = fmt(this.timers.black);
-                    topTimer.innerText = fmt(this.timers.white);
+                    bottomText = fmt(this.timers.black);
+                    topText = fmt(this.timers.white);
                 }
+
+                if (bottomTimer.innerText !== bottomText) bottomTimer.innerText = bottomText;
+                if (topTimer.innerText !== topText) topTimer.innerText = topText;
 
                 if (this.isGameOver) {
                     this.clearActiveStyles();
                 } else {
+                    const isWhiteTurn = this.turn === 'white';
+                    const isBlackTurn = this.turn === 'black';
                     if (this.playerColor === 'white') {
-                        bottomTimer.classList.toggle('timer-active', this.turn === 'white');
-                        topTimer.classList.toggle('timer-active', this.turn === 'black');
+                        if (bottomTimer.classList.contains('timer-active') !== isWhiteTurn) bottomTimer.classList.toggle('timer-active', isWhiteTurn);
+                        if (topTimer.classList.contains('timer-active') !== isBlackTurn) topTimer.classList.toggle('timer-active', isBlackTurn);
                     } else {
-                        bottomTimer.classList.toggle('timer-active', this.turn === 'black');
-                        topTimer.classList.toggle('timer-active', this.turn === 'white');
+                        if (bottomTimer.classList.contains('timer-active') !== isBlackTurn) bottomTimer.classList.toggle('timer-active', isBlackTurn);
+                        if (topTimer.classList.contains('timer-active') !== isWhiteTurn) topTimer.classList.toggle('timer-active', isWhiteTurn);
                     }
                 }
             }
@@ -1462,6 +1474,7 @@
                 } else { 
                     this.selected = null; 
                 }
+                this.needsRender = true;
             }
 
             startMove(move) {
@@ -1480,6 +1493,7 @@
                 this.animatingPiece = { piece, from: move.from, to: move.to, progress: 0, move };
                 this.board[move.from.y][move.from.x] = null;
                 this.selected = null;
+                this.needsRender = true;
             }
 
             executeMove(move) {
@@ -1535,12 +1549,15 @@
                         this.board[move.to.y][move.to.x] = this.turn === 'white' ? 'Q' : 'q';
                         this.updateAdvantageMeter();
                         this.finalizeTurn();
+                        this.needsRender = true;
                     } else {
                         this.pendingPromotion = move;
                         document.getElementById('promotion-modal').style.display = 'flex';
+                        this.needsRender = true;
                     }
                 } else { 
                     this.finalizeTurn(); 
+                    this.needsRender = true;
                 }
             }
 
@@ -1552,6 +1569,7 @@
                 this.pendingPromotion = null;
                 this.updateAdvantageMeter();
                 this.finalizeTurn();
+                this.needsRender = true;
             }
 
             toggleAssistMode(checked) {
@@ -1561,6 +1579,7 @@
                     this.updateAssistMoves();
                 } else {
                     this.assistMoves = [];
+                    this.needsRender = true;
                 }
             }
 
@@ -1585,6 +1604,7 @@
 
                     all.sort((a,b) => b.evalScore - a.evalScore);
                     this.assistMoves = all.slice(0, 3);
+                    this.needsRender = true;
                 }, 10);
             }
 
@@ -1943,6 +1963,7 @@
                 this.updateTimerDisplay();
                 this.updateAdvantageMeter();
                 this.updateAssistMoves();
+                this.needsRender = true;
             }
 
             isSquareAttacked(x, y, color, board) {
@@ -2071,7 +2092,13 @@
                 }
             }
 
-            animate() { this.render(); requestAnimationFrame(() => this.animate()); }
+            animate() {
+                if (this.initialized && (this.needsRender || this.animatingPiece)) {
+                    this.render();
+                    this.needsRender = false;
+                }
+                requestAnimationFrame(() => this.animate());
+            }
 
             render() {
                 if (!this.initialized) return;
@@ -2179,6 +2206,7 @@
                         } else {
                             this.executeMove(a.move); 
                         }
+                        this.needsRender = true;
                     }
                     else {
                         const f = (this.playerColor === 'black' ? {x:7-a.from.x, y:7-a.from.y} : a.from);
