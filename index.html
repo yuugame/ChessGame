@@ -133,7 +133,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.45</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.46</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -282,7 +282,7 @@
                 undoMove: "1手戻る", rematch: "もう一回やる", exit: "終了", assistMode: "アシストモード (最善手候補を表示)", anonymous: "匿名プレイヤー",
                 whiteTurn: "白の番です", blackTurn: "黒の番です", yourTurn: "あなたの番です", opponentTurn: "相手の番です", checkmate: "チェックメイト！",
                 timeout: "時間切れ！", winSuffix: "の勝ち", youWin: "あなたの勝ち！ 🎉", youLose: "あなたの負け...", checkWarning: "⚠️ チェック！ ",
-                waitingCommunication: "通信待機中 (相手の応答がありません...)", rematchPrep: "再戦の準備中...", rematchFailed: "再戦の準備に失敗しました",
+                waitingOpponentAck: "受信待機中...", rematchPrep: "再戦の準備中...", rematchFailed: "再戦の準備に失敗しました",
                 error: "エラー", commError: "通信エラー", cannotJoinTitle: "部屋に入れません", cannotJoinMsg: "この合言葉の部屋は既に対戦中か、過去の対戦データが残っています。\n\n再戦する場合は、どちらかが「部屋を作る」を押して部屋を新しく上書きしてください。",
                 disconnectTitle: "切断", disconnectMsg: "対戦相手が退出したか部屋が削除されました。", abandonTitle: "終了", abandonMsg: " が退出しました。",
                 opponentDisconnectedMsg: "対戦相手の通信が切断されました。", inputRoomWordMsg: "合言葉を入力してください", firebaseErrorMsg: "Firebaseの設定が見つかりません。",
@@ -306,7 +306,7 @@
                 undoMove: "Undo", rematch: "Rematch", exit: "Exit", assistMode: "Assist Mode (Show hints)", anonymous: "Anonymous",
                 whiteTurn: "White's turn", blackTurn: "Black's turn", yourTurn: "Your turn", opponentTurn: "Opponent's turn", checkmate: "Checkmate!",
                 timeout: "Time Out!", winSuffix: " wins", youWin: "You Win! 🎉", youLose: "You Lose...", checkWarning: "⚠️ Check! ",
-                waitingCommunication: "Waiting for opponent...", rematchPrep: "Preparing rematch...", rematchFailed: "Failed to prepare rematch",
+                waitingOpponentAck: "Waiting...", rematchPrep: "Preparing rematch...", rematchFailed: "Failed to prepare rematch",
                 error: "Error", commError: "Connection Error", cannotJoinTitle: "Cannot Join", cannotJoinMsg: "Room is in play or has old data.\n\nTo rematch, please 'Create' to overwrite.",
                 disconnectTitle: "Disconnected", disconnectMsg: "Opponent left or room was deleted.", abandonTitle: "Ended", abandonMsg: " left the room.",
                 opponentDisconnectedMsg: "Opponent disconnected.", inputRoomWordMsg: "Please enter a room word.", firebaseErrorMsg: "Firebase config not found.",
@@ -330,7 +330,7 @@
                 undoMove: "悔棋", rematch: "再来一局", exit: "退出", assistMode: "辅助模式 (显示提示)", anonymous: "匿名玩家",
                 whiteTurn: "白方回合", blackTurn: "黑方回合", yourTurn: "你的回合", opponentTurn: "对手回合", checkmate: "将死！",
                 timeout: "超时！", winSuffix: " 获胜", youWin: "你赢了！ 🎉", youLose: "你输了...", checkWarning: "⚠️ 将军！ ",
-                waitingCommunication: "等待对手响应...", rematchPrep: "正在准备重赛...", rematchFailed: "准备重赛失败",
+                waitingOpponentAck: "等待响应...", rematchPrep: "正在准备重赛...", rematchFailed: "准备重赛失败",
                 error: "错误", commError: "通信错误", cannotJoinTitle: "无法加入", cannotJoinMsg: "该房间正在对战中或存有旧数据。\n\n如需重赛，请点击“创建房间”以覆盖原房间。",
                 disconnectTitle: "连接断开", disconnectMsg: "对手已离开或房间被删除。", abandonTitle: "游戏结束", abandonMsg: " 离开了房间。",
                 opponentDisconnectedMsg: "对手的连接已断开。", inputRoomWordMsg: "请输入房间口令", firebaseErrorMsg: "未找到Firebase配置。",
@@ -520,8 +520,7 @@
                 
                 this.halfMoveClock = 0;
                 this.positionHistory = [];
-                this.waitingForOpponentTimeout = false;
-                this.opponentTimeoutGrace = 0;
+                this.opponentAckTime = null;
 
                 this.needsRender = true;
 
@@ -544,6 +543,7 @@
                     localStorage.setItem('chessRoomId', this.roomId);
                     localStorage.setItem('chessUserId', this.userId);
                     localStorage.setItem('chessIsHost', this.isHost);
+                    localStorage.setItem('chessGameMode', 'online');
                 }
             }
 
@@ -551,6 +551,7 @@
                 localStorage.removeItem('chessRoomId');
                 localStorage.removeItem('chessUserId');
                 localStorage.removeItem('chessIsHost');
+                localStorage.removeItem('chessGameMode');
             }
 
             getPositionString() {
@@ -611,9 +612,9 @@
                         }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                        if (this.waitingForOpponentTimeout) {
+                        if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
                             const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
-                            this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
+                            this.updateStatus(checkStr + turnText + " - " + window.t('waitingOpponentAck'));
                         } else {
                             this.showTurnMessage(checkStr);
                         }
@@ -907,7 +908,8 @@
                             lastMove: null,
                             moveCount: 0,
                             halfMoveClock: 0,
-                            positionHistory: []
+                            positionHistory: [],
+                            ack: true
                         }
                     });
                     this.saveSession();
@@ -958,7 +960,8 @@
                             lastMove: null,
                             moveCount: 0,
                             halfMoveClock: 0,
-                            positionHistory: []
+                            positionHistory: [],
+                            ack: true
                         }
                     });
                 } catch(e) {
@@ -1029,8 +1032,20 @@
                 const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.moveCount > 0;
                 
                 if (this.gameMode === 'online' && !isRematch && gs.moveCount <= this.moveCount && this.initialized) {
+                    // ACK（受信確認）の処理
+                    if (gs.turn === this.playerColor && gs.ack === false) {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                        updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
+                        this.turnStartTime = Date.now();
+                        this.updateLanguageUI();
+                    }
+                    if (gs.turn !== this.playerColor && gs.ack === true && !this.opponentAckTime) {
+                        this.opponentAckTime = Date.now();
+                        this.updateLanguageUI();
+                    }
                     return; 
                 }
+                
                 this.moveCount = gs.moveCount || 0;
                 
                 this.firstMoveDone = { 
@@ -1048,8 +1063,7 @@
                 this.halfMoveClock = gs.halfMoveClock || 0;
                 this.positionHistory = [...(gs.positionHistory || [])];
                 
-                this.turnStartTime = Date.now();
-                this.waitingForOpponentTimeout = false;
+                this.opponentAckTime = null;
 
                 if (!this.initialized || this.gameMode !== 'online' || isRematch) {
                     this.gameMode = 'online';
@@ -1093,14 +1107,29 @@
                     
                     this.initialized = true;
                     this.isGameOver = false;
+                    
+                    if (gs.turn === this.playerColor && gs.ack === false) {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                        updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
+                    }
+                    if (gs.turn !== this.playerColor && gs.ack === true) {
+                        this.opponentAckTime = Date.now();
+                    }
+
+                    this.turnStartTime = Date.now();
                     if (this.useTimer) this.startTimer();
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
+                    this.updateLanguageUI();
                     
-                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                    this.showTurnMessage(checkStr);
                     this.needsRender = true;
                     return;
+                }
+
+                if (gs.turn === this.playerColor && gs.ack === false) {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                    updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
+                    this.turnStartTime = Date.now();
                 }
 
                 const isOpponentMove = (oldTurn !== newTurn && newTurn === this.playerColor && gs.lastMove);
@@ -1176,9 +1205,7 @@
                     this.showWinLoseMessage(window.t('timeout'), winnerColor);
                     this.showRematchButton();
                 } else {
-                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                    this.showTurnMessage(checkStr);
-                    
+                    this.updateLanguageUI();
                     if (this.turn === this.playerColor) {
                         this.updateAssistMoves();
                     } else {
@@ -1243,12 +1270,13 @@
                         status: status,
                         'gameState.board': JSON.stringify(this.board),
                         'gameState.turn': this.turn,
-                        'gameState.timers': this.timers,
+                        'gameState.timers': this.timers, 
                         'gameState.movedStatus': this.movedStatus,
                         'gameState.lastMove': this.lastMove,
                         'gameState.moveCount': this.moveCount,
                         'gameState.halfMoveClock': this.halfMoveClock,
-                        'gameState.positionHistory': this.positionHistory
+                        'gameState.positionHistory': this.positionHistory,
+                        'gameState.ack': false
                     });
                 } catch(e) { console.error(e); }
             }
@@ -1327,8 +1355,7 @@
                 this.firstMoveDone = { white: false, black: false }; 
                 this.halfMoveClock = 0;
                 this.positionHistory = [];
-                this.waitingForOpponentTimeout = false;
-                this.opponentTimeoutGrace = 0;
+                this.opponentAckTime = null;
             }
 
             initGame() {
@@ -1366,17 +1393,29 @@
                 this.baseTimers = { white: this.timers.white, black: this.timers.black };
                 
                 let lastSec = Math.floor(this.timers[this.turn] || 0);
-                this.waitingForOpponentTimeout = false;
-                this.opponentTimeoutGrace = 0;
 
                 this.timerInterval = setInterval(() => {
                     const now = Date.now();
-                    let elapsed = (now - this.turnStartTime) / 1000;
+                    let elapsed = 0;
                     
                     const isGameStart = (this.gameMode === 'online') ? (this.moveCount === 0) : (this.history.length === 0);
+                    
                     if (isGameStart) {
                         this.turnStartTime = now;
                         elapsed = 0;
+                    } else if (this.gameMode === 'online') {
+                        if (this.turn !== this.playerColor) {
+                            if (!this.currentRoomData || !this.currentRoomData.gameState.ack) {
+                                elapsed = 0;
+                            } else {
+                                if (!this.opponentAckTime) this.opponentAckTime = now;
+                                elapsed = (now - this.opponentAckTime) / 1000;
+                            }
+                        } else {
+                            elapsed = (now - this.turnStartTime) / 1000;
+                        }
+                    } else {
+                        elapsed = (now - this.turnStartTime) / 1000;
                     }
                     
                     this.timers[this.turn] = Math.max(0, this.baseTimers[this.turn] - elapsed);
@@ -1385,7 +1424,7 @@
 
                     if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
                         if (this.gameMode !== 'online' || this.turn === this.playerColor) {
-                            if (!isGameStart && !this.waitingForOpponentTimeout) {
+                            if (!isGameStart && elapsed > 0) {
                                 this.sfx.countdown();
                             }
                         }
@@ -1397,19 +1436,6 @@
                         if (this.gameMode === 'online') {
                             if (this.turn === this.playerColor) {
                                 this.handleTimeout(); 
-                            } else {
-                                if (!this.waitingForOpponentTimeout) {
-                                    this.waitingForOpponentTimeout = true;
-                                    this.opponentTimeoutGrace = 0;
-                                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                                    const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
-                                    this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
-                                } else {
-                                    this.opponentTimeoutGrace += 0.05;
-                                    if (this.opponentTimeoutGrace >= 10) {
-                                        this.handleTimeout();
-                                    }
-                                }
                             }
                         } else {
                             this.handleTimeout(); 
@@ -1858,10 +1884,7 @@
                     this.showDrawMessage(window.t('fiftyMoveRule'));
                     this.showRematchButton();
                 } else {
-                    if (this.inCheckPos) this.sfx.check(); 
-                    
-                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                    this.showTurnMessage(checkStr);
+                    this.updateLanguageUI();
                     
                     if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
                         setTimeout(() => this.cpuMove(), 400);
@@ -1869,6 +1892,7 @@
                         this.updateAssistMoves();
                     }
                 }
+                this.needsRender = true;
             }
 
             isMate() {
@@ -2295,13 +2319,12 @@
         if (auth) {
             onAuthStateChanged(auth, user => { 
                 if (user) {
-                    window.game.userId = user.uid;
-                    
                     const savedRoomId = localStorage.getItem('chessRoomId');
                     const savedUserId = localStorage.getItem('chessUserId');
                     const savedIsHost = localStorage.getItem('chessIsHost');
+                    const savedMode = localStorage.getItem('chessGameMode');
                     
-                    if (savedRoomId && savedUserId) {
+                    if (savedRoomId && savedUserId && savedMode === 'online') {
                         window.game.userId = savedUserId;
                         window.game.roomId = savedRoomId;
                         window.game.isHost = savedIsHost === 'true';
@@ -2312,6 +2335,7 @@
                         
                         window.game.listenToRoom();
                     } else {
+                        window.game.userId = user.uid;
                         document.getElementById('auth-status').innerText = window.t('authStatusReady');
                     }
                 }
