@@ -2094,8 +2094,9 @@
 
             animate() {
                 if (this.initialized && (this.needsRender || this.animatingPiece)) {
-                    this.render();
+                    // ★修正箇所：描画する前にフラグをfalseにすることで、render内でtrueになったフラグを打ち消さないようにする
                     this.needsRender = false;
+                    this.render();
                 }
                 requestAnimationFrame(() => this.animate());
             }
