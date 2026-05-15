@@ -133,7 +133,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.48</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.49</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -239,7 +239,8 @@
             <div id="timer-top" class="timer-box" style="display: none;">00:00</div>
         </div>
 
-        <h2 id="game-status" class="text-lg font-bold my-2 text-white" data-i18n="statusReady">準備完了</h2>
+        <h2 id="game-status" class="text-lg font-bold my-1 text-white" data-i18n="statusReady">準備完了</h2>
+        <div id="move-count-display" class="text-xs font-mono text-zinc-400 mb-2">手数: 0</div>
 
         <div class="flex justify-between items-center mt-2 border-t border-zinc-700 pt-2">
             <div id="bottom-player-label" class="text-xs font-bold text-blue-400">あなた</div>
@@ -290,7 +291,7 @@
                 noUndoOnlineMsg: "オンライン対戦中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
                 colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
-                threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています..."
+                threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: "
             },
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
@@ -314,7 +315,7 @@
                 noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
-                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "Reconnecting..."
+                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "Reconnecting...", moveCountPrefix: "Moves: "
             },
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
@@ -338,7 +339,7 @@
                 noUndoOnlineMsg: "在线对战中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
                 colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
-                threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接..."
+                threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: "
             }
         };
 
@@ -619,6 +620,14 @@
                             this.showTurnMessage(checkStr);
                         }
                     }
+                    this.updateMoveCountDisplay();
+                }
+            }
+
+            updateMoveCountDisplay() {
+                const el = document.getElementById('move-count-display');
+                if (el) {
+                    el.innerText = `${window.t('moveCountPrefix')}${this.moveCount}`;
                 }
             }
 
@@ -909,7 +918,8 @@
                             moveCount: 0,
                             halfMoveClock: 0,
                             positionHistory: [],
-                            ack: true
+                            ack: true,
+                            lastMoveTimestamp: Date.now()
                         }
                     });
                     this.saveSession();
@@ -961,7 +971,8 @@
                             moveCount: 0,
                             halfMoveClock: 0,
                             positionHistory: [],
-                            ack: true
+                            ack: true,
+                            lastMoveTimestamp: Date.now()
                         }
                     });
                 } catch(e) {
@@ -1057,8 +1068,18 @@
                 const oldTurn = this.turn;
                 
                 this.movedStatus = JSON.parse(JSON.stringify(gs.movedStatus || {}));
-                this.timers = { ...gs.timers }; 
+                
+                // --- 時間の正確な復元（リロード時のグリッチ修正） ---
                 this.baseTimers = { ...gs.timers };
+                this.timers = { ...gs.timers };
+                if (gs.lastMoveTimestamp && gs.moveCount > 0) {
+                    const elapsedSinceLastMove = (Date.now() - gs.lastMoveTimestamp) / 1000;
+                    if (elapsedSinceLastMove > 0) {
+                        this.baseTimers[gs.turn] = Math.max(0, this.baseTimers[gs.turn] - elapsedSinceLastMove);
+                        this.timers[gs.turn] = this.baseTimers[gs.turn];
+                    }
+                }
+                
                 this.turn = gs.turn;
                 this.halfMoveClock = gs.halfMoveClock || 0;
                 this.positionHistory = [...(gs.positionHistory || [])];
@@ -1091,14 +1112,18 @@
                         document.getElementById('timer-bottom').style.display = 'block';
                     }
                     
-                    // ここで moveCount が 0 にリセットされないように、引数を渡して再設定する
                     this.initGameLocalVariables();
                     this.moveCount = gs.moveCount || 0;
                     
                     this.positionHistory = [...(gs.positionHistory || [])];
                     this.halfMoveClock = gs.halfMoveClock || 0;
 
-                    this.firstMoveDone = { white: false, black: false };
+                    // リロード時にfirstMoveDoneがリセットされないよう手数を元に復元（時間が増えないバグ修正）
+                    this.firstMoveDone = { 
+                        white: this.moveCount > 0, 
+                        black: this.moveCount > 1 
+                    };
+                    
                     this.board = JSON.parse(gs.board);
                     this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
                     
@@ -1260,7 +1285,6 @@
             async sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove) {
                 if (!this.roomId) return;
                 try {
-                    this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = 'playing';
                     if (isCheckmate) status = 'finished_mate';
@@ -1279,7 +1303,8 @@
                         'gameState.moveCount': this.moveCount,
                         'gameState.halfMoveClock': this.halfMoveClock,
                         'gameState.positionHistory': this.positionHistory,
-                        'gameState.ack': false
+                        'gameState.ack': false,
+                        'gameState.lastMoveTimestamp': Date.now()
                     });
                 } catch(e) { console.error(e); }
             }
@@ -1387,6 +1412,7 @@
                 
                 this.showTurnMessage("");
                 this.updateAdvantageMeter();
+                this.updateMoveCountDisplay();
                 this.needsRender = true;
             }
 
@@ -1580,7 +1606,8 @@
                         lastMove: this.lastMove ? {...this.lastMove} : null,
                         movedStatus: { ...this.movedStatus },
                         halfMoveClock: this.halfMoveClock,
-                        positionHistory: [...this.positionHistory]
+                        positionHistory: [...this.positionHistory],
+                        moveCount: this.moveCount
                     }));
                 }
 
@@ -1610,6 +1637,8 @@
                 } else {
                     this.halfMoveClock++;
                 }
+                
+                this.moveCount++;
                 
                 if (move.isCastling) {
                     const rookY = move.from.y;
@@ -1849,6 +1878,7 @@
                 this.baseTimers = { ...this.timers };
                 
                 this.updateCheckStatus();
+                this.updateMoveCountDisplay();
                 
                 const posStr = this.getPositionString();
                 this.positionHistory.push(posStr);
@@ -2034,6 +2064,7 @@
                     this.movedStatus = prev.movedStatus;
                     this.halfMoveClock = prev.halfMoveClock;
                     this.positionHistory = prev.positionHistory;
+                    this.moveCount = prev.moveCount || 0;
                     this.turn = this.turn === 'white' ? 'black' : 'white';
                 };
 
@@ -2055,6 +2086,7 @@
                 this.showTurnMessage(checkStr);
                 this.updateTimerDisplay();
                 this.updateAdvantageMeter();
+                this.updateMoveCountDisplay();
                 this.updateAssistMoves();
                 this.needsRender = true;
             }
