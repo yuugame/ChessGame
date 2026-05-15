@@ -133,7 +133,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.49</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.50</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -522,6 +522,8 @@
                 this.halfMoveClock = 0;
                 this.positionHistory = [];
                 this.opponentAckTime = null;
+                this.isOpponentDisconnected = false;
+                this.opponentDisconnectedAt = null;
 
                 this.needsRender = true;
 
@@ -613,7 +615,10 @@
                         }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                        if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
+                        // 切断時のメッセージは startTimer 内でリアルタイムに (xx s) と更新されるためここでは簡易表示
+                        if (this.isOpponentDisconnected) {
+                            this.updateStatus(checkStr + window.t('opponentDisconnectedMsg'));
+                        } else if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
                             const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                             this.updateStatus(checkStr + turnText + " - " + window.t('waitingOpponentAck'));
                         } else {
@@ -1042,6 +1047,24 @@
                 
                 const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.moveCount > 0;
                 
+                // リロード復帰などによって切断フラグが立っていた場合、クリアする
+                if (gs.disconnected === this.userId) {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                    updateDoc(roomRef, {
+                        'gameState.disconnected': null,
+                        'gameState.disconnectedAt': null
+                    }).catch(()=>{});
+                }
+
+                // 相手の通信切断を検知
+                if (gs.disconnected && gs.disconnected !== this.userId) {
+                    this.isOpponentDisconnected = true;
+                    this.opponentDisconnectedAt = gs.disconnectedAt;
+                } else {
+                    this.isOpponentDisconnected = false;
+                    this.opponentDisconnectedAt = null;
+                }
+                
                 if (this.gameMode === 'online' && !isRematch && gs.moveCount <= this.moveCount && this.initialized) {
                     // ACK（受信確認）の処理
                     if (gs.turn === this.playerColor && gs.ack === false) {
@@ -1069,7 +1092,6 @@
                 
                 this.movedStatus = JSON.parse(JSON.stringify(gs.movedStatus || {}));
                 
-                // --- 時間の正確な復元（リロード時のグリッチ修正） ---
                 this.baseTimers = { ...gs.timers };
                 this.timers = { ...gs.timers };
                 if (gs.lastMoveTimestamp && gs.moveCount > 0) {
@@ -1118,7 +1140,6 @@
                     this.positionHistory = [...(gs.positionHistory || [])];
                     this.halfMoveClock = gs.halfMoveClock || 0;
 
-                    // リロード時にfirstMoveDoneがリセットされないよう手数を元に復元（時間が増えないバグ修正）
                     this.firstMoveDone = { 
                         white: this.moveCount > 0, 
                         black: this.moveCount > 1 
@@ -1234,10 +1255,11 @@
                     this.showRematchButton();
                 } else {
                     this.updateLanguageUI();
-                    if (this.turn === this.playerColor) {
+                    
+                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
+                        setTimeout(() => this.cpuMove(), 400);
+                    } else if (this.gameMode !== 'online' || this.turn === this.playerColor) {
                         this.updateAssistMoves();
-                    } else {
-                        this.assistMoves = [];
                     }
                 }
                 this.needsRender = true;
@@ -1280,6 +1302,21 @@
                 if (this.gameMode === 'online' && this.isHost) {
                     document.getElementById('rematch-btn').style.display = 'block';
                 }
+            }
+
+            async handleDisconnectWin() {
+                this.stopTimer();
+                this.isGameOver = true;
+                this.sfx.checkmate(); 
+                
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                    const opponentId = this.currentRoomData.white === this.userId ? this.currentRoomData.black : this.currentRoomData.white;
+                    await updateDoc(roomRef, {
+                        status: 'abandoned',
+                        whoAbandoned: opponentId
+                    });
+                } catch(e) { console.error(e); }
             }
 
             async sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove) {
@@ -1384,6 +1421,8 @@
                 this.halfMoveClock = 0;
                 this.positionHistory = [];
                 this.opponentAckTime = null;
+                this.isOpponentDisconnected = false;
+                this.opponentDisconnectedAt = null;
             }
 
             initGame() {
@@ -1476,7 +1515,6 @@
                                     this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
                                 } else {
                                     this.opponentTimeoutGrace += 0.05;
-                                    // 30秒間に延長
                                     if (this.opponentTimeoutGrace >= 30) {
                                         this.handleTimeout();
                                     }
@@ -1487,6 +1525,29 @@
                         }
                     }
                     this.updateTimerDisplay();
+
+                    // 相手の切断ペナルティ処理およびステータス表示の毎フレーム更新
+                    if (!this.isGameOver) {
+                        if (this.gameMode === 'online' && this.isOpponentDisconnected && this.opponentDisconnectedAt) {
+                            const offlineTime = (now - this.opponentDisconnectedAt) / 1000;
+                            const remainingGrace = Math.max(0, 30 - Math.floor(offlineTime));
+                            
+                            const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
+                            this.updateStatus(checkStr + window.t('opponentDisconnectedMsg') + ` (${remainingGrace}s)`);
+
+                            if (offlineTime >= 30) {
+                                this.handleDisconnectWin();
+                            }
+                        } else if (this.gameMode === 'online' && this.turn !== this.playerColor && this.waitingForOpponentTimeout) {
+                            // waitingCommunication 表示維持のため何もしない
+                        } else if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
+                            // ack待ち 表示維持のため何もしない
+                        } else {
+                            const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
+                            this.showTurnMessage(checkStr);
+                        }
+                    }
+
                 }, 50); 
             }
 
@@ -2398,7 +2459,23 @@
                 if (window.game.currentRoomData && window.game.currentRoomData.status === 'waiting' && window.game.isHost) {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
                     deleteDoc(roomRef).catch(()=>{});
+                } else if (window.game.currentRoomData && window.game.currentRoomData.status === 'playing' && !window.game.isGameOver) {
+                    // 対戦中にページを閉じた場合、切断フラグを記録する
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
+                    updateDoc(roomRef, {
+                        'gameState.disconnected': window.game.userId,
+                        'gameState.disconnectedAt': Date.now()
+                    }).catch(()=>{});
                 }
+            }
+        });
+
+        // 誤操作によるリロードやタブ閉じを防止するための警告（ブラウザ標準機能）
+        window.addEventListener('beforeunload', (e) => {
+            if (window.game && window.game.gameMode === 'online' && !window.game.isGameOver && window.game.initialized) {
+                e.preventDefault();
+                e.returnValue = window.t('confirmExitMsg'); 
+                return window.t('confirmExitMsg');
             }
         });
 
