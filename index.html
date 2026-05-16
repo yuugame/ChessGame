@@ -24,6 +24,7 @@
             padding: 10px;
             box-sizing: border-box;
             touch-action: manipulation;
+            overflow-x: hidden;
         }
         canvas {
             width: 100%;
@@ -135,7 +136,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.55</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.58</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -151,11 +152,11 @@
                     <span class="opacity-70" data-i18n="difficulty">難易度レベル</span>
                     <span id="level-value" class="font-bold text-blue-400">Lv.1</span>
                 </div>
-                <input type="range" id="level-slider" min="1" max="10" value="1" step="1" 
+                <input type="range" id="level-slider" min="1" max="20" value="1" step="1" 
                     oninput="document.getElementById('level-value').innerText = 'Lv.' + this.value">
                 <div class="flex justify-between text-xs mt-2 opacity-50">
                     <span data-i18n="beginner">初級</span>
-                    <span data-i18n="advanced">上級</span>
+                    <span data-i18n="advanced">上級 (Lv.20)</span>
                 </div>
             </div>
             <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]" data-i18n="cpuNote">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。</p>
@@ -265,42 +266,48 @@
         </div>
     </div>
 
-    <!-- Advantage Meter -->
-    <div class="advantage-container" id="meter-ui" style="display: none;">
-        <div id="advantage-bar-white" style="width: 50%;"></div>
-        <div id="advantage-bar-black"></div>
-        <div id="advantage-text" class="score-text">0.0</div>
-    </div>
-
-    <div class="status-panel">
-        <div id="mode-display" class="text-[10px] uppercase tracking-tighter opacity-50 mb-1" data-i18n="modeText">MODE</div>
-        
-        <div class="flex justify-between items-center mb-2 border-b border-zinc-700 pb-2">
-            <div id="top-player-label" class="text-xs font-bold opacity-70">CPU</div>
-            <div id="timer-top" class="timer-box" style="display: none;">00:00</div>
+    <div id="game-ui-container" class="w-full flex flex-col items-center">
+        <!-- Advantage Meter -->
+        <div class="advantage-container" id="meter-ui" style="display: none;">
+            <div id="advantage-bar-white" style="width: 50%;"></div>
+            <div id="advantage-bar-black"></div>
+            <div id="advantage-text" class="score-text">0.0</div>
         </div>
 
-        <h2 id="game-status" class="text-lg font-bold my-1 text-white" data-i18n="statusReady">準備完了</h2>
-        <div id="move-count-display" class="text-xs font-mono text-zinc-400 mb-2">手数: 0</div>
+        <div class="status-panel">
+            <div id="mode-display" class="text-[10px] uppercase tracking-tighter opacity-50 mb-1 inline-block" data-i18n="modeText">MODE</div>
+            
+            <div class="flex justify-between items-center mb-2 border-b border-zinc-700 pb-2">
+                <div id="top-player-label" class="text-xs font-bold opacity-70 inline-block">CPU</div>
+                <div id="timer-top" class="timer-box inline-block" style="display: none;">00:00</div>
+            </div>
 
-        <div class="flex justify-between items-center mt-2 border-t border-zinc-700 pt-2">
-            <div id="bottom-player-label" class="text-xs font-bold text-blue-400">あなた</div>
-            <div id="timer-bottom" class="timer-box" style="display: none;">00:00</div>
+            <h2 id="game-status" class="text-lg font-bold my-1 text-white inline-block" data-i18n="statusReady">準備完了</h2><br>
+            <div id="move-count-display" class="text-xs font-mono text-zinc-400 mb-2 inline-block">手数: 0</div>
+
+            <div class="flex justify-between items-center mt-2 border-t border-zinc-700 pt-2">
+                <div id="bottom-player-label" class="text-xs font-bold text-blue-400 inline-block">あなた</div>
+                <div id="timer-bottom" class="timer-box inline-block" style="display: none;">00:00</div>
+            </div>
         </div>
-    </div>
 
-    <canvas id="chessBoard" width="400" height="400"></canvas>
+        <canvas id="chessBoard" width="400" height="400"></canvas>
 
-    <div class="mt-3 flex flex-col items-center gap-2 w-full max-w-[400px]">
-        <div class="flex w-full gap-2">
-            <button id="undo-btn" class="flex-1 bg-zinc-700 py-3 rounded font-bold hover:bg-zinc-600 transition-colors" onclick="game.confirmUndo()" data-i18n="undoMove">1手戻る</button>
-            <button id="rematch-btn" class="flex-1 bg-green-600 py-3 rounded font-bold hover:bg-green-500 transition-colors" style="display: none;" onclick="game.requestRematch()" data-i18n="rematch">もう一回やる</button>
-            <button class="flex-1 bg-red-900 py-3 rounded font-bold hover:bg-red-800 transition-colors" onclick="game.confirmExit()" data-i18n="exit">終了</button>
+        <div class="mt-3 flex flex-col items-center gap-2 w-full max-w-[400px]">
+            <div class="flex w-full gap-2">
+                <button id="undo-btn" class="flex-1 bg-zinc-700 py-3 rounded font-bold hover:bg-zinc-600 transition-colors inline-block" onclick="game.confirmUndo()" data-i18n="undoMove">1手戻る</button>
+                <button id="rematch-btn" class="flex-1 bg-green-600 py-3 rounded font-bold hover:bg-green-500 transition-colors inline-block" style="display: none;" onclick="game.requestRematch()" data-i18n="rematch">もう一回やる</button>
+                <button id="exit-btn" class="flex-1 bg-red-900 py-3 rounded font-bold hover:bg-red-800 transition-colors inline-block" onclick="game.confirmExit()" data-i18n="exit">終了</button>
+            </div>
+            <label id="assist-mode-container" class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors mt-2">
+                <input type="checkbox" id="assist-mode-toggle" class="w-5 h-5 accent-blue-500" onchange="game.toggleAssistMode(this.checked)">
+                <span id="assist-text" class="opacity-90 font-bold text-xs sm:text-sm text-center inline-block" data-i18n="assistMode">アシストモード (最善手候補を表示)</span>
+            </label>
+            <label id="auto-rotate-container" class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors mt-2" style="display: none;">
+                <input type="checkbox" id="auto-rotate-toggle" class="w-5 h-5 accent-blue-500" onchange="game.toggleAutoRotate(this.checked)">
+                <span id="auto-rotate-text" class="opacity-90 font-bold text-xs sm:text-sm text-center inline-block" data-i18n="autoRotate">黒の番の時に文字と駒を逆さまにする</span>
+            </label>
         </div>
-        <label id="assist-mode-container" class="flex w-full items-center justify-center gap-2 cursor-pointer bg-zinc-800 py-2 px-1 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors mt-2">
-            <input type="checkbox" id="assist-mode-toggle" class="w-5 h-5 accent-blue-500" onchange="game.toggleAssistMode(this.checked)">
-            <span class="opacity-90 font-bold text-xs sm:text-sm text-center" data-i18n="assistMode">アシストモード (最善手候補を表示)</span>
-        </label>
     </div>
 
     <script type="module">
@@ -333,7 +340,8 @@
                 colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
                 threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: ",
-                baseTime: "持ち時間", incTime: "追加時間 (1手)", startGame: "ゲーム開始", min: "分", sec: "秒", incNone: "なし", disconnectErrorMsg: "通信エラーが発生したため、タイトル画面に戻ります。"
+                baseTime: "持ち時間", incTime: "追加時間 (1手)", startGame: "ゲーム開始", min: "分", sec: "秒", incNone: "なし", disconnectErrorMsg: "通信エラーが発生したため、タイトル画面に戻ります。",
+                autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする"
             },
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
@@ -358,7 +366,8 @@
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
                 threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "Reconnecting...", moveCountPrefix: "Moves: ",
-                baseTime: "Base Time", incTime: "Increment", startGame: "Start Game", min: "m", sec: "s", incNone: "None", disconnectErrorMsg: "Connection error occurred. Returning to title."
+                baseTime: "Base Time", incTime: "Increment", startGame: "Start Game", min: "m", sec: "s", incNone: "None", disconnectErrorMsg: "Connection error occurred. Returning to title.",
+                autoRotate: "Rotate pieces and text for Black"
             },
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
@@ -383,7 +392,8 @@
                 colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
                 threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: ",
-                baseTime: "初始时间", incTime: "每步加时", startGame: "开始游戏", min: "分", sec: "秒", incNone: "无", disconnectErrorMsg: "发生通信错误，将返回标题画面。"
+                baseTime: "初始时间", incTime: "每步加时", startGame: "开始游戏", min: "分", sec: "秒", incNone: "无", disconnectErrorMsg: "发生通信错误，将返回标题画面。",
+                autoRotate: "黑方回合时翻转棋子和文字"
             }
         };
 
@@ -572,6 +582,7 @@
                 
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
+                this.initialTimeSec = 600;
 
                 this.board = [];
                 this.turn = 'white';
@@ -580,12 +591,16 @@
                 this.heartbeatInterval = null;
                 this.history = [];
                 this.animatingPiece = null;
+                
+                // ドラッグ＆ドロップ機能用ステート
+                this.draggingPiece = null;
+
                 this.movedStatus = {
                     whiteKing: false, blackKing: false,
                     whiteRookLeft: false, whiteRookRight: false,
                     blackRookLeft: false, blackRookRight: false
                 };
-                this.enPassantTarget = null; // アンパッサン用のターゲット位置
+                this.enPassantTarget = null;
                 this.isAssistMode = false;
                 this.assistMoves = [];
                 this.inCheckPos = null;
@@ -598,6 +613,9 @@
                 this.opponentDisconnectedAt = null;
 
                 this.needsRender = true;
+                
+                // 後手の時に文字と駒を180度回転用フラグ
+                this.autoRotate = false;
 
                 this.setupListeners();
                 this.animate();
@@ -696,7 +714,6 @@
                         }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                        // startTimer内の切断表示が優先されるため、ここは通常表示
                         if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
                             const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                             this.updateStatus(checkStr + turnText + " - " + window.t('waitingOpponentAck'));
@@ -728,13 +745,16 @@
             updatePlayerLabels() {
                 const topLabel = document.getElementById('top-player-label');
                 const bottomLabel = document.getElementById('bottom-player-label');
+                const modeDisplay = document.getElementById('mode-display');
 
                 if (this.gameMode === 'cpu') {
-                    bottomLabel.innerText = `${window.t('you')}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
-                    topLabel.innerText = `${window.t('cpuName')}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (bottomLabel) bottomLabel.innerText = `${window.t('you')}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
+                    if (topLabel) topLabel.innerText = `${window.t('cpuName')}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (modeDisplay) modeDisplay.innerText = `${window.t('vsCpu')} Lv.${this.aiLevel}`;
                 } else if (this.gameMode === 'pvp') {
-                    bottomLabel.innerText = `${window.t('p1White')}`;
-                    topLabel.innerText = `${window.t('p2Black')}`;
+                    if (bottomLabel) bottomLabel.innerText = `${window.t('p1White')}`;
+                    if (topLabel) topLabel.innerText = `${window.t('p2Black')}`;
+                    if (modeDisplay) modeDisplay.innerText = window.t('offlinePvp');
                 } else if (this.gameMode === 'online') {
                     let myName = window.t('you');
                     let opponentName = window.t('anonymous');
@@ -747,20 +767,151 @@
                             opponentName = this.currentRoomData.hostName || window.t('anonymous');
                         }
                     }
-                    bottomLabel.innerText = `${myName}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
-                    topLabel.innerText = `${opponentName}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (bottomLabel) bottomLabel.innerText = `${myName}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
+                    if (topLabel) topLabel.innerText = `${opponentName}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (modeDisplay) modeDisplay.innerText = `${window.t('onlinePvp')} [${this.roomId}]`;
                 }
+            }
+            
+            toggleAutoRotate(checked) {
+                this.sfx.buttonClick();
+                this.autoRotate = checked;
+                this.updateRotationUI();
+                this.needsRender = true;
+            }
+
+            updateRotationUI() {
+                const shouldRotate = (this.gameMode === 'pvp' && this.autoRotate && this.turn === 'black');
+                const textIds = [
+                    'mode-display', 'top-player-label', 'timer-top', 'game-status', 
+                    'move-count-display', 'bottom-player-label', 'timer-bottom', 
+                    'undo-btn', 'rematch-btn', 'exit-btn', 'assist-text', 'auto-rotate-text'
+                ];
+
+                textIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if (shouldRotate) {
+                            el.classList.add('rotate-180');
+                        } else {
+                            el.classList.remove('rotate-180');
+                        }
+                    }
+                });
             }
 
             setupListeners() {
-                const trigger = (e) => {
+                const getPointerPos = (e) => {
                     const rect = this.canvas.getBoundingClientRect();
-                    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-                    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-                    this.handleClick(x, y, rect.width);
+                    const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+                    const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+                    let rawX = clientX - rect.left;
+                    let rawY = clientY - rect.top;
+                    return { x: rawX, y: rawY, width: rect.width };
                 };
-                this.canvas.addEventListener('mousedown', trigger);
-                this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); trigger(e); });
+
+                const onDown = (e) => {
+                    if (e.type === 'touchstart') e.preventDefault();
+                    const pos = getPointerPos(e);
+                    this.handlePointerDown(pos.x, pos.y, pos.width);
+                };
+
+                const onMove = (e) => {
+                    if (!this.draggingPiece) return;
+                    if (e.type === 'touchmove') e.preventDefault();
+                    const pos = getPointerPos(e);
+                    this.handlePointerMove(pos.x, pos.y);
+                };
+
+                const onUp = (e) => {
+                    if (!this.draggingPiece) return;
+                    if (e.type === 'touchend') e.preventDefault();
+                    let clientX = e.clientX;
+                    let clientY = e.clientY;
+                    if (e.type === 'touchend' && e.changedTouches && e.changedTouches.length > 0) {
+                        clientX = e.changedTouches[0].clientX;
+                        clientY = e.changedTouches[0].clientY;
+                    }
+                    const rect = this.canvas.getBoundingClientRect();
+                    const rawX = clientX - rect.left;
+                    const rawY = clientY - rect.top;
+                    this.handlePointerUp(rawX, rawY, rect.width);
+                };
+
+                this.canvas.addEventListener('mousedown', onDown);
+                this.canvas.addEventListener('touchstart', onDown, { passive: false });
+                
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('touchmove', onMove, { passive: false });
+                
+                window.addEventListener('mouseup', onUp);
+                window.addEventListener('touchend', onUp, { passive: false });
+            }
+
+            handlePointerDown(rawX, rawY, width) {
+                if (!this.initialized || this.isGameOver || this.animatingPiece) return;
+                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) return;
+                
+                const sx = Math.floor(rawX / (width / 8)), sy = Math.floor(rawY / (width / 8));
+                if (sx < 0 || sx > 7 || sy < 0 || sy > 7) return;
+                const { x, y } = this.playerColor === 'black' ? { x: 7 - sx, y: 7 - sy } : { x: sx, y: sy };
+
+                const p = this.board[y][x];
+
+                if (this.selected) {
+                    const move = this.validMoves.find(m => m.to.x === x && m.to.y === y);
+                    if (move) { 
+                        this.startMove(move); 
+                        this.draggingPiece = null;
+                        return; 
+                    }
+                }
+
+                if (p && (this.turn === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
+                    this.selected = { x, y };
+                    this.validMoves = this.getMoves(x, y, this.board);
+                    this.sfx.pieceSelect(); 
+                    
+                    this.draggingPiece = {
+                        piece: p,
+                        fromX: x,
+                        fromY: y,
+                        currentX: rawX,
+                        currentY: rawY
+                    };
+                } else { 
+                    this.selected = null; 
+                    this.draggingPiece = null;
+                }
+                this.needsRender = true;
+            }
+
+            handlePointerMove(rawX, rawY) {
+                if (!this.draggingPiece) return;
+                this.draggingPiece.currentX = rawX;
+                this.draggingPiece.currentY = rawY;
+                this.needsRender = true;
+            }
+
+            handlePointerUp(rawX, rawY, width) {
+                if (!this.draggingPiece) return;
+
+                const sx = Math.floor(rawX / (width / 8)), sy = Math.floor(rawY / (width / 8));
+                
+                const pieceX = this.draggingPiece.fromX;
+                const pieceY = this.draggingPiece.fromY;
+                this.draggingPiece = null; 
+                
+                if (sx >= 0 && sx <= 7 && sy >= 0 && sy <= 7) {
+                    const { x, y } = this.playerColor === 'black' ? { x: 7 - sx, y: 7 - sy } : { x: sx, y: sy };
+                    
+                    const move = this.validMoves.find(m => m.to.x === x && m.to.y === y);
+                    if (move) {
+                        this.startMove(move);
+                    }
+                }
+                
+                this.needsRender = true;
             }
 
             showModeSelection() {
@@ -780,6 +931,12 @@
                 document.getElementById('timer-bottom').style.display = 'none';
                 document.getElementById('meter-ui').style.display = 'none';
                 document.getElementById('rematch-btn').style.display = 'none';
+                document.getElementById('auto-rotate-container').style.display = 'none';
+                
+                this.autoRotate = false;
+                const rotateToggle = document.getElementById('auto-rotate-toggle');
+                if (rotateToggle) rotateToggle.checked = false;
+                this.updateRotationUI();
                 
                 this.clearSession();
                 this.initialized = false;
@@ -1039,53 +1196,65 @@
             
             async requestRematch() {
                 this.sfx.buttonClick();
-                if (!this.isHost || !this.roomId) return;
-                
                 document.getElementById('rematch-btn').style.display = 'none';
-                this.updateStatus(window.t('rematchPrep'));
+                
+                if (this.gameMode === 'online') {
+                    if (!this.isHost || !this.roomId) return;
+                    this.updateStatus(window.t('rematchPrep'));
 
-                try {
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                    const snap = await getDoc(roomRef);
-                    if (!snap.exists()) return;
-                    const data = snap.data();
-                    
-                    const isHostWhite = data.turnMode === 'fixed' ? true : Math.random() < 0.5;
-                    
-                    const initialBoard = [
-                        ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-                        ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-                        Array(8).fill(null), Array(8).fill(null), Array(8).fill(null), Array(8).fill(null),
-                        ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-                        ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
-                    ];
-                    
-                    await updateDoc(roomRef, {
-                        status: 'playing',
-                        white: isHostWhite ? data.host : data.guest,
-                        black: isHostWhite ? data.guest : data.host,
-                        [`lastSeen.${this.userId}`]: Date.now(),
-                        gameState: {
-                            board: JSON.stringify(initialBoard),
-                            turn: 'white',
-                            timers: { white: data.timeConfig.seconds, black: data.timeConfig.seconds },
-                            movedStatus: {
-                                whiteKing: false, blackKing: false,
-                                whiteRookLeft: false, whiteRookRight: false,
-                                blackRookLeft: false, blackRookRight: false
-                            },
-                            enPassantTarget: null,
-                            lastMove: null,
-                            moveCount: 0,
-                            halfMoveClock: 0,
-                            positionHistory: [],
-                            ack: true,
-                            lastMoveTimestamp: Date.now()
-                        }
-                    });
-                } catch(e) {
-                    console.error("Rematch error:", e);
-                    this.updateStatus(window.t('rematchFailed'));
+                    try {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                        const snap = await getDoc(roomRef);
+                        if (!snap.exists()) return;
+                        const data = snap.data();
+                        
+                        const isHostWhite = data.turnMode === 'fixed' ? true : Math.random() < 0.5;
+                        
+                        const initialBoard = [
+                            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+                            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+                            Array(8).fill(null), Array(8).fill(null), Array(8).fill(null), Array(8).fill(null),
+                            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+                            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+                        ];
+                        
+                        await updateDoc(roomRef, {
+                            status: 'playing',
+                            white: isHostWhite ? data.host : data.guest,
+                            black: isHostWhite ? data.guest : data.host,
+                            [`lastSeen.${this.userId}`]: Date.now(),
+                            gameState: {
+                                board: JSON.stringify(initialBoard),
+                                turn: 'white',
+                                timers: { white: data.timeConfig.seconds, black: data.timeConfig.seconds },
+                                movedStatus: {
+                                    whiteKing: false, blackKing: false,
+                                    whiteRookLeft: false, whiteRookRight: false,
+                                    blackRookLeft: false, blackRookRight: false
+                                },
+                                enPassantTarget: null,
+                                lastMove: null,
+                                moveCount: 0,
+                                halfMoveClock: 0,
+                                positionHistory: [],
+                                ack: true,
+                                lastMoveTimestamp: Date.now()
+                            }
+                        });
+                    } catch(e) {
+                        console.error("Rematch error:", e);
+                        this.updateStatus(window.t('rematchFailed'));
+                    }
+                } else {
+                    const initialWhite = this.initialTimeSec !== undefined ? this.initialTimeSec : 600;
+                    this.timers = { white: initialWhite, black: initialWhite };
+                    this.initGame();
+                    this.startTimer();
+                    if (this.gameMode === 'cpu' && this.playerColor === 'black') {
+                        setTimeout(() => this.cpuMove(), 800);
+                    } else {
+                        this.updateAssistMoves();
+                    }
                 }
             }
 
@@ -1235,10 +1404,10 @@
                     document.getElementById('undo-btn').style.display = 'none';
                     document.getElementById('rematch-btn').style.display = 'none';
                     document.getElementById('assist-mode-container').style.display = 'none';
+                    document.getElementById('auto-rotate-container').style.display = 'none';
                     this.isAssistMode = false;
                     document.getElementById('assist-mode-toggle').checked = false;
 
-                    document.getElementById('mode-display').innerText = `${window.t('onlinePvp')} [${this.roomId}]`;
                     this.updatePlayerLabels();
                     
                     if (this.useTimer) {
@@ -1278,7 +1447,7 @@
                     }
 
                     this.turnStartTime = Date.now();
-                    if (this.useTimer) this.startTimer();
+                    this.startTimer(); // 無制限でも呼び出す
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
                     this.updateLanguageUI();
@@ -1416,9 +1585,8 @@
             }
 
             showRematchButton() {
-                if (this.gameMode === 'online' && this.isHost) {
-                    document.getElementById('rematch-btn').style.display = 'block';
-                }
+                if (this.gameMode === 'online' && !this.isHost) return;
+                document.getElementById('rematch-btn').style.display = 'inline-block';
             }
 
             async handleDisconnectWin() {
@@ -1439,6 +1607,7 @@
             async sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove) {
                 if (!this.roomId) return;
                 try {
+                    this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = 'playing';
                     if (isCheckmate) status = 'finished_mate';
@@ -1485,33 +1654,38 @@
                 this.sfx.buttonClick();
                 this.gameMode = this.tempMode;
                 this.aiLevel = this.tempLevel;
+                this.initialTimeSec = seconds;
                 this.timers = { white: seconds, black: seconds };
                 this.increment = inc;
                 this.useTimer = seconds > 0;
                 this.isAssistMode = document.getElementById('assist-mode-toggle').checked;
                 this.hideAllOverlays();
                 
-                document.getElementById('undo-btn').style.display = 'block';
+                document.getElementById('undo-btn').style.display = 'inline-block';
                 document.getElementById('rematch-btn').style.display = 'none';
                 document.getElementById('meter-ui').style.display = 'flex';
                 document.getElementById('assist-mode-container').style.display = 'flex';
+                
+                if (this.gameMode === 'pvp') {
+                    document.getElementById('auto-rotate-container').style.display = 'flex';
+                } else {
+                    document.getElementById('auto-rotate-container').style.display = 'none';
+                }
                 
                 const topTimer = document.getElementById('timer-top');
                 const bottomTimer = document.getElementById('timer-bottom');
 
                 if (this.gameMode === 'cpu') {
                     this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
-                    document.getElementById('mode-display').innerText = `${window.t('vsCpu')} Lv.${this.aiLevel}`;
                 } else {
                     this.playerColor = 'white';
-                    document.getElementById('mode-display').innerText = window.t('offlinePvp');
                 }
                 
                 this.updatePlayerLabels();
 
                 if (this.useTimer) {
-                    topTimer.style.display = 'block';
-                    bottomTimer.style.display = 'block';
+                    topTimer.style.display = 'inline-block';
+                    bottomTimer.style.display = 'inline-block';
                     this.updateTimerDisplay();
                 } else {
                     topTimer.style.display = 'none';
@@ -1519,7 +1693,7 @@
                 }
 
                 this.initGame();
-                if (this.useTimer) this.startTimer();
+                this.startTimer(); // 無制限でも呼ぶ
                 if (this.gameMode === 'cpu' && this.playerColor === 'black') {
                     setTimeout(() => this.cpuMove(), 800);
                 } else {
@@ -1542,6 +1716,7 @@
                 this.isOpponentDisconnected = false;
                 this.opponentDisconnectedAt = null;
                 this.enPassantTarget = null;
+                this.draggingPiece = null;
             }
 
             initGame() {
@@ -1571,6 +1746,7 @@
                 this.showTurnMessage("");
                 this.updateAdvantageMeter();
                 this.updateMoveCountDisplay();
+                this.updateRotationUI();
                 this.needsRender = true;
             }
 
@@ -1609,40 +1785,42 @@
                         elapsed = (now - this.turnStartTime) / 1000;
                     }
                     
-                    this.timers[this.turn] = Math.max(0, this.baseTimers[this.turn] - elapsed);
+                    if (this.useTimer) {
+                        this.timers[this.turn] = Math.max(0, this.baseTimers[this.turn] - elapsed);
 
-                    const currentSec = Math.floor(this.timers[this.turn]);
+                        const currentSec = Math.floor(this.timers[this.turn]);
 
-                    if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
-                        if (this.gameMode !== 'online' || this.turn === this.playerColor) {
-                            if (!isGameStart && elapsed > 0) {
-                                this.sfx.countdown();
-                            }
-                        }
-                    }
-                    lastSec = currentSec;
-
-                    if (this.timers[this.turn] <= 0 && !this.isGameOver) { 
-                        this.timers[this.turn] = 0; 
-                        if (this.gameMode === 'online') {
-                            if (this.turn === this.playerColor) {
-                                this.handleTimeout(); 
-                            } else {
-                                if (!this.waitingForOpponentTimeout) {
-                                    this.waitingForOpponentTimeout = true;
-                                    this.opponentTimeoutGrace = 0;
-                                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
-                                    const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
-                                    this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
-                                } else {
-                                    this.opponentTimeoutGrace += 0.05;
-                                    if (this.opponentTimeoutGrace >= 30) {
-                                        this.handleTimeout();
-                                    }
+                        if (currentSec < 10 && currentSec >= 0 && currentSec !== lastSec) {
+                            if (this.gameMode !== 'online' || this.turn === this.playerColor) {
+                                if (!isGameStart && elapsed > 0) {
+                                    this.sfx.countdown();
                                 }
                             }
-                        } else {
-                            this.handleTimeout(); 
+                        }
+                        lastSec = currentSec;
+
+                        if (this.timers[this.turn] <= 0 && !this.isGameOver) { 
+                            this.timers[this.turn] = 0; 
+                            if (this.gameMode === 'online') {
+                                if (this.turn === this.playerColor) {
+                                    this.handleTimeout(); 
+                                } else {
+                                    if (!this.waitingForOpponentTimeout) {
+                                        this.waitingForOpponentTimeout = true;
+                                        this.opponentTimeoutGrace = 0;
+                                        const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
+                                        const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
+                                        this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
+                                    } else {
+                                        this.opponentTimeoutGrace += 0.05;
+                                        if (this.opponentTimeoutGrace >= 30) {
+                                            this.handleTimeout();
+                                        }
+                                    }
+                                }
+                            } else {
+                                this.handleTimeout(); 
+                            }
                         }
                     }
                     this.updateTimerDisplay();
@@ -1730,7 +1908,10 @@
                 } else {
                     const isWhiteTurn = this.turn === 'white';
                     const isBlackTurn = this.turn === 'black';
-                    if (this.playerColor === 'white') {
+                    
+                    const bottomIsWhite = this.playerColor === 'white';
+                    
+                    if (bottomIsWhite) {
                         if (bottomTimer.classList.contains('timer-active') !== isWhiteTurn) bottomTimer.classList.toggle('timer-active', isWhiteTurn);
                         if (topTimer.classList.contains('timer-active') !== isBlackTurn) topTimer.classList.toggle('timer-active', isBlackTurn);
                     } else {
@@ -1773,29 +1954,6 @@
                 document.getElementById('advantage-text').innerText = text;
             }
 
-            handleClick(rawX, rawY, width) {
-                if (!this.initialized || this.isGameOver || this.animatingPiece) return;
-                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) return;
-                
-                const sx = Math.floor(rawX / (width / 8)), sy = Math.floor(rawY / (width / 8));
-                if (sx < 0 || sx > 7 || sy < 0 || sy > 7) return;
-                const { x, y } = this.playerColor === 'black' ? { x: 7 - sx, y: 7 - sy } : { x: sx, y: sy };
-
-                if (this.selected) {
-                    const move = this.validMoves.find(m => m.to.x === x && m.to.y === y);
-                    if (move) { this.startMove(move); return; }
-                }
-                const p = this.board[y][x];
-                if (p && (this.turn === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
-                    this.selected = { x, y };
-                    this.validMoves = this.getMoves(x, y, this.board);
-                    this.sfx.pieceSelect(); 
-                } else { 
-                    this.selected = null; 
-                }
-                this.needsRender = true;
-            }
-
             startMove(move) {
                 if (this.gameMode !== 'online') {
                     this.history.push(JSON.stringify({ 
@@ -1814,6 +1972,7 @@
                 this.animatingPiece = { piece, from: move.from, to: move.to, progress: 0, move };
                 this.board[move.from.y][move.from.x] = null;
                 this.selected = null;
+                this.draggingPiece = null;
                 this.needsRender = true;
             }
 
@@ -2100,6 +2259,7 @@
                 
                 this.updateCheckStatus();
                 this.updateMoveCountDisplay();
+                this.updateRotationUI();
                 
                 const posStr = this.getPositionString();
                 this.positionHistory.push(posStr);
@@ -2219,58 +2379,56 @@
                 const all = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
                 if (all.length === 0) return;
                 
+                const depth = this.aiLevel <= 5 ? 1 : (this.aiLevel <= 12 ? 2 : (this.aiLevel <= 19 ? 3 : 4));
+
                 all.forEach(m => {
-                    const target = this.board[m.to.y][m.to.x];
-                    let s = target ? AI_VALUES[target.toLowerCase()] * 10 : 0;
-                    if (m.isCastling) s += 50;
-                    if (m.isEnPassant) s += 10;
+                    const tempBoard = this.applyMove(this.board, m);
+                    const nextEnPassantTarget = m.isDoublePawn ? { x: m.from.x, y: m.from.y + (this.board[m.from.y][m.from.x] === 'P' ? -1 : 1) } : null;
+                    
+                    let score = 0;
+                    if (depth > 1) {
+                        score = this.minimax(tempBoard, depth - 1, -Infinity, Infinity, false, this.turn, nextEnPassantTarget);
+                    } else {
+                        score = this.evaluateBoardForMinimax(tempBoard, this.turn);
+                    }
+
+                    if (m.isCastling) score += 50;
+                    if (m.isEnPassant) score += 10;
 
                     const piece = this.board[m.from.y][m.from.x];
                     const pieceType = piece.toLowerCase();
 
                     if (pieceType === 'n' || pieceType === 'b' || pieceType === 'p') {
-                        if (m.to.x >= 3 && m.to.x <= 4 && m.to.y >= 3 && m.to.y <= 4) s += 6;
-                        else if (m.to.x >= 2 && m.to.x <= 5 && m.to.y >= 2 && m.to.y <= 5) s += 3;
+                        if (m.to.x >= 3 && m.to.x <= 4 && m.to.y >= 3 && m.to.y <= 4) score += 6;
+                        else if (m.to.x >= 2 && m.to.x <= 5 && m.to.y >= 2 && m.to.y <= 5) score += 3;
                     } else if (pieceType === 'q') {
-                        s -= 3; 
+                        score -= 3; 
                     }
 
                     const dir = this.turn === 'white' ? -1 : 1;
                     const forwardDist = (m.to.y - m.from.y) * dir;
                     if (forwardDist > 0) {
-                        if (pieceType === 'p') s += 2;
-                        else s += 0.5; 
+                        if (pieceType === 'p') score += 2;
+                        else score += 0.5; 
                     }
                     
                     const startRow = this.turn === 'white' ? 7 : 0;
                     if (m.from.y === startRow && (pieceType === 'n' || pieceType === 'b')) {
-                        s += 1.5;
-                    }
-
-                    const t = this.board.map(r=>[...r]); 
-                    t[m.to.y][m.to.x] = piece;
-                    t[m.from.y][m.from.x] = null;
-                    if (m.isEnPassant) {
-                        const epDir = piece === 'P' ? 1 : -1;
-                        t[m.to.y + epDir][m.to.x] = null;
+                        score += 1.5;
                     }
                     
-                    if (this.isSquareAttacked(m.to.x, m.to.y, this.turn, t)) {
-                        s -= AI_VALUES[pieceType] * 10;
-                        if (target) s += AI_VALUES[pieceType] * 5; 
-                    }
-
-                    m.evalScore = s + Math.random() * 0.1;
+                    const noise = Math.random() * Math.max(0, (20 - this.aiLevel) * 1.5);
+                    m.evalScore = score + noise;
                 });
 
                 all.sort((a,b) => b.evalScore - a.evalScore);
 
                 let selectionPool;
-                if (this.aiLevel >= 8) {
+                if (this.aiLevel >= 15) {
                     const bestScore = all[0].evalScore;
                     selectionPool = all.filter(m => m.evalScore === bestScore);
                 } else {
-                    const topN = Math.max(1, 11 - this.aiLevel);
+                    const topN = Math.max(1, 21 - this.aiLevel);
                     selectionPool = all.slice(0, topN);
                 }
 
@@ -2300,9 +2458,11 @@
 
                 this.selected = null;
                 this.animatingPiece = null;
+                this.draggingPiece = null;
                 this.pendingPromotion = null;
                 this.isGameOver = false;
                 document.getElementById('promotion-modal').style.display = 'none';
+                document.getElementById('rematch-btn').style.display = 'none';
                 
                 this.turnStartTime = Date.now();
                 this.baseTimers = { ...this.timers };
@@ -2314,6 +2474,7 @@
                 this.updateTimerDisplay();
                 this.updateAdvantageMeter();
                 this.updateMoveCountDisplay();
+                this.updateRotationUI();
                 this.updateAssistMoves();
                 this.needsRender = true;
             }
@@ -2441,21 +2602,17 @@
                     }
 
                     if (isBottomActive) {
-                        bottomLabel.classList.add('text-blue-400');
-                        bottomLabel.classList.remove('opacity-70');
-                        topLabel.classList.remove('text-blue-400');
-                        topLabel.classList.add('opacity-70');
+                        if (bottomLabel) { bottomLabel.classList.add('text-blue-400'); bottomLabel.classList.remove('opacity-70'); }
+                        if (topLabel) { topLabel.classList.remove('text-blue-400'); topLabel.classList.add('opacity-70'); }
                     } else {
-                        topLabel.classList.add('text-blue-400');
-                        topLabel.classList.remove('opacity-70');
-                        bottomLabel.classList.remove('text-blue-400');
-                        bottomLabel.classList.add('opacity-70');
+                        if (topLabel) { topLabel.classList.add('text-blue-400'); topLabel.classList.remove('opacity-70'); }
+                        if (bottomLabel) { bottomLabel.classList.remove('text-blue-400'); bottomLabel.classList.add('opacity-70'); }
                     }
                 }
             }
 
             animate() {
-                if (this.initialized && (this.needsRender || this.animatingPiece)) {
+                if (this.initialized && (this.needsRender || this.animatingPiece || this.draggingPiece)) {
                     this.needsRender = false;
                     this.render();
                 }
@@ -2506,11 +2663,24 @@
 
                 this.ctx.font = `${CELL*0.8}px serif`; this.ctx.textAlign='center'; this.ctx.textBaseline='middle';
                 this.ctx.lineJoin = 'round';
+                
                 for (let y=0; y<8; y++) for (let x=0; x<8; x++) {
                     const p = this.board[y][x];
                     if (p) { 
+                        if (this.draggingPiece && this.draggingPiece.fromX === x && this.draggingPiece.fromY === y) continue;
+
                         const {x:sx, y:sy} = (this.playerColor === 'black' ? {x:7-x, y:7-y} : {x,y}); 
-                        this.drawPiece(p, sx*CELL+CELL/2, sy*CELL+CELL/2+5); 
+                        const shouldRotatePiece = (this.gameMode === 'pvp' && this.autoRotate && this.turn === 'black');
+                        
+                        if (shouldRotatePiece) {
+                            this.ctx.save();
+                            this.ctx.translate(sx*CELL+CELL/2, sy*CELL+CELL/2+5);
+                            this.ctx.rotate(Math.PI);
+                            this.drawPieceAtZero(p);
+                            this.ctx.restore();
+                        } else {
+                            this.drawPiece(p, sx*CELL+CELL/2, sy*CELL+CELL/2+5); 
+                        }
                     }
                 }
 
@@ -2547,6 +2717,21 @@
                     }
                 }
 
+                if (this.draggingPiece) {
+                    const p = this.draggingPiece.piece;
+                    const shouldRotatePiece = (this.gameMode === 'pvp' && this.autoRotate && this.turn === 'black');
+                    this.ctx.globalAlpha = 0.8;
+                    this.ctx.save();
+                    this.ctx.translate(this.draggingPiece.currentX, this.draggingPiece.currentY + 5);
+                    this.ctx.scale(1.2, 1.2);
+                    if (shouldRotatePiece) {
+                        this.ctx.rotate(Math.PI);
+                    }
+                    this.drawPieceAtZero(p);
+                    this.ctx.restore();
+                    this.ctx.globalAlpha = 1.0;
+                }
+
                 if (this.animatingPiece) {
                     const a = this.animatingPiece; a.progress += 0.15;
                     if (a.progress >= 1) { 
@@ -2574,20 +2759,38 @@
                         const f = (this.playerColor === 'black' ? {x:7-a.from.x, y:7-a.from.y} : a.from);
                         const t = (this.playerColor === 'black' ? {x:7-a.to.x, y:7-a.to.y} : a.to);
                         const cx = f.x + (t.x-f.x)*a.progress, cy = f.y + (t.y-f.y)*a.progress;
-                        this.drawPiece(a.piece, cx*CELL+CELL/2, cy*CELL+CELL/2+5);
+                        
+                        const shouldRotatePiece = (this.gameMode === 'pvp' && this.autoRotate && this.turn === 'black');
+
+                        if (shouldRotatePiece) {
+                            this.ctx.save();
+                            this.ctx.translate(cx*CELL+CELL/2, cy*CELL+CELL/2+5);
+                            this.ctx.rotate(Math.PI);
+                            this.drawPieceAtZero(a.piece);
+                            this.ctx.restore();
+                        } else {
+                            this.drawPiece(a.piece, cx*CELL+CELL/2, cy*CELL+CELL/2+5);
+                        }
                     }
                 }
             }
 
             drawPiece(piece, px, py) {
                 const isWhite = piece === piece.toUpperCase();
-                
                 this.ctx.lineWidth = 3;
                 this.ctx.strokeStyle = isWhite ? '#000000' : 'rgba(255, 255, 255, 0.4)';
                 this.ctx.strokeText(PIECES[piece], px, py);
-
                 this.ctx.fillStyle = isWhite ? '#ffffff' : '#000000';
                 this.ctx.fillText(PIECES[piece], px, py);
+            }
+            
+            drawPieceAtZero(piece) {
+                const isWhite = piece === piece.toUpperCase();
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeStyle = isWhite ? '#000000' : 'rgba(255, 255, 255, 0.4)';
+                this.ctx.strokeText(PIECES[piece], 0, 0);
+                this.ctx.fillStyle = isWhite ? '#ffffff' : '#000000';
+                this.ctx.fillText(PIECES[piece], 0, 0);
             }
         }
         
