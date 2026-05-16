@@ -136,7 +136,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.58</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.64</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -150,13 +150,13 @@
             <div class="w-full max-w-[300px] mb-6">
                 <div class="flex justify-between mb-2">
                     <span class="opacity-70" data-i18n="difficulty">難易度レベル</span>
-                    <span id="level-value" class="font-bold text-blue-400">Lv.1</span>
+                    <span id="level-value" class="font-bold text-blue-400">Lv.1 (ELO 250)</span>
                 </div>
-                <input type="range" id="level-slider" min="1" max="20" value="1" step="1" 
-                    oninput="document.getElementById('level-value').innerText = 'Lv.' + this.value">
+                <input type="range" id="level-slider" min="1" max="50" value="1" step="1" 
+                    oninput="const val = parseInt(this.value); const elo = val === 50 ? '2500+' : (250 + (val - 1) * 45); document.getElementById('level-value').innerText = 'Lv.' + val + ' (ELO ' + elo + ')'">
                 <div class="flex justify-between text-xs mt-2 opacity-50">
                     <span data-i18n="beginner">初級</span>
-                    <span data-i18n="advanced">上級 (Lv.20)</span>
+                    <span data-i18n="advanced">マスター (Lv.50)</span>
                 </div>
             </div>
             <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]" data-i18n="cpuNote">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。</p>
@@ -320,7 +320,7 @@
             ja: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
                 authStatusPreparing: "通信準備中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定",
-                difficulty: "難易度レベル", beginner: "初級", advanced: "上級", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。",
+                difficulty: "難易度レベル", beginner: "初級", advanced: "マスター (Lv.50)", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。",
                 nextToTime: "時間設定へ進む", back: "戻る", onlineSettings: "オンライン対戦", playerNamePlaceholder: "あなたの名前 (任意)",
                 roomWordPlaceholder: "合言葉を入力", joinRoom: "部屋に入る", or: "または", createRoom: "部屋を作る",
                 waitingOpponent: "対戦相手を待っています...",
@@ -346,7 +346,7 @@
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
                 authStatusPreparing: "Connecting...", authStatusReady: "Ready for online play", cpuSettings: "CPU Settings",
-                difficulty: "Difficulty", beginner: "Beginner", advanced: "Advanced", cpuNote: "* Colors (White/Black) are random. Board inverts if Black.",
+                difficulty: "Difficulty", beginner: "Beginner", advanced: "Master (Lv.50)", cpuNote: "* Colors (White/Black) are random. Board inverts if Black.",
                 nextToTime: "Next", back: "Back", onlineSettings: "Online Match", playerNamePlaceholder: "Your Name (Optional)",
                 roomWordPlaceholder: "Room Word", joinRoom: "Join", or: "OR", createRoom: "Create",
                 waitingOpponent: "Waiting for opponent...",
@@ -372,7 +372,7 @@
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
                 authStatusPreparing: "连接中...", authStatusReady: "在线对战准备就绪", cpuSettings: "人机设置",
-                difficulty: "难度等级", beginner: "初级", advanced: "高级", cpuNote: "※ 执白或执黑随机决定。如果执黑，棋盘将会翻转。",
+                difficulty: "难度等级", beginner: "初级", advanced: "大师 (Lv.50)", cpuNote: "※ 执白或执黑随机决定。如果执黑，棋盘将会翻转。",
                 nextToTime: "下一步", back: "返回", onlineSettings: "在线对战", playerNamePlaceholder: "你的名字 (可选)",
                 roomWordPlaceholder: "输入房间口令", joinRoom: "加入房间", or: "或", createRoom: "创建房间",
                 waitingOpponent: "等待加入...",
@@ -475,10 +475,16 @@
         };
         
         const MATERIAL_VALUES = {
+            'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000,
+            'P': 100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000
+        };
+        const AI_VALUES = { ...MATERIAL_VALUES };
+
+        // メーター表示用のシンプルな駒の価値
+        const DISPLAY_MATERIAL_VALUES = {
             'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0,
             'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 0
         };
-        const AI_VALUES = { ...MATERIAL_VALUES, 'k': 900, 'K': 900 };
 
         class SoundEffects {
             constructor() {
@@ -592,8 +598,9 @@
                 this.history = [];
                 this.animatingPiece = null;
                 
-                // ドラッグ＆ドロップ機能用ステート
                 this.draggingPiece = null;
+                this.isThinkingForCpu = false;
+                this.isAssistModeThinking = false;
 
                 this.movedStatus = {
                     whiteKing: false, blackKing: false,
@@ -614,13 +621,73 @@
 
                 this.needsRender = true;
                 
-                // 後手の時に文字と駒を180度回転用フラグ
                 this.autoRotate = false;
 
                 this.setupListeners();
+                this.initStockfish();
                 this.animate();
 
                 setTimeout(() => window.setLanguage(window.currentLang), 100);
+            }
+
+            initStockfish() {
+                try {
+                    const stockfishCode = `importScripts("https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js");`;
+                    const blob = new Blob([stockfishCode], {type: "application/javascript"});
+                    this.stockfish = new Worker(URL.createObjectURL(blob));
+                    
+                    this.stockfish.onmessage = (event) => {
+                        const line = event.data;
+                        if (typeof line === 'string') {
+                            if (line.startsWith("bestmove")) {
+                                if (this.isThinkingForCpu) {
+                                    this.isThinkingForCpu = false;
+                                    const match = line.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+                                    if (match) {
+                                        this.handleEngineMove(match[1]);
+                                    } else {
+                                        this.fallbackCpuMove();
+                                    }
+                                }
+                            } else if (line.includes("info") && line.includes("multipv") && this.isAssistModeThinking) {
+                                const depthMatch = line.match(/depth\s+(\d+)/);
+                                const multipvMatch = line.match(/multipv\s+(\d+)/);
+                                const pvMatch = line.match(/pv\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+                                
+                                if (depthMatch && multipvMatch && pvMatch) {
+                                    const multipv = parseInt(multipvMatch[1]);
+                                    const moveStr = pvMatch[1];
+                                    const move = this.parseUCI(moveStr);
+                                    if (move) {
+                                        this.assistMoves[multipv - 1] = move;
+                                        this.needsRender = true;
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    this.stockfish.postMessage("uci");
+                    this.stockfish.postMessage("ucinewgame");
+                } catch(e) {
+                    console.error("Stockfish initialization failed:", e);
+                    this.stockfish = null;
+                }
+            }
+
+            parseUCI(uci) {
+                const files = "abcdefgh";
+                const fx = files.indexOf(uci[0]);
+                const fy = 8 - parseInt(uci[1]);
+                const tx = files.indexOf(uci[2]);
+                const ty = 8 - parseInt(uci[3]);
+                const promotion = uci.length > 4 ? uci[4] : null;
+                
+                const all = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
+                const move = all.find(m => m.from.x === fx && m.from.y === fy && m.to.x === tx && m.to.y === ty);
+                if (move && promotion) {
+                    move.promotion = promotion;
+                }
+                return move;
             }
 
             saveSession() {
@@ -653,6 +720,51 @@
                 };
                 sendHeartbeat();
                 this.heartbeatInterval = setInterval(sendHeartbeat, 5000);
+            }
+
+            getFen() {
+                let fen = "";
+                for (let y = 0; y < 8; y++) {
+                    let empty = 0;
+                    for (let x = 0; x < 8; x++) {
+                        const p = this.board[y][x];
+                        if (p) {
+                            if (empty > 0) { fen += empty; empty = 0; }
+                            fen += p;
+                        } else {
+                            empty++;
+                        }
+                    }
+                    if (empty > 0) fen += empty;
+                    if (y < 7) fen += "/";
+                }
+                
+                fen += this.turn === 'white' ? " w " : " b ";
+                
+                let castling = "";
+                if (!this.movedStatus.whiteKing) {
+                    if (!this.movedStatus.whiteRookRight) castling += "K";
+                    if (!this.movedStatus.whiteRookLeft) castling += "Q";
+                }
+                if (!this.movedStatus.blackKing) {
+                    if (!this.movedStatus.blackRookRight) castling += "k";
+                    if (!this.movedStatus.blackRookLeft) castling += "q";
+                }
+                if (castling === "") castling = "-";
+                fen += castling + " ";
+                
+                if (this.enPassantTarget) {
+                    const file = String.fromCharCode('a'.charCodeAt(0) + this.enPassantTarget.x);
+                    const rank = 8 - this.enPassantTarget.y;
+                    fen += file + rank + " ";
+                } else {
+                    fen += "- ";
+                }
+                
+                fen += this.halfMoveClock + " ";
+                fen += Math.floor(this.moveCount / 2) + 1;
+                
+                return fen;
             }
 
             getPositionString() {
@@ -714,6 +826,7 @@
                         }
                     } else {
                         const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
+                        // startTimer内の切断表示が優先されるため、ここは通常表示
                         if (this.gameMode === 'online' && this.turn !== this.playerColor && this.currentRoomData && !this.currentRoomData.gameState.ack) {
                             const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                             this.updateStatus(checkStr + turnText + " - " + window.t('waitingOpponentAck'));
@@ -1003,6 +1116,9 @@
                 if (this.gameMode === 'online') {
                     return this.showConfirm(window.t('error'), window.t('noUndoOnlineMsg'), ()=>{}, true);
                 }
+                if (this.gameMode === 'cpu' && this.playerColor === 'black' && this.history.length <= 1) {
+                    return; 
+                }
                 if (this.history.length === 0 || this.animatingPiece) return;
                 this.showConfirm(window.t('undoMove'), window.t('confirmUndoMsg'), () => {
                     this.undoMove();
@@ -1246,6 +1362,11 @@
                         this.updateStatus(window.t('rematchFailed'));
                     }
                 } else {
+                    if (this.gameMode === 'cpu') {
+                        this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
+                    }
+                    this.updatePlayerLabels();
+
                     const initialWhite = this.initialTimeSec !== undefined ? this.initialTimeSec : 600;
                     this.timers = { white: initialWhite, black: initialWhite };
                     this.initGame();
@@ -1411,8 +1532,8 @@
                     this.updatePlayerLabels();
                     
                     if (this.useTimer) {
-                        document.getElementById('timer-top').style.display = 'block';
-                        document.getElementById('timer-bottom').style.display = 'block';
+                        document.getElementById('timer-top').style.display = 'inline-block';
+                        document.getElementById('timer-bottom').style.display = 'inline-block';
                     }
                     
                     this.initGameLocalVariables();
@@ -1500,6 +1621,24 @@
                 }
             }
 
+            handleEngineMove(moveStr) {
+                const fromX = moveStr.charCodeAt(0) - 97; // 'a' is 97
+                const fromY = 8 - parseInt(moveStr[1]);
+                const toX = moveStr.charCodeAt(2) - 97;
+                const toY = 8 - parseInt(moveStr[3]);
+                const promotion = moveStr.length > 4 ? moveStr[4] : null;
+
+                const allMoves = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
+                const engineMove = allMoves.find(m => m.from.x === fromX && m.from.y === fromY && m.to.x === toX && m.to.y === toY);
+
+                if (engineMove) {
+                    engineMove.promotion = promotion;
+                    this.startMove(engineMove);
+                } else {
+                    this.fallbackCpuMove();
+                }
+            }
+
             checkGameEnd(data, gs, oldTurn, newTurn) {
                 if (data.status === 'finished_mate') {
                     this.isGameOver = true;
@@ -1540,6 +1679,8 @@
                     this.showWinLoseMessage(window.t('timeout'), winnerColor);
                     this.showRematchButton();
                 } else {
+                    if (this.inCheckPos) this.sfx.check(); 
+                    
                     this.updateLanguageUI();
                     
                     if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
@@ -1717,6 +1858,8 @@
                 this.opponentDisconnectedAt = null;
                 this.enPassantTarget = null;
                 this.draggingPiece = null;
+                this.isThinkingForCpu = false;
+                this.isAssistModeThinking = false;
             }
 
             initGame() {
@@ -1929,7 +2072,7 @@
                     for (let x = 0; x < 8; x++) {
                         const p = this.board[y][x];
                         if (!p) continue;
-                        const val = MATERIAL_VALUES[p] || 0;
+                        const val = DISPLAY_MATERIAL_VALUES[p] || 0;
                         if (p === p.toUpperCase()) whiteScore += val;
                         else blackScore += val;
                     }
@@ -1964,12 +2107,16 @@
                         enPassantTarget: this.enPassantTarget ? { ...this.enPassantTarget } : null,
                         halfMoveClock: this.halfMoveClock,
                         positionHistory: [...this.positionHistory],
-                        moveCount: this.moveCount
+                        moveCount: this.moveCount,
+                        firstMoveDone: { ...this.firstMoveDone }
                     }));
                 }
 
                 const piece = this.board[move.from.y][move.from.x];
                 this.animatingPiece = { piece, from: move.from, to: move.to, progress: 0, move };
+                if (move.promotion) {
+                    this.animatingPiece.promotion = move.promotion;
+                }
                 this.board[move.from.y][move.from.x] = null;
                 this.selected = null;
                 this.draggingPiece = null;
@@ -2039,7 +2186,14 @@
                 this.updateAdvantageMeter();
 
                 if ((piece === 'P' && move.to.y === 0) || (piece === 'p' && move.to.y === 7)) {
-                    if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) {
+                    if (this.animatingPiece && this.animatingPiece.promotion) {
+                        const pChar = this.animatingPiece.promotion;
+                        this.board[move.to.y][move.to.x] = this.turn === 'white' ? pChar.toUpperCase() : pChar.toLowerCase();
+                        this.updateAdvantageMeter();
+                        this.finalizeTurn();
+                        this.needsRender = true;
+                    }
+                    else if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) {
                         this.board[move.to.y][move.to.x] = this.turn === 'white' ? 'Q' : 'q';
                         this.updateAdvantageMeter();
                         this.finalizeTurn();
@@ -2083,24 +2237,34 @@
                 if (this.gameMode === 'online') return;
                 if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
 
-                setTimeout(() => {
-                    const all = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
-                    if (all.length === 0) return;
+                if (this.stockfish) {
+                    this.isAssistModeThinking = true;
+                    this.isThinkingForCpu = false;
+                    this.assistMoves = [];
+                    this.stockfish.postMessage("setoption name MultiPV value 3");
+                    this.stockfish.postMessage("setoption name Skill Level value 20");
+                    this.stockfish.postMessage("position fen " + this.getFen());
+                    this.stockfish.postMessage("go depth 12");
+                } else {
+                    setTimeout(() => {
+                        const all = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
+                        if (all.length === 0) return;
 
-                    const DEPTH = 2;
+                        const DEPTH = 2;
 
-                    all.forEach(m => {
-                        const tempBoard = this.applyMove(this.board, m);
-                        const nextEnPassantTarget = m.isDoublePawn ? { x: m.from.x, y: m.from.y + (this.board[m.from.y][m.from.x] === 'P' ? -1 : 1) } : null;
-                        let score = this.minimax(tempBoard, DEPTH - 1, -Infinity, Infinity, false, this.turn, nextEnPassantTarget);
-                        if (m.isCastling) score += 50;
-                        m.evalScore = score + Math.random() * 0.1;
-                    });
+                        all.forEach(m => {
+                            const tempBoard = this.applyMove(this.board, m);
+                            const nextEnPassantTarget = m.isDoublePawn ? { x: m.from.x, y: m.from.y + (this.board[m.from.y][m.from.x] === 'P' ? -1 : 1) } : null;
+                            let score = this.minimax(tempBoard, DEPTH - 1, -Infinity, Infinity, false, this.turn, nextEnPassantTarget);
+                            if (m.isCastling) score += 50;
+                            m.evalScore = score + Math.random() * 0.1;
+                        });
 
-                    all.sort((a,b) => b.evalScore - a.evalScore);
-                    this.assistMoves = all.slice(0, 3);
-                    this.needsRender = true;
-                }, 10);
+                        all.sort((a,b) => b.evalScore - a.evalScore);
+                        this.assistMoves = all.slice(0, 3);
+                        this.needsRender = true;
+                    }, 10);
+                }
             }
 
             getAllValidMoves(color, board, epTarget = this.enPassantTarget) {
@@ -2314,6 +2478,8 @@
                     this.showDrawMessage(window.t('fiftyMoveRule'));
                     this.showRematchButton();
                 } else {
+                    if (this.inCheckPos) this.sfx.check(); 
+                    
                     this.updateLanguageUI();
                     
                     if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
@@ -2376,10 +2542,52 @@
             }
 
             cpuMove() {
-                const all = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
+                const allMoves = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
+                if (allMoves.length === 0) return;
+
+                let blunderChance = 0;
+                if (this.aiLevel <= 10) {
+                    blunderChance = 0.5 - ((this.aiLevel - 1) * 0.04);
+                } else if (this.aiLevel <= 30) {
+                    blunderChance = 0.14 - ((this.aiLevel - 10) * 0.005);
+                } else if (this.aiLevel <= 45) {
+                    blunderChance = 0.04 - ((this.aiLevel - 30) * 0.002);
+                } else {
+                    blunderChance = 0;
+                }
+
+                if (Math.random() < blunderChance) {
+                    const randomMove = allMoves[Math.floor(Math.random() * allMoves.length)];
+                    this.startMove(randomMove);
+                    return;
+                }
+
+                if (this.stockfish && this.aiLevel >= 5) {
+                    this.isThinkingForCpu = true;
+                    this.isAssistModeThinking = false;
+                    
+                    let skillLevel = Math.max(0, Math.min(20, Math.floor((this.aiLevel - 5) * (20 / 45)))); 
+                    let depth = Math.max(1, Math.floor(1 + (this.aiLevel - 5) * (11 / 45)));
+                    
+                    this.stockfish.postMessage("setoption name MultiPV value 1");
+                    this.stockfish.postMessage("setoption name Skill Level value " + skillLevel);
+                    this.stockfish.postMessage("position fen " + this.getFen());
+                    
+                    if (this.aiLevel >= 40) {
+                        this.stockfish.postMessage("go depth " + depth + " movetime " + ((this.aiLevel - 30) * 50));
+                    } else {
+                        this.stockfish.postMessage("go depth " + depth);
+                    }
+                } else {
+                    this.fallbackCpuMove(allMoves);
+                }
+            }
+
+            fallbackCpuMove(allMoves) {
+                const all = allMoves || this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
                 if (all.length === 0) return;
                 
-                const depth = this.aiLevel <= 5 ? 1 : (this.aiLevel <= 12 ? 2 : (this.aiLevel <= 19 ? 3 : 4));
+                const depth = this.aiLevel <= 3 ? 1 : 2;
 
                 all.forEach(m => {
                     const tempBoard = this.applyMove(this.board, m);
@@ -2417,26 +2625,23 @@
                         score += 1.5;
                     }
                     
-                    const noise = Math.random() * Math.max(0, (20 - this.aiLevel) * 1.5);
+                    const noise = (Math.random() - 0.5) * Math.max(0, (15 - this.aiLevel) * 10);
                     m.evalScore = score + noise;
                 });
 
                 all.sort((a,b) => b.evalScore - a.evalScore);
 
-                let selectionPool;
-                if (this.aiLevel >= 15) {
-                    const bestScore = all[0].evalScore;
-                    selectionPool = all.filter(m => m.evalScore === bestScore);
-                } else {
-                    const topN = Math.max(1, 21 - this.aiLevel);
-                    selectionPool = all.slice(0, topN);
-                }
+                const topN = Math.max(1, 15 - this.aiLevel);
+                const selectionPool = all.slice(0, topN);
 
                 this.startMove(selectionPool[Math.floor(Math.random() * selectionPool.length)]);
             }
 
             undoMove() {
                 if (this.gameMode === 'online') return; 
+                if (this.gameMode === 'cpu' && this.playerColor === 'black' && this.history.length <= 1) {
+                    return; 
+                }
                 if (this.history.length === 0 || this.animatingPiece) return;
                 
                 const restore = () => {
@@ -2450,6 +2655,7 @@
                     this.halfMoveClock = prev.halfMoveClock;
                     this.positionHistory = prev.positionHistory;
                     this.moveCount = prev.moveCount || 0;
+                    this.firstMoveDone = prev.firstMoveDone || { white: false, black: false };
                     this.turn = this.turn === 'white' ? 'black' : 'white';
                 };
 
@@ -2687,6 +2893,7 @@
                 if (this.isAssistMode && this.assistMoves.length > 0 && !this.animatingPiece && !this.isGameOver) {
                     if (this.gameMode === 'pvp' || this.turn === this.playerColor) {
                         this.assistMoves.forEach((m, idx) => {
+                            if (!m) return;
                             const color = idx === 0 ? 'rgba(50, 255, 50, 0.7)' : 'rgba(255, 200, 50, 0.6)';
                             const f = this.playerColor === 'black' ? {x:7-m.from.x, y:7-m.from.y} : m.from;
                             const t = this.playerColor === 'black' ? {x:7-m.to.x, y:7-m.to.y} : m.to;
