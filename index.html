@@ -136,7 +136,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.64</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.0.68</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -365,7 +365,7 @@
                 noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
-                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "Reconnecting...", moveCountPrefix: "Moves: ",
+                threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "ReConnecting...", moveCountPrefix: "Moves: ",
                 baseTime: "Base Time", incTime: "Increment", startGame: "Start Game", min: "m", sec: "s", incNone: "None", disconnectErrorMsg: "Connection error occurred. Returning to title.",
                 autoRotate: "Rotate pieces and text for Black"
             },
@@ -601,6 +601,8 @@
                 this.draggingPiece = null;
                 this.isThinkingForCpu = false;
                 this.isAssistModeThinking = false;
+                this.tempAssistMoves = [];
+                this.tempCpuMoves = []; // CPU思考用の候補手ストック
 
                 this.movedStatus = {
                     whiteKing: false, blackKing: false,
@@ -642,25 +644,58 @@
                             if (line.startsWith("bestmove")) {
                                 if (this.isThinkingForCpu) {
                                     this.isThinkingForCpu = false;
-                                    const match = line.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
-                                    if (match) {
-                                        this.handleEngineMove(match[1]);
+                                    
+                                    let chosenMoveStr = null;
+                                    if (this.tempCpuMoves && this.tempCpuMoves.length > 0) {
+                                        const validMoves = this.tempCpuMoves.filter(Boolean);
+                                        if (validMoves.length > 0) {
+                                            const weights = this.getCpuMoveWeights(validMoves.length);
+                                            const rand = Math.random();
+                                            let sum = 0;
+                                            let selectedIndex = 0;
+                                            for(let i=0; i<validMoves.length; i++) {
+                                                sum += weights[i];
+                                                if (rand <= sum) {
+                                                    selectedIndex = i;
+                                                    break;
+                                                }
+                                            }
+                                            chosenMoveStr = validMoves[selectedIndex];
+                                        }
+                                    }
+
+                                    if (!chosenMoveStr) {
+                                        const match = line.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+                                        if (match) {
+                                            chosenMoveStr = match[1];
+                                        }
+                                    }
+
+                                    if (chosenMoveStr) {
+                                        this.handleEngineMove(chosenMoveStr);
                                     } else {
                                         this.fallbackCpuMove();
                                     }
+                                } else if (this.isAssistModeThinking) {
+                                    this.isAssistModeThinking = false;
+                                    this.assistMoves = [...this.tempAssistMoves].filter(Boolean);
+                                    this.needsRender = true;
                                 }
-                            } else if (line.includes("info") && line.includes("multipv") && this.isAssistModeThinking) {
-                                const depthMatch = line.match(/depth\s+(\d+)/);
+                            } else if (line.includes("info") && line.includes("multipv")) {
                                 const multipvMatch = line.match(/multipv\s+(\d+)/);
                                 const pvMatch = line.match(/pv\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
                                 
-                                if (depthMatch && multipvMatch && pvMatch) {
+                                if (multipvMatch && pvMatch) {
                                     const multipv = parseInt(multipvMatch[1]);
                                     const moveStr = pvMatch[1];
-                                    const move = this.parseUCI(moveStr);
-                                    if (move) {
-                                        this.assistMoves[multipv - 1] = move;
-                                        this.needsRender = true;
+                                    
+                                    if (this.isAssistModeThinking) {
+                                        const move = this.parseUCI(moveStr);
+                                        if (move) {
+                                            this.tempAssistMoves[multipv - 1] = move;
+                                        }
+                                    } else if (this.isThinkingForCpu) {
+                                        this.tempCpuMoves[multipv - 1] = moveStr;
                                     }
                                 }
                             }
@@ -1860,6 +1895,7 @@
                 this.draggingPiece = null;
                 this.isThinkingForCpu = false;
                 this.isAssistModeThinking = false;
+                this.tempAssistMoves = [];
             }
 
             initGame() {
@@ -2227,20 +2263,28 @@
                     this.updateAssistMoves();
                 } else {
                     this.assistMoves = [];
+                    this.tempAssistMoves = [];
+                    this.isAssistModeThinking = false;
                     this.needsRender = true;
+                    if (this.stockfish && !this.isThinkingForCpu) {
+                         this.stockfish.postMessage("stop");
+                    }
                 }
             }
 
             updateAssistMoves() {
                 this.assistMoves = [];
+                this.tempAssistMoves = [];
+                this.needsRender = true;
+
                 if (!this.isAssistMode || this.isGameOver || !this.initialized) return;
                 if (this.gameMode === 'online') return;
                 if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
 
                 if (this.stockfish) {
+                    this.stockfish.postMessage("stop");
                     this.isAssistModeThinking = true;
                     this.isThinkingForCpu = false;
-                    this.assistMoves = [];
                     this.stockfish.postMessage("setoption name MultiPV value 3");
                     this.stockfish.postMessage("setoption name Skill Level value 20");
                     this.stockfish.postMessage("position fen " + this.getFen());
@@ -2541,6 +2585,37 @@
                 return false;
             }
 
+            getCpuMoveWeights(numCandidates) {
+                const weights = new Array(numCandidates).fill(0);
+                const levelRatio = Math.max(0, Math.min(1, (this.aiLevel - 1) / 49));
+                
+                if (numCandidates === 1) return [1.0];
+
+                if (numCandidates === 2) {
+                    weights[0] = 0.60 + 0.35 * levelRatio; 
+                    weights[1] = 1.0 - weights[0];
+                } else if (numCandidates === 3) {
+                    weights[0] = 0.50 + 0.40 * levelRatio; // Lv49で約89.1%の確率で最善手
+                    weights[1] = (1.0 - weights[0]) * 0.7; // Lv49で約7.6%の確率で次善手
+                    weights[2] = (1.0 - weights[0]) * 0.3; // Lv49で約3.3%の確率で第3候補
+                } else if (numCandidates === 4) {
+                    weights[0] = 0.40 + 0.45 * levelRatio; 
+                    weights[1] = (1.0 - weights[0]) * 0.5;
+                    weights[2] = (1.0 - weights[0]) * 0.3;
+                    weights[3] = (1.0 - weights[0]) * 0.2;
+                } else {
+                    weights[0] = 0.30 + 0.50 * levelRatio; 
+                    const remaining = 1.0 - weights[0];
+                    weights[1] = remaining * 0.4;
+                    weights[2] = remaining * 0.3;
+                    weights[3] = remaining * 0.2;
+                    weights[4] = remaining * 0.1;
+                }
+
+                const sum = weights.reduce((a, b) => a + b, 0);
+                return weights.map(w => w / sum);
+            }
+
             cpuMove() {
                 const allMoves = this.getAllValidMoves(this.turn, this.board, this.enPassantTarget);
                 if (allMoves.length === 0) return;
@@ -2565,16 +2640,25 @@
                 if (this.stockfish && this.aiLevel >= 5) {
                     this.isThinkingForCpu = true;
                     this.isAssistModeThinking = false;
+                    this.tempCpuMoves = [];
                     
-                    let skillLevel = Math.max(0, Math.min(20, Math.floor((this.aiLevel - 5) * (20 / 45)))); 
-                    let depth = Math.max(1, Math.floor(1 + (this.aiLevel - 5) * (11 / 45)));
+                    // Lv.49までは上位3つから選択して人間らしい隙を作る
+                    let numCandidates = 1;
+                    if (this.aiLevel <= 10) numCandidates = 5;
+                    else if (this.aiLevel <= 20) numCandidates = 4;
+                    else if (this.aiLevel <= 49) numCandidates = 3;
+                    else numCandidates = 1; // Lv.50のみ最善手固定
                     
-                    this.stockfish.postMessage("setoption name MultiPV value 1");
+                    let skillLevel = Math.max(0, Math.min(20, Math.floor((this.aiLevel - 5) * (20 / 30)))); 
+                    let depth = Math.max(1, Math.floor(1 + (this.aiLevel / 4)));
+                    
+                    this.stockfish.postMessage("setoption name MultiPV value " + numCandidates);
                     this.stockfish.postMessage("setoption name Skill Level value " + skillLevel);
                     this.stockfish.postMessage("position fen " + this.getFen());
                     
-                    if (this.aiLevel >= 40) {
-                        this.stockfish.postMessage("go depth " + depth + " movetime " + ((this.aiLevel - 30) * 50));
+                    if (this.aiLevel >= 35) {
+                        const movetime = (this.aiLevel - 30) * 100; // Lv.50で2000ms
+                        this.stockfish.postMessage("go depth " + depth + " movetime " + movetime);
                     } else {
                         this.stockfish.postMessage("go depth " + depth);
                     }
@@ -2625,16 +2709,33 @@
                         score += 1.5;
                     }
                     
-                    const noise = (Math.random() - 0.5) * Math.max(0, (15 - this.aiLevel) * 10);
+                    const noise = (Math.random() - 0.5) * Math.max(0, (10 - this.aiLevel) * 2);
                     m.evalScore = score + noise;
                 });
 
                 all.sort((a,b) => b.evalScore - a.evalScore);
 
-                const topN = Math.max(1, 15 - this.aiLevel);
-                const selectionPool = all.slice(0, topN);
+                // フォールバック側も候補数を統一
+                let numCandidates = 1;
+                if (this.aiLevel <= 10) numCandidates = 5;
+                else if (this.aiLevel <= 20) numCandidates = 4;
+                else if (this.aiLevel <= 49) numCandidates = 3;
+                else numCandidates = 1;
 
-                this.startMove(selectionPool[Math.floor(Math.random() * selectionPool.length)]);
+                numCandidates = Math.min(numCandidates, all.length);
+                const weights = this.getCpuMoveWeights(numCandidates);
+                const rand = Math.random();
+                let sum = 0;
+                let selectedIndex = 0;
+                for(let i=0; i<numCandidates; i++) {
+                    sum += weights[i];
+                    if (rand <= sum) {
+                        selectedIndex = i;
+                        break;
+                    }
+                }
+
+                this.startMove(all[selectedIndex]);
             }
 
             undoMove() {
