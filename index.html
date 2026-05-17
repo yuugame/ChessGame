@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.8</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.9</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1550,8 +1550,8 @@
                 const gs = data.gameState;
                 this.currentRoomData = data;
                 
-                // 再戦の判定を厳密化：ゲームオーバー状態の時に手数が0に戻った場合のみ再戦とみなす
-                const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.isGameOver;
+                // 再戦の判定を厳密化：ローカルのゲームオーバー状態に依存せず、手数が0に戻ってステータスがplayingなら再戦とみなす
+                const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && data.status === 'playing' && this.moveCount > 0;
                 
                 // リロード復帰などによって切断フラグが立っていた場合、クリアする
                 if (gs.disconnected === this.userId) {
@@ -1573,6 +1573,13 @@
                 }
                 
                 if (this.gameMode === 'online' && !isRematch && gs.moveCount <= this.moveCount && this.initialized) {
+                    // 追加：タイムアウト等で手数が変わらずに終了ステータスになった場合は必ず処理し、ゲーム終了を相手に伝える
+                    if (data.status.startsWith('finished_') && !this.isGameOver) {
+                        this.board = JSON.parse(gs.board);
+                        this.checkGameEnd(data, gs, this.turn, gs.turn);
+                        return;
+                    }
+
                     // もしFirestore上で自分の番なのに、ローカルでは相手の番になっていたら（送信の失敗・パケットロス）、状態を強制同期する
                     if (gs.turn === this.playerColor && this.turn !== this.playerColor) {
                         this.forceSyncWithFirestore(gs, data);
