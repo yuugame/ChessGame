@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.9</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.10</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1782,38 +1782,38 @@
                 if (data.status === 'finished_mate') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.sfx.checkmate();
                     const winnerColor = gs.turn === 'white' ? 'black' : 'white';
                     this.showWinLoseMessage(window.t('checkmate'), winnerColor);
                     this.showRematchButton();
                 } else if (data.status === 'finished_stalemate') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.sfx.checkmate();
                     this.showDrawMessage(window.t('stalemate'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_insufficient') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.sfx.checkmate();
                     this.showDrawMessage(window.t('insufficientMaterial'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_threefold') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.sfx.checkmate();
                     this.showDrawMessage(window.t('threefoldRepetition'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_fiftymove') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.sfx.checkmate();
                     this.showDrawMessage(window.t('fiftyMoveRule'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_timeout') {
                     this.isGameOver = true;
                     this.stopTimer();
-                    if (oldTurn !== newTurn) this.sfx.checkmate();
+                    this.sfx.checkmate();
                     const winnerColor = data.winner;
                     this.showWinLoseMessage(window.t('timeout'), winnerColor);
                     this.showRematchButton();
