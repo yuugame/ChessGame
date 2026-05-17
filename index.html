@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.7</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.8</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1527,6 +1527,25 @@
                 });
             }
 
+            forceSyncWithFirestore(gs, data) {
+                this.moveCount = gs.moveCount || 0;
+                this.firstMoveDone = { white: this.moveCount > 0, black: this.moveCount > 1 };
+                this.turn = gs.turn;
+                this.movedStatus = JSON.parse(JSON.stringify(gs.movedStatus || {}));
+                this.enPassantTarget = gs.enPassantTarget || null;
+                this.baseTimers = { ...gs.timers };
+                this.timers = { ...gs.timers };
+                this.halfMoveClock = gs.halfMoveClock || 0;
+                this.positionHistory = [...(gs.positionHistory || [])];
+                this.board = JSON.parse(gs.board);
+                this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
+                this.updateCheckStatus();
+                this.updateAdvantageMeter();
+                this.updateTimerDisplay();
+                this.checkGameEnd(data, gs, this.turn, this.turn);
+                this.needsRender = true;
+            }
+
             handleOnlineUpdate(data) {
                 const gs = data.gameState;
                 this.currentRoomData = data;
@@ -1554,6 +1573,12 @@
                 }
                 
                 if (this.gameMode === 'online' && !isRematch && gs.moveCount <= this.moveCount && this.initialized) {
+                    // もしFirestore上で自分の番なのに、ローカルでは相手の番になっていたら（送信の失敗・パケットロス）、状態を強制同期する
+                    if (gs.turn === this.playerColor && this.turn !== this.playerColor) {
+                        this.forceSyncWithFirestore(gs, data);
+                        return;
+                    }
+
                     // ACK（受信確認）の処理
                     if (gs.turn === this.playerColor && gs.ack === false) {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -1605,7 +1630,15 @@
 
                     document.getElementById('meter-ui').style.display = 'flex';
                     
-                    this.playerColor = data.white === this.userId ? 'white' : 'black';
+                    // 盤面の向きの決定：ホストとゲストの情報を優先して判定する
+                    if (data.host === this.userId) {
+                        this.playerColor = data.white === data.host ? 'white' : 'black';
+                    } else if (data.guest === this.userId) {
+                        this.playerColor = data.white === data.guest ? 'white' : 'black';
+                    } else {
+                        this.playerColor = data.white === this.userId ? 'white' : 'black';
+                    }
+
                     this.increment = data.timeConfig.inc;
                     this.useTimer = data.timeConfig.seconds > 0;
                     
@@ -1869,7 +1902,14 @@
                         'gameState.ack': false,
                         'gameState.lastMoveTimestamp': Date.now()
                     });
-                } catch(e) { console.error(e); }
+                } catch(e) { 
+                    console.error(e); 
+                    // 送信に失敗した場合（通信切断時など）は強制的に元の状態にロールバックしてやり直しを促す
+                    if (this.currentRoomData) {
+                        this.forceSyncWithFirestore(this.currentRoomData.gameState, this.currentRoomData);
+                    }
+                    this.showConfirm(window.t('error'), window.t('commError'), ()=>{}, true);
+                }
             }
 
             async sendTimeout() {
@@ -2082,6 +2122,11 @@
                         if (this.isOpponentDisconnected && this.opponentDisconnectedAt) {
                             isOffline = true;
                             offlineTime = Math.max(offlineTime, (now - this.opponentDisconnectedAt) / 1000);
+                        }
+
+                        // 自分がオフライン（ネット未接続）のときは、相手の切断カウントダウンを進めない
+                        if (!navigator.onLine) {
+                            isOffline = false;
                         }
 
                         if (isOffline) {
@@ -3229,6 +3274,18 @@
                 }
             });
         }
+
+        window.addEventListener('online', () => {
+            if (window.game && window.game.gameMode === 'online' && window.game.roomId && window.game.userId) {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
+                updateDoc(roomRef, {
+                    [`lastSeen.${window.game.userId}`]: Date.now(),
+                    'gameState.disconnected': null,
+                    'gameState.disconnectedAt': null
+                }).catch(()=>{});
+                window.game.startHeartbeat();
+            }
+        });
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
