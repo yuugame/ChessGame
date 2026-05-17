@@ -19,7 +19,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            min-height: 100vh; /* 古いブラウザ用のフォールバック */
+            min-height: 100dvh; /* スマホのURLバーなどを考慮した正確な高さ */
             margin: 0;
             padding: 5px;
             box-sizing: border-box;
@@ -28,10 +29,10 @@
         }
 
         :root {
-            /* スマホ向け: 上下のUI要素のスペースを確保するため、高さの最大55%に制限 */
-            --game-max-width: min(100%, 55vh);
-            /* タブレット・PC向け: 同様に高さの最大60%に制限してスクロールを防ぐ */
-            --game-max-width-pc: min(100vw - 40px, 60vh);
+            /* スマホ向け: 画面の高さから、上下のUIの高さ(約260px)を引いたサイズを最大とする */
+            --game-max-width: min(100vw - 16px, 100dvh - 260px);
+            /* タブレット・PC向け */
+            --game-max-width-pc: min(100vw - 40px, 100dvh - 280px);
         }
 
         .game-element {
@@ -150,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.3</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.4</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -280,7 +281,7 @@
         </div>
     </div>
 
-    <div id="game-ui-container" class="w-full flex flex-col items-center mt-14 sm:mt-12">
+    <div id="game-ui-container" class="w-full flex flex-col items-center mt-12 sm:mt-10">
         <!-- Advantage Meter -->
         <div class="advantage-container game-element" id="meter-ui" style="display: none;">
             <div id="advantage-bar-white" style="width: 50%;"></div>
