@@ -2144,7 +2144,8 @@
                         halfMoveClock: this.halfMoveClock,
                         positionHistory: [...this.positionHistory],
                         moveCount: this.moveCount,
-                        firstMoveDone: { ...this.firstMoveDone }
+                        firstMoveDone: { ...this.firstMoveDone },
+                        turn: this.turn
                     }));
                 }
 
@@ -2746,7 +2747,7 @@
                 if (this.history.length === 0 || this.animatingPiece) return;
                 
                 const restore = () => {
-                    if (this.history.length === 0) return;
+                    if (this.history.length === 0) return false;
                     const prev = JSON.parse(this.history.pop());
                     this.board = prev.board; 
                     this.timers = prev.timers;
@@ -2757,17 +2758,25 @@
                     this.positionHistory = prev.positionHistory;
                     this.moveCount = prev.moveCount || 0;
                     this.firstMoveDone = prev.firstMoveDone || { white: false, black: false };
-                    this.turn = this.turn === 'white' ? 'black' : 'white';
+                    this.turn = prev.turn !== undefined ? prev.turn : (this.turn === 'white' ? 'black' : 'white');
+                    return true;
                 };
 
                 restore();
-                if (this.gameMode === 'cpu') restore();
+                if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
+                    restore();
+                }
 
                 this.selected = null;
                 this.animatingPiece = null;
                 this.draggingPiece = null;
                 this.pendingPromotion = null;
                 this.isGameOver = false;
+                this.isThinkingForCpu = false;
+                this.isAssistModeThinking = false;
+                if (this.stockfish) {
+                    this.stockfish.postMessage("stop");
+                }
                 document.getElementById('promotion-modal').style.display = 'none';
                 document.getElementById('rematch-btn').style.display = 'none';
                 
