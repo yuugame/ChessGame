@@ -283,7 +283,8 @@
             </div>
 
             <h2 id="game-status" class="text-lg font-bold my-1 text-white inline-block" data-i18n="statusReady">準備完了</h2><br>
-            <div id="move-count-display" class="text-xs font-mono text-zinc-400 mb-2 inline-block">手数: 0</div>
+            <div id="move-count-display" class="text-xs font-mono text-zinc-400 inline-block">手数: 0</div><br>
+            <div id="last-move-notation" class="text-[10px] font-mono text-zinc-500 mb-2 tracking-widest min-h-[14px]"></div>
 
             <div class="flex justify-between items-center mt-2 border-t border-zinc-700 pt-2">
                 <div id="bottom-player-label" class="text-xs font-bold text-blue-400 inline-block">あなた</div>
@@ -341,7 +342,7 @@
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
                 threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: ",
                 baseTime: "持ち時間", incTime: "追加時間 (1手)", startGame: "ゲーム開始", min: "分", sec: "秒", incNone: "なし", disconnectErrorMsg: "通信エラーが発生したため、タイトル画面に戻ります。",
-                autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする"
+                autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする", whiteShort: "白", blackShort: "黒", turnWord: "ターン"
             },
             en: {
                 title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
@@ -367,7 +368,7 @@
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
                 threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "ReConnecting...", moveCountPrefix: "Moves: ",
                 baseTime: "Base Time", incTime: "Increment", startGame: "Start Game", min: "m", sec: "s", incNone: "None", disconnectErrorMsg: "Connection error occurred. Returning to title.",
-                autoRotate: "Rotate pieces and text for Black"
+                autoRotate: "Rotate pieces and text for Black", whiteShort: "White", blackShort: "Black", turnWord: "Turn "
             },
             zh: {
                 title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
@@ -393,7 +394,7 @@
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
                 threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: ",
                 baseTime: "初始时间", incTime: "每步加时", startGame: "开始游戏", min: "分", sec: "秒", incNone: "无", disconnectErrorMsg: "发生通信错误，将返回标题画面。",
-                autoRotate: "黑方回合时翻转棋子和文字"
+                autoRotate: "黑方回合时翻转棋子和文字", whiteShort: "白方", blackShort: "黑方", turnWord: "回合"
             }
         };
 
@@ -883,10 +884,38 @@
                 }
             }
 
+            getNotation(move) {
+                if (!move) return "";
+                let suffix = "";
+                if (move.isCheckmate) suffix = "#";
+                else if (move.isCheck) suffix = "+";
+
+                if (move.isCastling) {
+                    return (move.to.x === 6 ? "O-O" : "O-O-O") + suffix;
+                }
+                const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+                const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+                const p = move.piece ? move.piece.toUpperCase() : '';
+                const toStr = files[move.to.x] + ranks[move.to.y];
+                const sep = move.isCapture ? 'x' : '';
+                const promo = move.promotion ? '=' + move.promotion.toUpperCase() : '';
+                return p + sep + toStr + promo + suffix;
+            }
+
             updateMoveCountDisplay() {
                 const el = document.getElementById('move-count-display');
                 if (el) {
-                    el.innerText = `${window.t('moveCountPrefix')}${this.moveCount}`;
+                    const currentTurn = Math.floor((this.moveCount - 1) / 2) + 1;
+                    const displayTurn = Math.max(1, currentTurn);
+                    el.innerText = `${window.t('moveCountPrefix')}${this.moveCount} (${window.t('turnWord')}${displayTurn})`;
+                }
+                const notationEl = document.getElementById('last-move-notation');
+                if (notationEl) {
+                    if (this.lastMove) {
+                        notationEl.innerText = this.getNotation(this.lastMove);
+                    } else {
+                        notationEl.innerText = "";
+                    }
                 }
             }
 
@@ -932,7 +961,7 @@
                 const shouldRotate = (this.gameMode === 'pvp' && this.autoRotate && this.turn === 'black');
                 const textIds = [
                     'mode-display', 'top-player-label', 'timer-top', 'game-status', 
-                    'move-count-display', 'bottom-player-label', 'timer-bottom', 
+                    'move-count-display', 'last-move-notation', 'bottom-player-label', 'timer-bottom', 
                     'undo-btn', 'rematch-btn', 'exit-btn', 'assist-text', 'auto-rotate-text'
                 ];
 
@@ -2173,6 +2202,9 @@
                 const isCapture = this.board[move.to.y][move.to.x] !== null || move.isEnPassant; 
                 const isPawnMove = piece.toLowerCase() === 'p';
 
+                move.piece = piece;
+                move.isCapture = isCapture;
+
                 if (isCapture || isPawnMove) {
                     this.halfMoveClock = 0;
                     this.positionHistory = []; 
@@ -2467,6 +2499,17 @@
                 this.baseTimers = { ...this.timers };
                 
                 this.updateCheckStatus();
+                
+                const noMoves = this.isMate();
+                const isCheckmate = noMoves && this.inCheckPos !== null;
+                const isStalemate = noMoves && this.inCheckPos === null;
+                const isInsufficient = this.isInsufficientMaterial();
+
+                if (this.lastMove) {
+                    this.lastMove.isCheck = this.inCheckPos !== null;
+                    this.lastMove.isCheckmate = isCheckmate;
+                }
+
                 this.updateMoveCountDisplay();
                 this.updateRotationUI();
                 
@@ -2481,11 +2524,6 @@
                 if (this.halfMoveClock >= 100) {
                     isFiftyMove = true;
                 }
-
-                const noMoves = this.isMate();
-                const isCheckmate = noMoves && this.inCheckPos !== null;
-                const isStalemate = noMoves && this.inCheckPos === null;
-                const isInsufficient = this.isInsufficientMaterial();
 
                 if (this.gameMode === 'online' && this.turn !== this.playerColor) {
                     this.sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove);
