@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.6</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.7</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1673,6 +1673,18 @@
                 const isOpponentMove = (oldTurn !== newTurn && newTurn === this.playerColor && gs.lastMove);
 
                 if (isOpponentMove && !this.animatingPiece) {
+                    // タブがバックグラウンドの場合などはアニメーションをスキップして即時反映させるフェールセーフ
+                    if (document.visibilityState === 'hidden') {
+                        this.board = JSON.parse(gs.board);
+                        this.lastMove = gs.lastMove ? JSON.parse(JSON.stringify(gs.lastMove)) : null;
+                        this.updateCheckStatus();
+                        this.updateAdvantageMeter();
+                        this.updateTimerDisplay();
+                        this.checkGameEnd(data, gs, oldTurn, newTurn);
+                        this.needsRender = true;
+                        return;
+                    }
+
                     const isCapture = this.board[gs.lastMove.to.y][gs.lastMove.to.x] !== null || gs.lastMove.isEnPassant;
                     
                     this.animatingPiece = {
@@ -2305,6 +2317,13 @@
                 const p = this.turn === 'white' ? char.toUpperCase() : char.toLowerCase();
                 this.board[this.pendingPromotion.to.y][this.pendingPromotion.to.x] = p;
                 document.getElementById('promotion-modal').style.display = 'none';
+                
+                // 棋譜と相手への送信用にプロモーション情報を記録
+                this.pendingPromotion.promotion = char.toUpperCase();
+                if (this.lastMove) {
+                    this.lastMove.promotion = char.toUpperCase();
+                }
+                
                 this.pendingPromotion = null;
                 this.updateAdvantageMeter();
                 this.finalizeTurn();
