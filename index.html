@@ -28,10 +28,10 @@
         }
 
         :root {
-            /* スマホ向け: 高さの最大65% か 幅の100%の小さい方 */
-            --game-max-width: min(100%, 65vh);
-            /* タブレット・PC向け: 高さの最大80% か 幅の100%の小さい方 */
-            --game-max-width-pc: min(100vw - 40px, 80vh);
+            /* スマホ向け: 上下のUI要素のスペースを確保するため、高さの最大55%に制限 */
+            --game-max-width: min(100%, 55vh);
+            /* タブレット・PC向け: 同様に高さの最大60%に制限してスクロールを防ぐ */
+            --game-max-width-pc: min(100vw - 40px, 60vh);
         }
 
         .game-element {
@@ -150,7 +150,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.1</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.2</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
