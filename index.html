@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.5</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.6</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -1531,7 +1531,8 @@
                 const gs = data.gameState;
                 this.currentRoomData = data;
                 
-                const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.moveCount > 0;
+                // 再戦の判定を厳密化：ゲームオーバー状態の時に手数が0に戻った場合のみ再戦とみなす
+                const isRematch = this.initialized && this.gameMode === 'online' && gs.moveCount === 0 && this.isGameOver;
                 
                 // リロード復帰などによって切断フラグが立っていた場合、クリアする
                 if (gs.disconnected === this.userId) {
@@ -1834,7 +1835,6 @@
             async sendOnlineMove(isCheckmate, isStalemate, isInsufficient, isThreefold, isFiftyMove) {
                 if (!this.roomId) return;
                 try {
-                    this.moveCount++; 
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
                     let status = 'playing';
                     if (isCheckmate) status = 'finished_mate';
