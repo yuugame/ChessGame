@@ -29,10 +29,10 @@
         }
 
         :root {
-            /* スマホ向け: 画面の高さから、上下のUIの高さを引いたサイズを最大とする */
+            /* スマホ向け: 画面の高さから上下のUIの高さを引き、スクロールを防止 */
             --game-max-width: min(100vw - 16px, 100dvh - 300px);
-            /* タブレット・PC向け: 2Pモードの追加UIも考慮して余裕を持たせる */
-            --game-max-width-pc: min(100vw - 40px, 100dvh - 340px);
+            /* タブレット・PC向け: 最大幅を650pxに制限し、確実にはみ出しを防ぐ */
+            --game-max-width-pc: min(100vw - 40px, 100dvh - 400px, 650px);
         }
 
         .game-element {
@@ -1861,8 +1861,8 @@
                         'gameState.turn': this.turn,
                         'gameState.timers': this.timers, 
                         'gameState.movedStatus': this.movedStatus,
-                        'gameState.enPassantTarget': this.enPassantTarget,
-                        'gameState.lastMove': this.lastMove,
+                        'gameState.enPassantTarget': this.enPassantTarget || null,
+                        'gameState.lastMove': this.lastMove ? JSON.parse(JSON.stringify(this.lastMove)) : null,
                         'gameState.moveCount': this.moveCount,
                         'gameState.halfMoveClock': this.halfMoveClock,
                         'gameState.positionHistory': this.positionHistory,
