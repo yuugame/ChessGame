@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.10</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.1.13</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -2101,7 +2101,8 @@
                                         const turnText = this.turn === this.playerColor ? window.t('yourTurn') : window.t('opponentTurn');
                                         this.updateStatus(checkStr + turnText + " - " + window.t('waitingCommunication'));
                                     } else {
-                                        this.opponentTimeoutGrace += 0.05;
+                                        // 100ms周期に合わせた計算 (100ms = 0.1秒)
+                                        this.opponentTimeoutGrace += 0.1;
                                         if (this.opponentTimeoutGrace >= 30) {
                                             this.handleTimeout();
                                         }
@@ -2157,7 +2158,7 @@
                         this.showTurnMessage(checkStr);
                     }
 
-                }, 50); 
+                }, 100); // 50msから100msに変更してUIの更新負荷を半減
             }
 
             stopTimer() { clearInterval(this.timerInterval); }
@@ -2177,8 +2178,13 @@
 
             updateTimerDisplay() {
                 const fmt = s => {
-                    const m = Math.floor(Math.max(0, s)/60); const sc = Math.floor(Math.max(0, s)%60);
-                    return `${m}:${sc.toString().padStart(2,'0')}.${Math.floor((Math.max(0, s)%1)*10)}`;
+                    const m = Math.floor(Math.max(0, s)/60); 
+                    const sc = Math.floor(Math.max(0, s)%60);
+                    if (s < 10 && s > 0) {
+                        return `${m}:${sc.toString().padStart(2,'0')}.${Math.floor((Math.max(0, s)%1)*10)}`;
+                    } else {
+                        return `${m}:${sc.toString().padStart(2,'0')}`;
+                    }
                 };
                 const topTimer = document.getElementById('timer-top');
                 const bottomTimer = document.getElementById('timer-bottom');
