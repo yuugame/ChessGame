@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.0</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.1</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -3476,7 +3476,8 @@
         });
 
         window.addEventListener('beforeunload', (e) => {
-            if (window.game && window.game.gameMode === 'online' && !window.game.isGameOver && window.game.initialized) {
+            // CPU戦、2人プレイ、オンラインを問わず、ゲーム進行中であれば警告を出す
+            if (window.game && window.game.gameMode && !window.game.isGameOver && window.game.initialized) {
                 e.preventDefault();
                 e.returnValue = window.t('confirmExitMsg'); 
                 return window.t('confirmExitMsg');
