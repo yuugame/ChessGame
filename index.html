@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.2.0</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.0</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -496,7 +496,6 @@
         };
         const AI_VALUES = { ...MATERIAL_VALUES };
 
-        // メーター表示用のシンプルな駒の価値
         const DISPLAY_MATERIAL_VALUES = {
             'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0,
             'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 0
@@ -618,7 +617,7 @@
                 this.isThinkingForCpu = false;
                 this.isAssistModeThinking = false;
                 this.tempAssistMoves = [];
-                this.tempCpuMoves = []; // CPU思考用の候補手ストック
+                this.tempCpuMoves = [];
 
                 this.movedStatus = {
                     whiteKing: false, blackKing: false,
@@ -646,6 +645,127 @@
                 this.animate();
 
                 setTimeout(() => window.setLanguage(window.currentLang), 100);
+
+                // ページから離れる（リロードする）直前に状態を保存
+                window.addEventListener('beforeunload', () => {
+                    this.saveGameState();
+                });
+
+                // 少しだけ遅延させてから復元を試みる（ボードの初期化が終わるのを待つため）
+                setTimeout(() => {
+                    this.tryRestoreGame();
+                }, 100);
+            }
+
+            saveGameState() {
+                if (this.gameMode === 'online' || this.isGameOver || !this.gameMode || !this.initialized) {
+                    sessionStorage.removeItem('chessGameState');
+                    return;
+                }
+
+                const state = {
+                    board: this.board,
+                    turn: this.turn,
+                    timers: this.timers,
+                    baseTimers: this.baseTimers,
+                    halfMoveClock: this.halfMoveClock,
+                    moveCount: this.moveCount,
+                    positionHistory: this.positionHistory,
+                    movedStatus: this.movedStatus,
+                    enPassantTarget: this.enPassantTarget,
+                    firstMoveDone: this.firstMoveDone,
+                    playerColor: this.playerColor,
+                    gameMode: this.gameMode,
+                    aiLevel: this.aiLevel,
+                    increment: this.increment,
+                    useTimer: this.useTimer,
+                    isAssistMode: this.isAssistMode,
+                    history: this.history,
+                    lastMove: this.lastMove,
+                    initialTimeSec: this.initialTimeSec
+                };
+                sessionStorage.setItem('chessGameState', JSON.stringify(state));
+            }
+
+            tryRestoreGame() {
+                const stateStr = sessionStorage.getItem('chessGameState');
+                if (!stateStr) return false;
+
+                try {
+                    const state = JSON.parse(stateStr);
+                    
+                    this.board = state.board;
+                    this.turn = state.turn;
+                    this.timers = state.timers;
+                    this.baseTimers = state.baseTimers;
+                    this.halfMoveClock = state.halfMoveClock;
+                    this.moveCount = state.moveCount;
+                    this.positionHistory = state.positionHistory;
+                    this.movedStatus = state.movedStatus;
+                    this.enPassantTarget = state.enPassantTarget;
+                    this.firstMoveDone = state.firstMoveDone;
+                    this.playerColor = state.playerColor;
+                    this.gameMode = state.gameMode;
+                    this.aiLevel = state.aiLevel;
+                    this.increment = state.increment;
+                    this.useTimer = state.useTimer;
+                    this.isAssistMode = state.isAssistMode;
+                    this.history = state.history || [];
+                    this.lastMove = state.lastMove || null;
+                    this.initialTimeSec = state.initialTimeSec || 600;
+                    
+                    this.isGameOver = false;
+                    this.initialized = true;
+
+                    this.hideAllOverlays();
+                    
+                    document.getElementById('undo-btn').style.display = 'inline-block';
+                    document.getElementById('rematch-btn').style.display = 'none';
+                    document.getElementById('meter-ui').style.display = 'flex';
+                    document.getElementById('assist-mode-container').style.display = 'flex';
+                    
+                    if (this.gameMode === 'pvp') {
+                        document.getElementById('auto-rotate-container').style.display = 'flex';
+                    } else {
+                        document.getElementById('auto-rotate-container').style.display = 'none';
+                    }
+
+                    const topTimer = document.getElementById('timer-top');
+                    const bottomTimer = document.getElementById('timer-bottom');
+                    
+                    this.updatePlayerLabels();
+
+                    if (this.useTimer) {
+                        topTimer.style.display = 'inline-block';
+                        bottomTimer.style.display = 'inline-block';
+                        this.updateTimerDisplay();
+                    } else {
+                        topTimer.style.display = 'none';
+                        bottomTimer.style.display = 'none';
+                    }
+
+                    this.startTimer();
+                    this.updateAdvantageMeter();
+                    this.updateMoveCountDisplay();
+                    this.updateRotationUI();
+                    
+                    this.updateCheckStatus();
+                    const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
+                    this.showTurnMessage(checkStr);
+
+                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
+                        setTimeout(() => this.cpuMove(), 800);
+                    } else {
+                        this.updateAssistMoves();
+                    }
+
+                    this.needsRender = true;
+                    return true;
+                } catch (e) {
+                    console.error("復元に失敗しました", e);
+                    sessionStorage.removeItem('chessGameState');
+                    return false;
+                }
             }
 
             initStockfish() {
@@ -1781,6 +1901,7 @@
             checkGameEnd(data, gs, oldTurn, newTurn) {
                 if (data.status === 'finished_mate') {
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
                     this.stopTimer();
                     this.sfx.checkmate();
                     const winnerColor = gs.turn === 'white' ? 'black' : 'white';
@@ -1788,30 +1909,35 @@
                     this.showRematchButton();
                 } else if (data.status === 'finished_stalemate') {
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
                     this.stopTimer();
                     this.sfx.checkmate();
                     this.showDrawMessage(window.t('stalemate'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_insufficient') {
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
                     this.stopTimer();
                     this.sfx.checkmate();
                     this.showDrawMessage(window.t('insufficientMaterial'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_threefold') {
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
                     this.stopTimer();
                     this.sfx.checkmate();
                     this.showDrawMessage(window.t('threefoldRepetition'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_fiftymove') {
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
                     this.stopTimer();
                     this.sfx.checkmate();
                     this.showDrawMessage(window.t('fiftyMoveRule'));
                     this.showRematchButton();
                 } else if (data.status === 'finished_timeout') {
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
                     this.stopTimer();
                     this.sfx.checkmate();
                     const winnerColor = data.winner;
@@ -1872,6 +1998,7 @@
             async handleDisconnectWin() {
                 this.stopTimer();
                 this.isGameOver = true;
+                sessionStorage.removeItem('chessGameState');
                 this.sfx.checkmate(); 
                 
                 try {
@@ -2166,6 +2293,7 @@
             handleTimeout() {
                 this.stopTimer();
                 this.isGameOver = true;
+                sessionStorage.removeItem('chessGameState');
                 this.sfx.checkmate(); 
                 const winnerColor = this.turn === 'white' ? 'black' : 'white';
                 this.showWinLoseMessage(window.t('timeout'), winnerColor);
@@ -2629,33 +2757,38 @@
                 }
 
                 if (isCheckmate) {
-                    this.sfx.checkmate(); 
                     this.isGameOver = true; 
+                    sessionStorage.removeItem('chessGameState');
+                    this.sfx.checkmate(); 
                     this.stopTimer();
                     const winnerColor = this.turn === 'white' ? 'black' : 'white';
                     this.showWinLoseMessage(window.t('checkmate'), winnerColor);
                     this.showRematchButton();
                 } else if (isStalemate) {
-                    this.sfx.checkmate(); 
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
+                    this.sfx.checkmate(); 
                     this.stopTimer();
                     this.showDrawMessage(window.t('stalemate'));
                     this.showRematchButton();
                 } else if (isInsufficient) {
-                    this.sfx.checkmate(); 
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
+                    this.sfx.checkmate(); 
                     this.stopTimer();
                     this.showDrawMessage(window.t('insufficientMaterial'));
                     this.showRematchButton();
                 } else if (isThreefold) {
-                    this.sfx.checkmate(); 
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
+                    this.sfx.checkmate(); 
                     this.stopTimer();
                     this.showDrawMessage(window.t('threefoldRepetition'));
                     this.showRematchButton();
                 } else if (isFiftyMove) {
-                    this.sfx.checkmate(); 
                     this.isGameOver = true;
+                    sessionStorage.removeItem('chessGameState');
+                    this.sfx.checkmate(); 
                     this.stopTimer();
                     this.showDrawMessage(window.t('fiftyMoveRule'));
                     this.showRematchButton();
