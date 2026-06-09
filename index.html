@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.2</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.3</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -486,10 +486,10 @@
             validDot: 'rgba(0, 0, 0, 0.15)', captureRing: 'rgba(255, 50, 50, 0.4)'
         };
         
-        // 修正: iOS Safariのバグを回避するため、異体字セレクタ(\uFE0E)を削除
+        // 修正: 絵文字化を防ぐためにテキストスタイル指定文字(\uFE0E)を付与
         const PIECES = { 
-            'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 
-            'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚' 
+            'P': '♙\uFE0E', 'R': '♖\uFE0E', 'N': '♘\uFE0E', 'B': '♗\uFE0E', 'Q': '♕\uFE0E', 'K': '♔\uFE0E', 
+            'p': '♟\uFE0E', 'r': '♜\uFE0E', 'n': '♞\uFE0E', 'b': '♝\uFE0E', 'q': '♛\uFE0E', 'k': '♚\uFE0E' 
         };
         
         const MATERIAL_VALUES = {
@@ -3251,7 +3251,6 @@
 
                 // 修正: iOSでの文字崩れを防ぐため、システムフォントを明示的に指定
                 this.ctx.font = `${CELL*0.85}px "Helvetica Neue", "Arial Unicode MS", Arial, sans-serif`; 
-                this.ctx.textAlign='center'; 
                 this.ctx.textBaseline='middle';
                 this.ctx.lineJoin = 'round';
                 
@@ -3369,20 +3368,32 @@
 
             drawPiece(piece, px, py) {
                 const isWhite = piece === piece.toUpperCase();
+                const text = PIECES[piece];
+                this.ctx.textAlign = 'left';
+                const metrics = this.ctx.measureText(text);
+                const width = metrics.width;
+                const adjustX = px - width / 2;
+
                 this.ctx.lineWidth = 3;
                 this.ctx.strokeStyle = isWhite ? '#000000' : 'rgba(255, 255, 255, 0.4)';
-                this.ctx.strokeText(PIECES[piece], px, py);
+                this.ctx.strokeText(text, adjustX, py);
                 this.ctx.fillStyle = isWhite ? '#ffffff' : '#000000';
-                this.ctx.fillText(PIECES[piece], px, py);
+                this.ctx.fillText(text, adjustX, py);
             }
             
             drawPieceAtZero(piece) {
                 const isWhite = piece === piece.toUpperCase();
+                const text = PIECES[piece];
+                this.ctx.textAlign = 'left';
+                const metrics = this.ctx.measureText(text);
+                const width = metrics.width;
+                const adjustX = -width / 2;
+
                 this.ctx.lineWidth = 3;
                 this.ctx.strokeStyle = isWhite ? '#000000' : 'rgba(255, 255, 255, 0.4)';
-                this.ctx.strokeText(PIECES[piece], 0, 0);
+                this.ctx.strokeText(text, adjustX, 0);
                 this.ctx.fillStyle = isWhite ? '#ffffff' : '#000000';
-                this.ctx.fillText(PIECES[piece], 0, 0);
+                this.ctx.fillText(text, adjustX, 0);
             }
         }
         
