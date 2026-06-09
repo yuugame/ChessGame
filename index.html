@@ -151,7 +151,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.1</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.2</div>
             <div class="flex flex-col gap-4 w-full items-center">
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
@@ -261,10 +261,10 @@
         <div id="promotion-modal" class="w-full flex flex-col items-center" style="display: none;">
             <h2 class="text-2xl font-bold mb-6 text-center" data-i18n="promotion">プロモーション</h2>
             <div class="flex gap-2 justify-center flex-wrap max-w-[300px]">
-                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('Q')">♕&#xFE0E;</div>
-                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('R')">♖&#xFE0E;</div>
-                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('B')">♗&#xFE0E;</div>
-                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('N')">♘&#xFE0E;</div>
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('Q')">♕</div>
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('R')">♖</div>
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('B')">♗</div>
+                <div class="text-4xl bg-zinc-800 p-4 rounded cursor-pointer hover:bg-zinc-700" onclick="game.selectPromotion('N')">♘</div>
             </div>
         </div>
 
@@ -485,9 +485,11 @@
             lastMove: 'rgba(186, 202, 43, 0.6)', selected: 'rgba(50, 150, 255, 0.7)',
             validDot: 'rgba(0, 0, 0, 0.15)', captureRing: 'rgba(255, 50, 50, 0.4)'
         };
+        
+        // 修正: iOS Safariのバグを回避するため、異体字セレクタ(\uFE0E)を削除
         const PIECES = { 
-            'P': '♙\uFE0E', 'R': '♖\uFE0E', 'N': '♘\uFE0E', 'B': '♗\uFE0E', 'Q': '♕\uFE0E', 'K': '♔\uFE0E', 
-            'p': '♟\uFE0E', 'r': '♜\uFE0E', 'n': '♞\uFE0E', 'b': '♝\uFE0E', 'q': '♛\uFE0E', 'k': '♚\uFE0E' 
+            'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 
+            'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚' 
         };
         
         const MATERIAL_VALUES = {
@@ -3247,7 +3249,10 @@
                     });
                 }
 
-                this.ctx.font = `${CELL*0.8}px serif`; this.ctx.textAlign='center'; this.ctx.textBaseline='middle';
+                // 修正: iOSでの文字崩れを防ぐため、システムフォントを明示的に指定
+                this.ctx.font = `${CELL*0.85}px "Helvetica Neue", "Arial Unicode MS", Arial, sans-serif`; 
+                this.ctx.textAlign='center'; 
+                this.ctx.textBaseline='middle';
                 this.ctx.lineJoin = 'round';
                 
                 for (let y=0; y<8; y++) for (let x=0; x<8; x++) {
@@ -3476,7 +3481,6 @@
         });
 
         window.addEventListener('beforeunload', (e) => {
-            // CPU戦、2人プレイ、オンラインを問わず、ゲーム進行中であれば警告を出す
             if (window.game && window.game.gameMode && !window.game.isGameOver && window.game.initialized) {
                 e.preventDefault();
                 e.returnValue = window.t('confirmExitMsg'); 
