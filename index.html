@@ -6,7 +6,7 @@
     <title>Chess - Online Multiplayer</title>
     
     <!-- アプリアイコン（ファビコン）の設定 -->
-    <link rel="icon" type="image/png" href="chessicon.png">
+    <link class="favicon" rel="icon" type="image/png" href="chessicon.png">
     <link rel="apple-touch-icon" href="chessicon.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -151,20 +151,28 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.3.3</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v1.8.2</div>
+            
             <div class="flex flex-col gap-4 w-full items-center">
-                <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">VS CPU</button>
+                <!-- プロフィール表示セクション -->
+                <div id="profile-section" class="w-full max-w-[300px] bg-zinc-800 p-3 rounded-lg border border-zinc-700 text-center mb-2 shadow-inner" style="display:none;">
+                    <div class="text-xs opacity-70 font-bold tracking-widest mb-1" data-i18n="currentRate">あなたの推定ELO</div>
+                    <div class="text-3xl font-black text-amber-400 drop-shadow-md" id="display-elo">---</div>
+                </div>
+
+                <button class="btn-main !bg-amber-600 shadow-lg" onclick="game.startRankedCpu()" data-i18n="rankedMatch">ランクマッチ (VS CPU)</button>
+                <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">フリー対戦 (VS CPU)</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
                 <button class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦(合言葉)</button>
             </div>
-            <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" data-i18n="authStatusPreparing">通信準備中...</div>
+            <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" data-i18n="authStatusPreparing">アカウント同期中...</div>
         </div>
 
         <div id="cpu-config" class="w-full flex flex-col items-center" style="display: none;">
             <h2 class="text-2xl font-bold mb-8 text-center" data-i18n="cpuSettings">CPU設定</h2>
             <div class="w-full max-w-[300px] mb-6">
                 <div class="flex justify-between mb-2">
-                    <span class="opacity-70" data-i18n="difficulty">難易度レベル</span>
+                    <span class="opacity-70" data-i18n="difficulty">初期難易度レベル</span>
                     <span id="level-value" class="font-bold text-blue-400">Lv.1 (ELO 250)</span>
                 </div>
                 <input type="range" id="level-slider" min="1" max="50" value="1" step="1" 
@@ -174,7 +182,7 @@
                     <span data-i18n="advanced">マスター (Lv.50)</span>
                 </div>
             </div>
-            <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]" data-i18n="cpuNote">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。</p>
+            <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]" data-i18n="cpuNote">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。<br>※ 对局中、プレイヤーの動きに合わせてレベルが自動調整されます。</p>
             <button class="btn-sub mb-4 !bg-blue-600" onclick="game.showTimeSelection('cpu', document.getElementById('level-slider').value)" data-i18n="nextToTime">時間設定へ進む</button>
             <button class="text-sm underline opacity-50 py-2" onclick="game.showModeSelection()" data-i18n="back">戻る</button>
         </div>
@@ -334,9 +342,10 @@
         // --- 多言語辞書と管理機能 ---
         const TRANSLATIONS = {
             ja: {
-                title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
-                authStatusPreparing: "通信準備中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定",
-                difficulty: "難易度レベル", beginner: "初級", advanced: "マスター (Lv.50)", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。",
+                title: "CHESS", vsCpu: "フリー対戦 (VS CPU)", rankedMatch: "ランクマッチ (VS CPU)", currentRate: "あなたの推定ELO",
+                offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
+                authStatusPreparing: "アカウント同期中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定",
+                difficulty: "初期難易度レベル", beginner: "初級", advanced: "マスター (Lv.50)", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。<br>※ 対局中、プレイヤーの動きに合わせてレベルが自動調整されます。",
                 nextToTime: "時間設定へ進む", back: "戻る", onlineSettings: "オンライン対戦", playerNamePlaceholder: "あなたの名前 (任意)",
                 roomWordPlaceholder: "合言葉を入力", joinRoom: "部屋に入る", or: "または", createRoom: "部屋を作る",
                 waitingOpponent: "対戦相手を待っています...",
@@ -352,7 +361,7 @@
                 disconnectTitle: "切断", disconnectMsg: "対戦相手が退出したか部屋が削除されました。", abandonTitle: "終了", abandonMsg: " が退出しました。",
                 opponentDisconnectedMsg: "対戦相手の通信が切断されました", inputRoomWordMsg: "合言葉を入力してください", firebaseErrorMsg: "Firebaseの設定が見つかりません。",
                 connectingMsg: "サーバーに接続しています。数秒後にお試しください。", roomNotFoundMsg: "指定された合言葉の部屋が見つかりません。", createRoomFailedMsg: "部屋の作成に失敗しました。\n",
-                noUndoOnlineMsg: "オンライン対戦中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
+                noUndoOnlineMsg: "オンライン対戦、またはランクマッチ中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
                 colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
                 threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: ",
@@ -360,9 +369,10 @@
                 autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする", whiteShort: "白", blackShort: "黒", turnWord: "ターン"
             },
             en: {
-                title: "CHESS", vsCpu: "VS CPU", offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
-                authStatusPreparing: "Connecting...", authStatusReady: "Ready for online play", cpuSettings: "CPU Settings",
-                difficulty: "Difficulty", beginner: "Beginner", advanced: "Master (Lv.50)", cpuNote: "* Colors (White/Black) are random. Board inverts if Black.",
+                title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO",
+                offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
+                authStatusPreparing: "Syncing Account...", authStatusReady: "Ready for online play", cpuSettings: "CPU Settings",
+                difficulty: "Initial Difficulty", beginner: "Beginner", advanced: "Grandmaster (ELO 2500)", cpuNote: "* Colors (White/Black) are random. Board inverts if Black.\n* CPU level auto-adjusts based on your performance.",
                 nextToTime: "Next", back: "Back", onlineSettings: "Online Match", playerNamePlaceholder: "Your Name (Optional)",
                 roomWordPlaceholder: "Room Word", joinRoom: "Join", or: "OR", createRoom: "Create",
                 waitingOpponent: "Waiting for opponent...",
@@ -378,7 +388,7 @@
                 disconnectTitle: "Disconnected", disconnectMsg: "Opponent left or room was deleted.", abandonTitle: "Ended", abandonMsg: " left the room.",
                 opponentDisconnectedMsg: "Opponent disconnected", inputRoomWordMsg: "Please enter a room word.", firebaseErrorMsg: "Firebase config not found.",
                 connectingMsg: "Connecting. Try again in a few seconds.", roomNotFoundMsg: "Room not found.", createRoomFailedMsg: "Failed to create room.\n",
-                noUndoOnlineMsg: "Cannot undo in online matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
+                noUndoOnlineMsg: "Cannot undo in online or ranked matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
                 threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "ReConnecting...", moveCountPrefix: "Moves: ",
@@ -386,9 +396,10 @@
                 autoRotate: "Rotate pieces and text for Black", whiteShort: "White", blackShort: "Black", turnWord: "Turn "
             },
             zh: {
-                title: "国际象棋", vsCpu: "人机对战", offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
-                authStatusPreparing: "连接中...", authStatusReady: "在线对战准备就绪", cpuSettings: "人机设置",
-                difficulty: "难度等级", beginner: "初级", advanced: "大师 (Lv.50)", cpuNote: "※ 执白或执黑随机决定。如果执黑，棋盘将会翻转。",
+                title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)",
+                offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
+                authStatusPreparing: "账号同步中...", authStatusReady: "在线对战准备就绪", cpuSettings: "人机设置",
+                difficulty: "初始难度等级", beginner: "初级", advanced: "大师 (Lv.50)", cpuNote: "※ 执白或执黑随机决定。如果执黑，棋盘将会翻转。\n※ 对战中，人机等级会根据您的表现自动调整。",
                 nextToTime: "下一步", back: "返回", onlineSettings: "在线对战", playerNamePlaceholder: "你的名字 (可选)",
                 roomWordPlaceholder: "输入房间口令", joinRoom: "加入房间", or: "或", createRoom: "创建房间",
                 waitingOpponent: "等待加入...",
@@ -399,12 +410,12 @@
                 undoMove: "悔棋", rematch: "再来一局", exit: "退出", assistMode: "辅助模式 (显示提示)", anonymous: "匿名玩家",
                 whiteTurn: "白方回合", blackTurn: "黑方回合", yourTurn: "你的回合", opponentTurn: "对手回合", checkmate: "将死！",
                 timeout: "超时！", winSuffix: " 获胜", youWin: "你赢了！ 🎉", youLose: "你输了...", checkWarning: "⚠️ 将军！ ",
-                waitingOpponentAck: "等待响应...", rematchPrep: "正在准备重赛...", rematchFailed: "准备重赛失败",
+                waitingOpponentAck: "等待响应...", rematchPrep: "正在准备重賽...", rematchFailed: "准备重赛失败",
                 error: "错误", commError: "通信错误", cannotJoinTitle: "无法加入", cannotJoinMsg: "该房间正在对战中或存有旧数据。\n\n如需重赛，请点击“创建房间”以覆盖原房间。",
                 disconnectTitle: "连接断开", disconnectMsg: "对手已离开或房间被删除。", abandonTitle: "游戏结束", abandonMsg: " 离开了房间。",
-                opponentDisconnectedMsg: "对手的连接已断开", inputRoomWordMsg: "请输入房间口令", firebaseErrorMsg: "未找到Firebase配置。",
+                opponentDisconnectedMsg: "对手的连接已断開", inputRoomWordMsg: "请输入房间口令", firebaseErrorMsg: "未找到Firebase配置。",
                 connectingMsg: "正在连接，请稍后再试。", roomNotFoundMsg: "未找到该口令的房间。", createRoomFailedMsg: "创建房间失败。\n",
-                noUndoOnlineMsg: "在线对战中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
+                noUndoOnlineMsg: "在线对戦或排位赛中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
                 colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
                 threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: ",
@@ -486,7 +497,6 @@
             validDot: 'rgba(0, 0, 0, 0.15)', captureRing: 'rgba(255, 50, 50, 0.4)'
         };
         
-        // 修正: 絵文字化を防ぐためにテキストスタイル指定文字(\uFE0E)を付与
         const PIECES = { 
             'P': '♙\uFE0E', 'R': '♖\uFE0E', 'N': '♘\uFE0E', 'B': '♗\uFE0E', 'Q': '♕\uFE0E', 'K': '♔\uFE0E', 
             'p': '♟\uFE0E', 'r': '♜\uFE0E', 'n': '♞\uFE0E', 'b': '♝\uFE0E', 'q': '♛\uFE0E', 'k': '♚\uFE0E' 
@@ -595,6 +605,7 @@
                 this.userId = null;
                 this.playerName = "";
                 this.currentRoomData = null; 
+                this.playerProfile = null; // プレイヤーのELOなどを保存
                 
                 this.roomId = null;
                 this.unsubRoom = null;
@@ -648,15 +659,118 @@
 
                 setTimeout(() => window.setLanguage(window.currentLang), 100);
 
-                // ページから離れる（リロードする）直前に状態を保存
                 window.addEventListener('beforeunload', () => {
                     this.saveGameState();
                 });
 
-                // 少しだけ遅延させてから復元を試みる（ボードの初期化が終わるのを待つため）
                 setTimeout(() => {
                     this.tryRestoreGame();
                 }, 100);
+            }
+
+            async loadProfile() {
+                if (!this.userId || !db) return;
+                try {
+                    const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                    const snap = await getDoc(profileRef);
+                    if (snap.exists()) {
+                        this.playerProfile = snap.data();
+                        if (this.playerProfile.elo === undefined) this.playerProfile.elo = 250;
+                    } else {
+                        // 新規プレイヤーの初期レートは250に設定
+                        this.playerProfile = { elo: 250 }; 
+                        await setDoc(profileRef, this.playerProfile);
+                    }
+                    this.updateProfileUI();
+                    
+                    // レートが他デバイス等で更新された時のために監視
+                    onSnapshot(profileRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            this.playerProfile = docSnap.data();
+                            this.updateProfileUI();
+                        }
+                    }, (err) => console.error(err));
+                    
+                } catch(e) { console.error(e); }
+            }
+            
+            updateProfileUI() {
+                const section = document.getElementById('profile-section');
+                const eloDisplay = document.getElementById('display-elo');
+                if (this.playerProfile && section && eloDisplay) {
+                    section.style.display = 'block';
+                    eloDisplay.innerText = this.playerProfile.elo;
+                }
+            }
+
+            // 特製対局調整ELOスコアを保存する関数 (勝ち負け関係なく、その対局に達した実力(ELO)をそのまま適用)
+            updateRankedScore() {
+                if (this.gameMode !== 'cpu_ranked' || !this.userId || !this.playerProfile) return "";
+                
+                const oldElo = this.playerProfile.elo || 250;
+                const newElo = this.aiElo; // 対局終了または切断時の、動的調整された推定ELOを直接採用（上限撤廃）
+                
+                this.playerProfile.elo = newElo;
+                
+                try {
+                    const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                    updateDoc(profileRef, { elo: newElo }).catch(e => {
+                        setDoc(profileRef, this.playerProfile).catch(console.error);
+                    });
+                } catch(e) { console.error(e); }
+                
+                const diff = newElo - oldElo;
+                const diffStr = diff >= 0 ? `+${diff}` : `${diff}`;
+                return `\n[ELO: ${oldElo} ➔ ${newElo} (${diffStr})]`;
+            }
+
+            startRankedCpu() {
+                this.sfx.buttonClick();
+                if (!this.playerProfile) {
+                    this.showConfirm(window.t('error'), window.t('connectingMsg'), ()=>{}, true);
+                    return;
+                }
+                
+                this.gameMode = 'cpu_ranked';
+                const oldElo = this.playerProfile.elo || 250;
+                
+                // 設定レートから適切な内部AIレベルを計算
+                this.aiElo = oldElo;
+                this.aiLevel = Math.max(1, Math.min(50, Math.round((oldElo - 250) / 45.9) + 1));
+                this.baseAiLevel = this.aiLevel;
+                
+                // ランクマッチは 10分 + 5秒固定 の真剣勝負
+                this.initialTimeSec = 600; 
+                this.timers = { white: 600, black: 600 };
+                this.increment = 5; 
+                this.useTimer = true;
+                this.isAssistMode = false;
+                
+                this.hideAllOverlays();
+                
+                document.getElementById('undo-btn').style.display = 'none'; // ランク戦は待ったなし
+                document.getElementById('rematch-btn').style.display = 'none';
+                document.getElementById('meter-ui').style.display = 'flex';
+                document.getElementById('assist-mode-container').style.display = 'none'; // アシストなし
+                document.getElementById('auto-rotate-container').style.display = 'none';
+                
+                const topTimer = document.getElementById('timer-top');
+                const bottomTimer = document.getElementById('timer-bottom');
+                
+                this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
+                this.updatePlayerLabels();
+
+                topTimer.style.display = 'inline-block';
+                bottomTimer.style.display = 'inline-block';
+                this.updateTimerDisplay();
+
+                this.initGame();
+                this.startTimer();
+                
+                if (this.playerColor === 'black') {
+                    // エラー回避のため絶対パスで呼び出し
+                    setTimeout(() => { if (window.game) window.game.cpuMove(); }, 800);
+                }
             }
 
             saveGameState() {
@@ -679,6 +793,8 @@
                     playerColor: this.playerColor,
                     gameMode: this.gameMode,
                     aiLevel: this.aiLevel,
+                    aiElo: this.aiElo,
+                    baseAiLevel: this.baseAiLevel,
                     increment: this.increment,
                     useTimer: this.useTimer,
                     isAssistMode: this.isAssistMode,
@@ -709,6 +825,8 @@
                     this.playerColor = state.playerColor;
                     this.gameMode = state.gameMode;
                     this.aiLevel = state.aiLevel;
+                    this.aiElo = state.aiElo || 250;
+                    this.baseAiLevel = state.baseAiLevel || state.aiLevel;
                     this.increment = state.increment;
                     this.useTimer = state.useTimer;
                     this.isAssistMode = state.isAssistMode;
@@ -721,10 +839,16 @@
 
                     this.hideAllOverlays();
                     
-                    document.getElementById('undo-btn').style.display = 'inline-block';
+                    if (this.gameMode === 'cpu_ranked') {
+                        document.getElementById('undo-btn').style.display = 'none';
+                        document.getElementById('assist-mode-container').style.display = 'none';
+                    } else {
+                        document.getElementById('undo-btn').style.display = 'inline-block';
+                        document.getElementById('assist-mode-container').style.display = 'flex';
+                    }
+                    
                     document.getElementById('rematch-btn').style.display = 'none';
                     document.getElementById('meter-ui').style.display = 'flex';
-                    document.getElementById('assist-mode-container').style.display = 'flex';
                     
                     if (this.gameMode === 'pvp') {
                         document.getElementById('auto-rotate-container').style.display = 'flex';
@@ -755,9 +879,10 @@
                     const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                     this.showTurnMessage(checkStr);
 
-                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
-                        setTimeout(() => this.cpuMove(), 800);
-                    } else {
+                    if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') && this.turn !== this.playerColor) {
+                        // エラー回避のため絶対パスで呼び出し
+                        setTimeout(() => { if (window.game) window.game.cpuMove(); }, 800);
+                    } else if (this.gameMode !== 'cpu_ranked') {
                         this.updateAssistMoves();
                     }
 
@@ -884,7 +1009,7 @@
                 const sendHeartbeat = async () => {
                     if (this.gameMode === 'online' && this.roomId && this.userId && !this.isGameOver) {
                         try {
-                            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
                             await updateDoc(roomRef, {
                                 [`lastSeen.${this.userId}`]: Date.now()
                             });
@@ -1061,10 +1186,10 @@
                 const bottomLabel = document.getElementById('bottom-player-label');
                 const modeDisplay = document.getElementById('mode-display');
 
-                if (this.gameMode === 'cpu') {
+                if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
                     if (bottomLabel) bottomLabel.innerText = `${window.t('you')}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
-                    if (topLabel) topLabel.innerText = `${window.t('cpuName')}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
-                    if (modeDisplay) modeDisplay.innerText = `${window.t('vsCpu')} Lv.${this.aiLevel}`;
+                    if (topLabel) topLabel.innerText = `${window.t('cpuName')} (推定ELO: ${this.aiElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (modeDisplay) modeDisplay.innerText = this.gameMode === 'cpu_ranked' ? `${window.t('rankedMatch')} (Rate: ${this.playerProfile?.elo || 250})` : `${window.t('vsCpu')} ELO ${this.baseAiElo}`;
                 } else if (this.gameMode === 'pvp') {
                     if (bottomLabel) bottomLabel.innerText = `${window.t('p1White')}`;
                     if (topLabel) topLabel.innerText = `${window.t('p2Black')}`;
@@ -1072,17 +1197,22 @@
                 } else if (this.gameMode === 'online') {
                     let myName = window.t('you');
                     let opponentName = window.t('anonymous');
+                    let myElo = this.playerProfile?.elo || 250;
+                    let opponentElo = "---";
+
                     if (this.currentRoomData) {
                         if (this.currentRoomData.host === this.userId) {
                             myName = this.currentRoomData.hostName || window.t('you');
                             opponentName = this.currentRoomData.guestName || window.t('anonymous');
+                            opponentElo = this.currentRoomData.guestElo || "---";
                         } else {
                             myName = this.currentRoomData.guestName || window.t('you');
                             opponentName = this.currentRoomData.hostName || window.t('anonymous');
+                            opponentElo = this.currentRoomData.hostElo || "---";
                         }
                     }
-                    if (bottomLabel) bottomLabel.innerText = `${myName}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
-                    if (topLabel) topLabel.innerText = `${opponentName}${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (bottomLabel) bottomLabel.innerText = `${myName} (ELO ${myElo})${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
+                    if (topLabel) topLabel.innerText = `${opponentName} (ELO ${opponentElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
                     if (modeDisplay) modeDisplay.innerText = `${window.t('onlinePvp')} [${this.roomId}]`;
                 }
             }
@@ -1171,7 +1301,7 @@
 
             handlePointerDown(rawX, rawY, width) {
                 if (!this.initialized || this.isGameOver || this.animatingPiece) return;
-                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) return;
+                if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked' || this.gameMode === 'online') && this.turn !== this.playerColor) return;
                 
                 const sx = Math.floor(rawX / (width / 8)), sy = Math.floor(rawY / (width / 8));
                 if (sx < 0 || sx > 7 || sy < 0 || sy > 7) return;
@@ -1268,6 +1398,7 @@
                 this.currentRoomData = null;
                 this.clearActiveStyles();
                 document.getElementById('game-status').innerText = window.t('statusReady');
+                this.updateProfileUI(); // モード選択画面に戻るたびにプロフィールUIを更新
             }
 
             showCpuConfig() {
@@ -1299,7 +1430,7 @@
                 document.getElementById('time-selection').style.display = 'flex';
             }
 
-            showTimeSelection(mode, level = 1) {
+            showTimeSelection(mode, level = 250) {
                 this.sfx.buttonClick();
                 this.tempMode = mode;
                 this.tempLevel = parseInt(level);
@@ -1321,7 +1452,7 @@
 
             confirmUndo() {
                 this.sfx.buttonClick();
-                if (this.gameMode === 'online') {
+                if (this.gameMode === 'online' || this.gameMode === 'cpu_ranked') {
                     return this.showConfirm(window.t('error'), window.t('noUndoOnlineMsg'), ()=>{}, true);
                 }
                 if (this.gameMode === 'cpu' && this.playerColor === 'black' && this.history.length <= 1) {
@@ -1336,6 +1467,10 @@
             confirmExit() {
                 this.sfx.buttonClick();
                 this.showConfirm(window.t('exit'), window.t('confirmExitMsg'), async () => {
+                    if (this.gameMode === 'cpu_ranked' && !this.isGameOver) {
+                        // 途中で終了(投了)した場合も、その時点の動的調整ELOを保存
+                        this.updateRankedScore();
+                    }
                     if (this.gameMode === 'online' && this.roomId && this.userId) {
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
@@ -1444,6 +1579,7 @@
                         status: 'playing',
                         guest: this.userId,
                         guestName: this.playerName,
+                        guestElo: this.playerProfile?.elo || 250,
                         white: isHostWhite ? data.host : this.userId,
                         black: isHostWhite ? this.userId : data.host,
                         [`lastSeen.${this.userId}`]: Date.now(),
@@ -1483,8 +1619,10 @@
                         status: 'waiting',
                         host: this.userId,
                         hostName: this.playerName,
+                        hostElo: this.playerProfile?.elo || 250,
                         guest: null,
                         guestName: null,
+                        guestElo: null,
                         timeConfig: { seconds, inc },
                         turnMode: turnMode,
                         lastSeen: {
@@ -1569,6 +1707,9 @@
                         console.error("Rematch error:", e);
                         this.updateStatus(window.t('rematchFailed'));
                     }
+                } else if (this.gameMode === 'cpu_ranked') {
+                    // ランクマッチの再戦はレートを元にレベルを再計算して新規スタート
+                    this.startRankedCpu();
                 } else {
                     if (this.gameMode === 'cpu') {
                         this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
@@ -1580,7 +1721,7 @@
                     this.initGame();
                     this.startTimer();
                     if (this.gameMode === 'cpu' && this.playerColor === 'black') {
-                        setTimeout(() => this.cpuMove(), 800);
+                        setTimeout(() => { if (window.game) window.game.cpuMove(); }, 800);
                     } else {
                         this.updateAssistMoves();
                     }
@@ -1677,7 +1818,7 @@
                 
                 // リロード復帰などによって切断フラグが立っていた場合、クリアする
                 if (gs.disconnected === this.userId) {
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', window.game.roomId);
                     updateDoc(roomRef, {
                         'gameState.disconnected': null,
                         'gameState.disconnectedAt': null,
@@ -1698,7 +1839,7 @@
                     // 追加：タイムアウト等で手数が変わらずに終了ステータスになった場合は必ず処理し、ゲーム終了を相手に伝える
                     if (data.status.startsWith('finished_') && !this.isGameOver) {
                         this.board = JSON.parse(gs.board);
-                        this.checkGameEnd(data, gs, this.turn, gs.turn);
+                        this.checkGameEnd(data, gs, oldTurn, gs.turn);
                         return;
                     }
 
@@ -1950,16 +2091,22 @@
                     
                     this.updateLanguageUI();
                     
-                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
-                        setTimeout(() => this.cpuMove(), 400);
-                    } else if (this.gameMode !== 'online' || this.turn === this.playerColor) {
-                        this.updateAssistMoves();
+                    if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') && this.turn !== this.playerColor) {
+                        setTimeout(() => { if (window.game) window.game.cpuMove(); }, 400);
+                    } else if (this.gameMode !== 'online' && this.gameMode !== 'cpu_ranked' || this.turn === this.playerColor) {
+                        this.updatePageInfoForAssist();
                     }
                 }
                 this.needsRender = true;
             }
 
             showWinLoseMessage(reason, winnerColor) {
+                let rateStr = "";
+                if (this.gameMode === 'cpu_ranked') {
+                    const result = winnerColor === this.playerColor ? 'win' : 'lose';
+                    rateStr = this.updateRankedScore(result);
+                }
+
                 if (this.gameMode === 'pvp') {
                     const winnerText = winnerColor === 'white' ? window.t('p1White') : window.t('p2Black');
                     this.updateStatus(`${reason} ${winnerText}${window.t('winSuffix')}`);
@@ -1971,15 +2118,19 @@
                     }
                 } else {
                     if (winnerColor === this.playerColor) {
-                        this.updateStatus(`${reason} ${window.t('youWin')}`);
+                        this.updateStatus(`${reason} ${window.t('youWin')}${rateStr}`);
                     } else {
-                        this.updateStatus(`${reason} ${window.t('youLose')}`);
+                        this.updateStatus(`${reason} ${window.t('youLose')}${rateStr}`);
                     }
                 }
             }
 
             showDrawMessage(reason) {
-                this.updateStatus(`${reason} - ${window.t('drawMsg')}`);
+                let rateStr = "";
+                if (this.gameMode === 'cpu_ranked') {
+                    rateStr = this.updateRankedScore('draw');
+                }
+                this.updateStatus(`${reason} - ${window.t('drawMsg')}${rateStr}`);
             }
             
             showTurnMessage(prefix) {
@@ -2068,7 +2219,12 @@
 
                 this.sfx.buttonClick();
                 this.gameMode = this.tempMode;
+                
+                // 修正: フリー対局は1〜50の50段階マッピングで開始
                 this.aiLevel = this.tempLevel;
+                this.baseAiLevel = this.tempLevel; // 初期レベルを保存
+                this.aiElo = 250 + (this.aiLevel - 1) * 45; // レート表示用にマッピング
+                
                 this.initialTimeSec = seconds;
                 this.timers = { white: seconds, black: seconds };
                 this.increment = inc;
@@ -2110,7 +2266,7 @@
                 this.initGame();
                 this.startTimer(); // 無制限でも呼ぶ
                 if (this.gameMode === 'cpu' && this.playerColor === 'black') {
-                    setTimeout(() => this.cpuMove(), 800);
+                    setTimeout(() => { if (window.game) window.game.cpuMove(); }, 800);
                 } else {
                     this.updateAssistMoves();
                 }
@@ -2369,7 +2525,7 @@
                 
                 let displayDiff = diff;
                 const meterUi = document.getElementById('meter-ui');
-                if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.playerColor === 'black') {
+                if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked' || this.gameMode === 'online') && this.playerColor === 'black') {
                     displayDiff = blackScore - whiteScore;
                     meterUi.style.flexDirection = 'row-reverse';
                 } else {
@@ -2484,7 +2640,7 @@
                         this.finalizeTurn();
                         this.needsRender = true;
                     }
-                    else if ((this.gameMode === 'cpu' || this.gameMode === 'online') && this.turn !== this.playerColor) {
+                    else if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked' || this.gameMode === 'online') && this.turn !== this.playerColor) {
                         this.board[move.to.y][move.to.x] = this.turn === 'white' ? 'Q' : 'q';
                         this.updateAdvantageMeter();
                         this.finalizeTurn();
@@ -2541,7 +2697,7 @@
 
                 if (!this.isAssistMode || this.isGameOver || !this.initialized) return;
                 if (this.gameMode === 'online') return;
-                if (this.gameMode === 'cpu' && this.turn !== this.playerColor) return;
+                if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') && this.turn !== this.playerColor) return;
 
                 if (this.stockfish) {
                     this.stockfish.postMessage("stop");
@@ -2614,12 +2770,13 @@
 
             evaluateBoardForMinimax(board, maximizingColor) {
                 let score = 0;
-                for (let y=0; y<8; y++) {
-                    for (let x=0; x<8; x++) {
+                for (let y = 0; y < 8; y++) {
+                    for (let x = 0; x < 8; x++) {
                         const p = board[y][x];
                         if (!p) continue;
 
-                        const isMaximizing = maximizingColor === 'white' ? p === p.toUpperCase() : p === p.toLowerCase();
+                        const isWhite = p === p.toUpperCase();
+                        const isMaximizing = maximizingColor === 'white' ? isWhite : !isWhite;
                         const pType = p.toLowerCase();
                         let val = AI_VALUES[pType] * 10;
 
@@ -2724,6 +2881,67 @@
                 this.turn = this.turn === 'white' ? 'black' : 'white';
                 this.assistMoves = [];
                 
+                // プレイヤーの動き（有利不利）を分析してAIの推定ELO・レベルを調整するロジック
+                if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
+                    let myScore = 0;
+                    let cpuScore = 0;
+                    for (let y = 0; y < 8; y++) {
+                        for (let x = 0; x < 8; x++) {
+                            const p = this.board[y][x];
+                            if (!p) continue;
+                            const val = DISPLAY_MATERIAL_VALUES[p] || 0;
+                            const isWhite = p === p.toUpperCase();
+                            if ((this.playerColor === 'white' && isWhite) || (this.playerColor === 'black' && !isWhite)) {
+                                myScore += val;
+                            } else {
+                                cpuScore += val;
+                            }
+                        }
+                    }
+                    
+                    const advantage = myScore - cpuScore;
+                    
+                    if (this.gameMode === 'cpu_ranked') {
+                        // 1. ランクマッチ：段階的な学習ステップ減衰と上限なしでの1刻みELO算出
+                        let targetElo = (this.playerProfile?.elo || 250) + (advantage * 50) + (Math.floor(this.moveCount / 10) * 50);
+                        targetElo = Math.max(250, targetElo); // 下限は250、上限は撤廃
+                        
+                        const eloDiff = targetElo - this.aiElo;
+                        if (Math.abs(eloDiff) > 0) {
+                            // 動的ステップ調整（50ELO ➔ 25ELO ➔ 10ELO ➔ 5ELO ➔ 1ELO）
+                            let stepElo = 1;
+                            
+                            if (this.moveCount < 6) {
+                                stepElo = 50; // 初期は50ELOずつ調整
+                            } else if (this.moveCount < 14) {
+                                stepElo = 25; // 25ELOずつ調整
+                            } else if (this.moveCount < 24) {
+                                stepElo = 10; // 10ELOずつ調整
+                            } else if (this.moveCount < 36) {
+                                stepElo = 5;  // 5ELOずつ調整
+                            } else {
+                                stepElo = 1;  // 安定期は1ELOずつ調整
+                            }
+
+                            const step = Math.min(stepElo, Math.abs(eloDiff));
+                            this.aiElo = Math.max(250, this.aiElo + Math.sign(eloDiff) * Math.round(step)); // 推定ELO更新（上限なし）
+                        }
+                        // 内部レベル（Stockfish送信等）は1〜50の範囲にマップ
+                        this.aiLevel = Math.max(1, Math.min(50, Math.round((this.aiElo - 250) / 45.9) + 1));
+                    } else {
+                        // 2. フリー対戦：従来通りのレベル50段階（1レベル単位でレベルスライダー準拠で変動）
+                        let targetLevel = this.baseAiLevel + advantage + Math.floor(this.moveCount / 10);
+                        targetLevel = Math.max(1, Math.min(50, targetLevel));
+                        
+                        if (targetLevel > this.aiLevel) {
+                            this.aiLevel = Math.min(50, this.aiLevel + 1);
+                        } else if (targetLevel < this.aiLevel) {
+                            this.aiLevel = Math.max(1, this.aiLevel - 1);
+                        }
+                        this.aiElo = 250 + (this.aiLevel - 1) * 45; // 45刻み、上限2500近く
+                    }
+                }
+                
                 this.turnStartTime = Date.now();
                 this.baseTimers = { ...this.timers };
                 
@@ -2799,20 +3017,26 @@
                     
                     this.updateLanguageUI();
                     
-                    if (this.gameMode === 'cpu' && this.turn !== this.playerColor) {
-                        setTimeout(() => this.cpuMove(), 400);
-                    } else if (this.gameMode !== 'online' || this.turn === this.playerColor) {
-                        this.updateAssistMoves();
+                    if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') && this.turn !== this.playerColor) {
+                        setTimeout(() => { if (window.game) window.game.cpuMove(); }, 400);
+                    } else if (this.gameMode !== 'online' && this.gameMode !== 'cpu_ranked' || this.turn === this.playerColor) {
+                        this.updatePageInfoForAssist();
                     }
                 }
                 this.needsRender = true;
             }
 
+            updatePageInfoForAssist() {
+                this.updateAssistMoves();
+            }
+
             isMate() {
-                for (let y=0; y<8; y++) for (let x=0; x<8; x++) {
-                    const p = this.board[y][x];
-                    if (p && (this.turn === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
-                        if (this.getMoves(x, y, this.board).length > 0) return false;
+                for (let y = 0; y < 8; y++) {
+                    for (let x = 0; x < 8; x++) {
+                        const p = this.board[y][x];
+                        if (p && (this.turn === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
+                            if (this.getMoves(x, y, this.board).length > 0) return false;
+                        }
                     }
                 }
                 return true;
@@ -2915,12 +3139,12 @@
                     this.isAssistModeThinking = false;
                     this.tempCpuMoves = [];
                     
-                    // Lv.49までは上位3つから選択して人間らしい隙を作る
+                    // ELOに応じて上位候補数を自動決定
                     let numCandidates = 1;
-                    if (this.aiLevel <= 10) numCandidates = 5;
-                    else if (this.aiLevel <= 20) numCandidates = 4;
-                    else if (this.aiLevel <= 49) numCandidates = 3;
-                    else numCandidates = 1; // Lv.50のみ最善手固定
+                    if (this.aiElo <= 700) numCandidates = 5;
+                    else if (this.aiElo <= 1100) numCandidates = 4;
+                    else if (this.aiElo <= 2400) numCandidates = 3;
+                    else numCandidates = 1; // 2400以上の強豪は最善手固定
                     
                     let skillLevel = Math.max(0, Math.min(20, Math.floor((this.aiLevel - 5) * (20 / 30)))); 
                     let depth = Math.max(1, Math.floor(1 + (this.aiLevel / 4)));
@@ -2930,7 +3154,7 @@
                     this.stockfish.postMessage("position fen " + this.getFen());
                     
                     if (this.aiLevel >= 35) {
-                        const movetime = (this.aiLevel - 30) * 100; // Lv.50で2000ms
+                        const movetime = (this.aiLevel - 30) * 100; // 高ELOでの思考時間
                         this.stockfish.postMessage("go depth " + depth + " movetime " + movetime);
                     } else {
                         this.stockfish.postMessage("go depth " + depth);
@@ -2990,9 +3214,9 @@
 
                 // フォールバック側も候補数を統一
                 let numCandidates = 1;
-                if (this.aiLevel <= 10) numCandidates = 5;
-                else if (this.aiLevel <= 20) numCandidates = 4;
-                else if (this.aiLevel <= 49) numCandidates = 3;
+                if (this.aiElo <= 700) numCandidates = 5;
+                else if (this.aiElo <= 1100) numCandidates = 4;
+                else if (this.aiElo <= 2400) numCandidates = 3;
                 else numCandidates = 1;
 
                 numCandidates = Math.min(numCandidates, all.length);
@@ -3000,7 +3224,7 @@
                 const rand = Math.random();
                 let sum = 0;
                 let selectedIndex = 0;
-                for(let i=0; i<numCandidates; i++) {
+                for(let i = 0; i < numCandidates; i++) {
                     sum += weights[i];
                     if (rand <= sum) {
                         selectedIndex = i;
@@ -3012,7 +3236,9 @@
             }
 
             undoMove() {
-                if (this.gameMode === 'online') return; 
+                if (this.gameMode === 'online' || this.gameMode === 'cpu_ranked') {
+                    return; 
+                }
                 if (this.gameMode === 'cpu' && this.playerColor === 'black' && this.history.length <= 1) {
                     return; 
                 }
@@ -3069,8 +3295,8 @@
 
             isSquareAttacked(x, y, color, board) {
                 const opponentColor = color === 'white' ? 'black' : 'white';
-                for (let ry=0; ry<8; ry++) {
-                    for (let rx=0; rx<8; rx++) {
+                for (let ry = 0; ry < 8; ry++) {
+                    for (let rx = 0; rx < 8; rx++) {
                         const p = board[ry][rx];
                         if (p && (opponentColor === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
                             const moves = this.getMoves(rx, ry, board, true);
@@ -3102,7 +3328,7 @@
                 if (type === 'p') {
                     if (y+dir>=0 && y+dir<8 && !b[y+dir][x]) {
                         moves.push({from:{x,y}, to:{x,y:y+dir}});
-                        if (y===(p==='P'?6:1) && !b[y+dir*2][x]) moves.push({from:{x,y}, to:{x,y:y+dir*2}, isDoublePawn: true});
+                        if (y===(p==='P'?6:1) && !b[y+dir*2][x]) moves.push({from:{x,y}, to:{x:x, y:y+dir*2}, isDoublePawn: true});
                     }
                     [-1,1].forEach(dx => {
                         const nx = x+dx, ny = y+dir;
@@ -3133,9 +3359,10 @@
                         }
                     });
 
+                    // 修正: キングが現在チェック状態にある（isInCheck）ならキャスリングを禁止
                     if (type === 'k' && !ignoreCheck) {
                         const kingMoved = color === 'white' ? this.movedStatus.whiteKing : this.movedStatus.blackKing;
-                        if (!kingMoved && !this.isSquareAttacked(x, y, color, b)) {
+                        if (!kingMoved && !this.isInCheck(color, b)) {
                             const rMovedR = color === 'white' ? this.movedStatus.whiteRookRight : this.movedStatus.blackRookRight;
                             if (!rMovedR && !b[y][5] && !b[y][6] && b[y][7]?.toLowerCase() === 'r') {
                                 if (!this.isSquareAttacked(5, y, color, b) && !this.isSquareAttacked(6, y, color, b)) {
@@ -3249,7 +3476,6 @@
                     });
                 }
 
-                // 修正: iOSでの文字崩れを防ぐため、システムフォントを明示的に指定
                 this.ctx.font = `${CELL*0.85}px "Helvetica Neue", "Arial Unicode MS", Arial, sans-serif`; 
                 this.ctx.textBaseline='middle';
                 this.ctx.lineJoin = 'round';
@@ -3413,6 +3639,11 @@
         if (auth) {
             onAuthStateChanged(auth, user => { 
                 if (user) {
+                    window.game.userId = user.uid;
+                    window.game.loadProfile(); // 認証後にプロフィールをロード
+                    
+                    document.getElementById('auth-status').innerText = window.t('authStatusReady');
+
                     const savedRoomId = localStorage.getItem('chessRoomId');
                     const savedUserId = localStorage.getItem('chessUserId');
                     const savedIsHost = localStorage.getItem('chessIsHost');
@@ -3429,9 +3660,6 @@
                         
                         window.game.startHeartbeat();
                         window.game.listenToRoom();
-                    } else {
-                        window.game.userId = user.uid;
-                        document.getElementById('auth-status').innerText = window.t('authStatusReady');
                     }
                 }
             });
