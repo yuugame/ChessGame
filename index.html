@@ -166,6 +166,9 @@
                 <button class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦(合言葉)</button>
             </div>
             <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" data-i18n="authStatusPreparing">アカウント同期中...</div>
+            <div id="auth-controls" class="mt-2 text-center">
+                <button id="google-auth-btn" class="btn-sub" style="max-width:220px;">Sign in with Google</button>
+            </div>
         </div>
 
         <div id="cpu-config" class="w-full flex flex-col items-center" style="display: none;">
@@ -336,7 +339,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -3737,24 +3740,81 @@
                     window.game.loadProfile(); // 認証後にプロフィールをロード
                     
                     document.getElementById('auth-status').innerText = window.t('authStatusReady');
+                } else {
+                    // 未認証になった場合は匿名でプレイできるように再取得
+                    document.getElementById('auth-status').innerText = window.t('authStatusPreparing');
+                }
 
-                    const savedRoomId = localStorage.getItem('chessRoomId');
-                    const savedUserId = localStorage.getItem('chessUserId');
-                    const savedIsHost = localStorage.getItem('chessIsHost');
-                    const savedMode = localStorage.getItem('chessGameMode');
+                // 更新された認証状態に基づき UI を切り替え
+                updateAuthControls(user);
+
+                // セッション復帰の処理（保存された online ルーム情報がある場合）
+                const savedRoomId = localStorage.getItem('chessRoomId');
+                const savedUserId = localStorage.getItem('chessUserId');
+                const savedIsHost = localStorage.getItem('chessIsHost');
+                const savedMode = localStorage.getItem('chessGameMode');
+                if (savedRoomId && savedUserId && savedMode === 'online' && user) {
+                    window.game.userId = savedUserId;
+                    window.game.roomId = savedRoomId;
+                    window.game.isHost = savedIsHost === 'true';
+                    window.game.gameMode = 'online';
                     
-                    if (savedRoomId && savedUserId && savedMode === 'online') {
-                        window.game.userId = savedUserId;
-                        window.game.roomId = savedRoomId;
-                        window.game.isHost = savedIsHost === 'true';
-                        window.game.gameMode = 'online';
-                        
-                        document.getElementById('mode-selection').style.display = 'none';
-                        window.game.updateStatus(window.t('reconnecting'));
-                        
-                        window.game.startHeartbeat();
-                        window.game.listenToRoom();
+                    document.getElementById('mode-selection').style.display = 'none';
+                    window.game.updateStatus(window.t('reconnecting'));
+                    
+                    window.game.startHeartbeat();
+                    window.game.listenToRoom();
+                }
+            });
+
+            // Auth 関連の UI ロジック：Google サインイン / サインアウト
+            const googleProvider = new GoogleAuthProvider();
+            const authBtn = document.getElementById('google-auth-btn');
+
+            const updateAuthControls = (user) => {
+                const btn = document.getElementById('google-auth-btn');
+                const status = document.getElementById('auth-status');
+                if (!btn || !status) return;
+                if (user) {
+                    btn.innerText = 'Sign out';
+                    btn.classList.remove('!bg-blue-600');
+                    status.innerText = window.t('authStatusReady');
+                } else {
+                    btn.innerText = 'Sign in with Google';
+                    status.innerText = window.t('authStatusPreparing');
+                }
+            };
+
+            if (authBtn) {
+                authBtn.addEventListener('click', async () => {
+                    try {
+                        if (auth.currentUser && auth.currentUser.isAnonymous) {
+                            // 匿名ユーザーを Google アカウントにリンクしてデータを保持
+                            await linkWithPopup(auth.currentUser, googleProvider);
+                        } else {
+                            await signInWithPopup(auth, googleProvider);
+                        }
+                    } catch(e) {
+                        console.error('Google sign-in error:', e);
+                        // フォールバック：直接サインインを試す
+                        try { await signInWithPopup(auth, googleProvider); } catch(err){ console.error(err); }
                     }
+                });
+            }
+
+            // サインアウト処理（サインアウト後は匿名ログインで続行）
+            const signOutBtnHandler = async () => {
+                try {
+                    await signOut(auth);
+                    await signInAnonymously(auth);
+                } catch(e) { console.error(e); }
+            };
+
+            // クリックでサインアウトに切り替わった時の処理
+            document.addEventListener('click', (ev) => {
+                const t = ev.target;
+                if (t && t.id === 'google-auth-btn' && t.innerText === 'Sign out') {
+                    signOutBtnHandler();
                 }
             });
         }
