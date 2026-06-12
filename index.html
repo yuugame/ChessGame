@@ -342,7 +342,7 @@
         // --- 多言語辞書と管理機能 ---
         const TRANSLATIONS = {
             ja: {
-                title: "CHESS", vsCpu: "フリー対戦 (VS CPU)", rankedMatch: "ランクマッチ (VS CPU)", currentRate: "あなたの推定ELO",
+                title: "CHESS", vsCpu: "フリー対戦 (VS CPU)", rankedMatch: "ランクマッチ (VS CPU)", currentRate: "あなたの推定ELO", cpuEloLabel: "推定ELO",
                 offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
                 authStatusPreparing: "アカウント同期中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定",
                 difficulty: "初期難易度レベル", beginner: "初級", advanced: "マスター (Lv.50)", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。<br>※ 対局中、プレイヤーの動きに合わせてレベルが自動調整されます。",
@@ -369,7 +369,7 @@
                 autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする", whiteShort: "白", blackShort: "黒", turnWord: "ターン"
             },
             en: {
-                title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO",
+                title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO", cpuEloLabel: "Estimated ELO",
                 offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
                 authStatusPreparing: "Syncing Account...", authStatusReady: "Ready for online play", cpuSettings: "CPU Settings",
                 difficulty: "Initial Difficulty", beginner: "Beginner", advanced: "Grandmaster (ELO 2500)", cpuNote: "* Colors (White/Black) are random. Board inverts if Black.\n* CPU level auto-adjusts based on your performance.",
@@ -396,7 +396,7 @@
                 autoRotate: "Rotate pieces and text for Black", whiteShort: "White", blackShort: "Black", turnWord: "Turn "
             },
             zh: {
-                title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)",
+                title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)", cpuEloLabel: "估计ELO",
                 offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
                 authStatusPreparing: "账号同步中...", authStatusReady: "在线对战准备就绪", cpuSettings: "人机设置",
                 difficulty: "初始难度等级", beginner: "初级", advanced: "大师 (Lv.50)", cpuNote: "※ 执白或执黑随机决定。如果执黑，棋盘将会翻转。\n※ 对战中，人机等级会根据您的表现自动调整。",
@@ -606,10 +606,13 @@
                 this.playerName = "";
                 this.currentRoomData = null; 
                 this.playerProfile = null; // プレイヤーのELOなどを保存
+                this.confirmCallback = null;
+                this.confirmActiveOverlays = [];
                 
                 this.roomId = null;
                 this.unsubRoom = null;
                 this.isHost = false;
+                this.previousRankedAdvantage = 0;
                 
                 this.moveCount = 0; 
                 this.gameMode = null; 
@@ -637,6 +640,9 @@
                     whiteRookLeft: false, whiteRookRight: false,
                     blackRookLeft: false, blackRookRight: false
                 };
+                this.kingHasBeenInCheck = { white: false, black: false };
+                this.confirmCallback = null;
+                this.confirmActiveOverlays = [];
                 this.enPassantTarget = null;
                 this.isAssistMode = false;
                 this.assistMoves = [];
@@ -654,6 +660,7 @@
                 this.autoRotate = false;
 
                 this.setupListeners();
+                this.setupConfirmHandlers();
                 this.initStockfish();
                 this.animate();
 
@@ -788,6 +795,7 @@
                     moveCount: this.moveCount,
                     positionHistory: this.positionHistory,
                     movedStatus: this.movedStatus,
+                    kingHasBeenInCheck: this.kingHasBeenInCheck,
                     enPassantTarget: this.enPassantTarget,
                     firstMoveDone: this.firstMoveDone,
                     playerColor: this.playerColor,
@@ -820,6 +828,7 @@
                     this.moveCount = state.moveCount;
                     this.positionHistory = state.positionHistory;
                     this.movedStatus = state.movedStatus;
+                    this.kingHasBeenInCheck = state.kingHasBeenInCheck || { white: false, black: false };
                     this.enPassantTarget = state.enPassantTarget;
                     this.firstMoveDone = state.firstMoveDone;
                     this.playerColor = state.playerColor;
@@ -895,12 +904,17 @@
                 }
             }
 
-            initStockfish() {
+            async initStockfish() {
                 try {
-                    const stockfishCode = `importScripts("https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js");`;
-                    const blob = new Blob([stockfishCode], {type: "application/javascript"});
+                    const stockfishUrl = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
+                    const response = await fetch(stockfishUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load Stockfish from ${stockfishUrl}`);
+                    }
+                    const stockfishSource = await response.text();
+                    const blob = new Blob([stockfishSource], {type: "application/javascript"});
                     this.stockfish = new Worker(URL.createObjectURL(blob));
-                    
+
                     this.stockfish.onmessage = (event) => {
                         const line = event.data;
                         if (typeof line === 'string') {
@@ -1072,6 +1086,45 @@
                 return JSON.stringify(this.board) + "|" + this.turn + "|" + msStr + "|" + epStr;
             }
 
+            getRankedAdvantage() {
+                let myScore = 0;
+                let cpuScore = 0;
+                for (let y = 0; y < 8; y++) {
+                    for (let x = 0; x < 8; x++) {
+                        const p = this.board[y][x];
+                        if (!p) continue;
+                        const val = DISPLAY_MATERIAL_VALUES[p] || 0;
+                        const isMyPiece = (this.playerColor === 'white' ? p === p.toUpperCase() : p === p.toLowerCase());
+                        if (isMyPiece) myScore += val;
+                        else cpuScore += val;
+                    }
+                }
+                return myScore - cpuScore;
+            }
+
+            getRankedEloStep(advantageDelta) {
+                if (!advantageDelta) return 0;
+                const absDelta = Math.min(4, Math.abs(advantageDelta));
+                let minStep = 1;
+                let maxStep = 5;
+                if (this.moveCount <= 10) {
+                    minStep = 25;
+                    maxStep = 50;
+                } else if (this.moveCount <= 20) {
+                    minStep = 10;
+                    maxStep = 25;
+                } else if (this.moveCount <= 30) {
+                    minStep = 5;
+                    maxStep = 10;
+                } else {
+                    minStep = 1;
+                    maxStep = 5;
+                }
+                const ratio = absDelta / 4;
+                const step = minStep + (maxStep - minStep) * ratio;
+                return Math.round(step) * Math.sign(advantageDelta);
+            }
+
             updateLanguageUI() {
                 if (this.initialized) {
                     this.updatePlayerLabels();
@@ -1188,7 +1241,7 @@
 
                 if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
                     if (bottomLabel) bottomLabel.innerText = `${window.t('you')}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
-                    if (topLabel) topLabel.innerText = `${window.t('cpuName')} (推定ELO: ${this.aiElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (topLabel) topLabel.innerText = `${window.t('cpuName')} (${window.t('cpuEloLabel')}: ${this.aiElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
                     if (modeDisplay) modeDisplay.innerText = this.gameMode === 'cpu_ranked' ? `${window.t('rankedMatch')} (Rate: ${this.playerProfile?.elo || 250})` : `${window.t('vsCpu')} ELO ${this.baseAiElo}`;
                 } else if (this.gameMode === 'pvp') {
                     if (bottomLabel) bottomLabel.innerText = `${window.t('p1White')}`;
@@ -1489,6 +1542,7 @@
 
             showConfirm(title, message, callback, isAlert = false) {
                 const modal = document.getElementById('confirm-modal');
+                if (!modal) return;
                 document.getElementById('confirm-title').innerText = title;
                 document.getElementById('confirm-message').innerText = message;
                 
@@ -1496,52 +1550,62 @@
                 const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
-                    if (el.style.display === 'flex') {
+                    if (el && el.style.display === 'flex') {
                         activeOverlays.push(id);
+                        el.style.display = 'none';
                     }
                 });
 
                 const yesBtn = document.getElementById('confirm-yes');
                 const noBtn = document.getElementById('confirm-no');
+                if (!yesBtn || !noBtn) return;
 
-                const newYes = yesBtn.cloneNode(true);
-                const newNo = noBtn.cloneNode(true);
-                yesBtn.parentNode.replaceChild(newYes, yesBtn);
-                noBtn.parentNode.replaceChild(newNo, noBtn);
+                modal.style.display = 'flex';
+                this.confirmCallback = callback;
+                this.confirmActiveOverlays = activeOverlays;
 
                 if (isAlert) {
-                    newYes.innerText = window.t('confirmTitle');
-                    newYes.classList.remove("flex-1");
-                    newYes.classList.add("w-full");
-                    newNo.style.display = 'none';
+                    yesBtn.innerText = window.t('confirmTitle');
+                    yesBtn.classList.remove('flex-1');
+                    yesBtn.classList.add('w-full');
+                    noBtn.style.display = 'none';
                 } else {
-                    newYes.innerText = window.t('yes');
-                    newYes.classList.add("flex-1");
-                    newYes.classList.remove("w-full");
-                    newNo.style.display = 'block';
-                    newNo.innerText = window.t('no');
+                    yesBtn.innerText = window.t('yes');
+                    yesBtn.classList.add('flex-1');
+                    yesBtn.classList.remove('w-full');
+                    noBtn.style.display = 'block';
+                    noBtn.innerText = window.t('no');
                 }
+            }
 
-                const restoreOverlays = () => {
-                    modal.style.display = 'none';
-                    activeOverlays.forEach(id => {
-                        document.getElementById(id).style.display = 'flex';
-                    });
-                };
+            hideConfirm() {
+                const modal = document.getElementById('confirm-modal');
+                if (!modal) return;
+                modal.style.display = 'none';
+                this.confirmActiveOverlays.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'flex';
+                });
+                this.confirmActiveOverlays = [];
+                this.confirmCallback = null;
+            }
 
-                newYes.addEventListener('click', () => {
+            setupConfirmHandlers() {
+                const yesBtn = document.getElementById('confirm-yes');
+                const noBtn = document.getElementById('confirm-no');
+                if (!yesBtn || !noBtn) return;
+
+                yesBtn.addEventListener('click', () => {
                     this.sfx.buttonClick();
-                    restoreOverlays();
+                    const callback = this.confirmCallback;
+                    this.hideConfirm();
                     if (callback) callback();
                 });
 
-                newNo.addEventListener('click', () => {
+                noBtn.addEventListener('click', () => {
                     this.sfx.buttonClick();
-                    restoreOverlays();
+                    this.hideConfirm();
                 });
-
-                this.hideAllOverlays();
-                modal.style.display = 'flex';
             }
 
             async joinOnlineRoom() {
@@ -1791,6 +1855,7 @@
             }
 
             forceSyncWithFirestore(gs, data) {
+                if (!gs) return;
                 this.moveCount = gs.moveCount || 0;
                 this.firstMoveDone = { white: this.moveCount > 0, black: this.moveCount > 1 };
                 this.turn = gs.turn;
@@ -1810,7 +1875,8 @@
             }
 
             handleOnlineUpdate(data) {
-                const gs = data.gameState;
+                const gs = data.gameState || {};
+                const oldTurn = this.turn;
                 this.currentRoomData = data;
                 
                 // 再戦の判定を厳密化：ローカルのゲームオーバー状態に依存せず、手数が0に戻ってステータスがplayingなら再戦とみなす
@@ -1849,20 +1915,11 @@
                         return;
                     }
 
-                    // ACK（受信確認）の処理
-                    if (gs.turn === this.playerColor && gs.ack === false) {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                        updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
-                        this.turnStartTime = Date.now();
-                        this.updateLanguageUI();
-                    }
-                    if (gs.turn !== this.playerColor && gs.ack === true && !this.opponentAckTime) {
-                        this.opponentAckTime = Date.now();
-                        this.updateLanguageUI();
-                    }
-                    return; 
+                    this.processOnlineAck(gs);
+                    this.updateLanguageUI();
+                    return;
                 }
-                
+
                 this.moveCount = gs.moveCount || 0;
                 
                 this.firstMoveDone = { 
@@ -1871,7 +1928,6 @@
                 };
 
                 const newTurn = gs.turn;
-                const oldTurn = this.turn;
                 
                 this.movedStatus = JSON.parse(JSON.stringify(gs.movedStatus || {}));
                 this.enPassantTarget = gs.enPassantTarget || null;
@@ -1945,17 +2001,12 @@
                     }
                     
                     this.updateCheckStatus(); 
+                    this.previousRankedAdvantage = this.getRankedAdvantage();
                     
                     this.initialized = true;
                     this.isGameOver = false;
                     
-                    if (gs.turn === this.playerColor && gs.ack === false) {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                        updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
-                    }
-                    if (gs.turn !== this.playerColor && gs.ack === true) {
-                        this.opponentAckTime = Date.now();
-                    }
+                    this.processOnlineAck(gs);
 
                     this.turnStartTime = Date.now();
                     this.startTimer(); // 無制限でも呼び出す
@@ -1967,11 +2018,7 @@
                     return;
                 }
 
-                if (gs.turn === this.playerColor && gs.ack === false) {
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
-                    updateDoc(roomRef, { 'gameState.ack': true }).catch(()=>{});
-                    this.turnStartTime = Date.now();
-                }
+                this.processOnlineAck(gs);
 
                 const isOpponentMove = (oldTurn !== newTurn && newTurn === this.playerColor && gs.lastMove);
 
@@ -2148,6 +2195,21 @@
                 document.getElementById('rematch-btn').style.display = 'inline-block';
             }
 
+            processOnlineAck(gs) {
+                if (!gs || !this.roomId) return;
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'chess_rooms', this.roomId);
+                if (gs.turn === this.playerColor) {
+                    if (gs.ack === false) {
+                        updateDoc(roomRef, { 'gameState.ack': true }).catch(() => {});
+                    }
+                    this.turnStartTime = Date.now();
+                } else {
+                    if (gs.ack === true && !this.opponentAckTime) {
+                        this.opponentAckTime = Date.now();
+                    }
+                }
+            }
+
             async handleDisconnectWin() {
                 this.stopTimer();
                 this.isGameOver = true;
@@ -2291,6 +2353,7 @@
                 this.isThinkingForCpu = false;
                 this.isAssistModeThinking = false;
                 this.tempAssistMoves = [];
+                this.kingHasBeenInCheck = { white: false, black: false };
             }
 
             initGame() {
@@ -2313,6 +2376,7 @@
                 
                 this.updateCheckStatus(); 
                 this.initialized = true;
+                this.previousRankedAdvantage = this.getRankedAdvantage();
                 
                 this.turnStartTime = Date.now();
                 this.baseTimers = { ...this.timers };
@@ -2346,7 +2410,7 @@
                         elapsed = 0;
                     } else if (this.gameMode === 'online') {
                         if (this.turn !== this.playerColor) {
-                            if (!this.currentRoomData || !this.currentRoomData.gameState.ack) {
+                            if (!this.currentRoomData || !this.currentRoomData.gameState || !this.currentRoomData.gameState.ack) {
                                 elapsed = 0;
                             } else {
                                 if (!this.opponentAckTime) this.opponentAckTime = now;
@@ -2432,7 +2496,7 @@
                             }
                         } else if (this.turn !== this.playerColor && this.waitingForOpponentTimeout) {
                             
-                        } else if (this.turn !== this.playerColor && !this.currentRoomData.gameState.ack) {
+                        } else if (this.turn !== this.playerColor && !this.currentRoomData?.gameState?.ack) {
                             
                         } else {
                             const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
@@ -2857,6 +2921,7 @@
                             }
                         }
                     }
+                    this.kingHasBeenInCheck[this.turn] = true;
                 }
             }
 
@@ -2902,31 +2967,14 @@
                     const advantage = myScore - cpuScore;
                     
                     if (this.gameMode === 'cpu_ranked') {
-                        // 1. ランクマッチ：段階的な学習ステップ減衰と上限なしでの1刻みELO算出
-                        let targetElo = (this.playerProfile?.elo || 250) + (advantage * 50) + (Math.floor(this.moveCount / 10) * 50);
-                        targetElo = Math.max(250, targetElo); // 下限は250、上限は撤廃
-                        
-                        const eloDiff = targetElo - this.aiElo;
-                        if (Math.abs(eloDiff) > 0) {
-                            // 動的ステップ調整（50ELO ➔ 25ELO ➔ 10ELO ➔ 5ELO ➔ 1ELO）
-                            let stepElo = 1;
-                            
-                            if (this.moveCount < 6) {
-                                stepElo = 50; // 初期は50ELOずつ調整
-                            } else if (this.moveCount < 14) {
-                                stepElo = 25; // 25ELOずつ調整
-                            } else if (this.moveCount < 24) {
-                                stepElo = 10; // 10ELOずつ調整
-                            } else if (this.moveCount < 36) {
-                                stepElo = 5;  // 5ELOずつ調整
-                            } else {
-                                stepElo = 1;  // 安定期は1ELOずつ調整
-                            }
+                        const currentAdvantage = this.getRankedAdvantage();
+                        const advantageDelta = currentAdvantage - (this.previousRankedAdvantage ?? currentAdvantage);
+                        const eloStep = this.getRankedEloStep(advantageDelta);
+                        this.previousRankedAdvantage = currentAdvantage;
 
-                            const step = Math.min(stepElo, Math.abs(eloDiff));
-                            this.aiElo = Math.max(250, this.aiElo + Math.sign(eloDiff) * Math.round(step)); // 推定ELO更新（上限なし）
+                        if (eloStep !== 0) {
+                            this.aiElo = Math.max(250, this.aiElo + eloStep);
                         }
-                        // 内部レベル（Stockfish送信等）は1〜50の範囲にマップ
                         this.aiLevel = Math.max(1, Math.min(50, Math.round((this.aiElo - 250) / 45.9) + 1));
                     } else {
                         // 2. フリー対戦：従来通りのレベル50段階（1レベル単位でレベルスライダー準拠で変動）
@@ -3295,15 +3343,53 @@
 
             isSquareAttacked(x, y, color, board) {
                 const opponentColor = color === 'white' ? 'black' : 'white';
-                for (let ry = 0; ry < 8; ry++) {
-                    for (let rx = 0; rx < 8; rx++) {
-                        const p = board[ry][rx];
-                        if (p && (opponentColor === 'white' ? p === p.toUpperCase() : p === p.toLowerCase())) {
-                            const moves = this.getMoves(rx, ry, board, true);
-                            if (moves.some(m => m.to.x === x && m.to.y === y)) return true;
+                const opponentPawn = opponentColor === 'white' ? 'P' : 'p';
+                const opponentKnight = opponentColor === 'white' ? 'N' : 'n';
+                const opponentBishop = opponentColor === 'white' ? 'B' : 'b';
+                const opponentRook = opponentColor === 'white' ? 'R' : 'r';
+                const opponentQueen = opponentColor === 'white' ? 'Q' : 'q';
+                const opponentKing = opponentColor === 'white' ? 'K' : 'k';
+                const pawnDir = opponentColor === 'white' ? 1 : -1;
+
+                const checkPawn = (dx) => {
+                    const nx = x + dx;
+                    const ny = y + pawnDir;
+                    return nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && board[ny][nx] === opponentPawn;
+                };
+
+                if (checkPawn(-1) || checkPawn(1)) return true;
+
+                const knightOffsets = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+                for (const [dy,dx] of knightOffsets) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && board[ny][nx] === opponentKnight) return true;
+                }
+
+                const directions = [
+                    [0,1],[0,-1],[1,0],[-1,0],
+                    [1,1],[1,-1],[-1,1],[-1,-1]
+                ];
+                for (const [dy,dx] of directions) {
+                    let ny = y + dy;
+                    let nx = x + dx;
+                    let distance = 1;
+                    while (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
+                        const piece = board[ny][nx];
+                        if (piece) {
+                            if ((opponentColor === 'white' ? piece === piece.toUpperCase() : piece === piece.toLowerCase())) {
+                                if (distance === 1 && piece === opponentKing) return true;
+                                if ((dy === 0 || dx === 0) && (piece === opponentRook || piece === opponentQueen)) return true;
+                                if ((dy !== 0 && dx !== 0) && (piece === opponentBishop || piece === opponentQueen)) return true;
+                            }
+                            break;
                         }
+                        ny += dy;
+                        nx += dx;
+                        distance += 1;
                     }
                 }
+
                 return false;
             }
 
@@ -3362,15 +3448,17 @@
                     // 修正: キングが現在チェック状態にある（isInCheck）ならキャスリングを禁止
                     if (type === 'k' && !ignoreCheck) {
                         const kingMoved = color === 'white' ? this.movedStatus.whiteKing : this.movedStatus.blackKing;
-                        if (!kingMoved && !this.isInCheck(color, b)) {
-                            const rMovedR = color === 'white' ? this.movedStatus.whiteRookRight : this.movedStatus.blackRookRight;
-                            if (!rMovedR && !b[y][5] && !b[y][6] && b[y][7]?.toLowerCase() === 'r') {
+                        const rookChar = color === 'white' ? 'R' : 'r';
+                        const canCastle = !kingMoved && !this.isInCheck(color, b) && !this.kingHasBeenInCheck[color];
+                        if (canCastle) {
+                            const rightRookMoved = color === 'white' ? this.movedStatus.whiteRookRight : this.movedStatus.blackRookRight;
+                            if (!rightRookMoved && b[y][7] === rookChar && !b[y][5] && !b[y][6]) {
                                 if (!this.isSquareAttacked(5, y, color, b) && !this.isSquareAttacked(6, y, color, b)) {
                                     moves.push({from:{x,y}, to:{x:6, y}, isCastling: true});
                                 }
                             }
-                            const rMovedL = color === 'white' ? this.movedStatus.whiteRookLeft : this.movedStatus.blackRookLeft;
-                            if (!rMovedL && !b[y][1] && !b[y][2] && !b[y][3] && b[y][0]?.toLowerCase() === 'r') {
+                            const leftRookMoved = color === 'white' ? this.movedStatus.whiteRookLeft : this.movedStatus.blackRookLeft;
+                            if (!leftRookMoved && b[y][0] === rookChar && !b[y][1] && !b[y][2] && !b[y][3]) {
                                 if (!this.isSquareAttacked(3, y, color, b) && !this.isSquareAttacked(2, y, color, b)) {
                                     moves.push({from:{x,y}, to:{x:2, y}, isCastling: true});
                                 }
@@ -3388,6 +3476,12 @@
                     if (m.isEnPassant) {
                         const epDir = p === 'P' ? 1 : -1;
                         t[m.to.y + epDir][m.to.x] = null;
+                    }
+                    if (m.isCastling) {
+                        const rookFromX = m.to.x === 6 ? 7 : 0;
+                        const rookToX = m.to.x === 6 ? 5 : 3;
+                        t[m.to.y][rookToX] = t[m.to.y][rookFromX];
+                        t[m.to.y][rookFromX] = null;
                     }
                     const king = (color === 'white' ? 'K' : 'k'); 
                     let kp;
