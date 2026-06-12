@@ -3770,53 +3770,64 @@
             // Auth 関連の UI ロジック：Google サインイン / サインアウト
             const googleProvider = new GoogleAuthProvider();
             const authBtn = document.getElementById('google-auth-btn');
+            let isGoogleLinked = false; // Google 連携状態フラグ
 
             const updateAuthControls = (user) => {
                 const btn = document.getElementById('google-auth-btn');
                 const status = document.getElementById('auth-status');
                 if (!btn || !status) return;
-                if (user) {
+                
+                // Google 連携状態を判定（providerData に google.com が含まれているか）
+                isGoogleLinked = user && user.providerData.some(p => p.providerId === 'google.com');
+                
+                if (isGoogleLinked) {
                     btn.innerText = 'Sign out';
                     btn.classList.remove('!bg-blue-600');
+                    btn.setAttribute('data-action', 'signout');
                     status.innerText = window.t('authStatusReady');
                 } else {
                     btn.innerText = 'Sign in with Google';
+                    btn.classList.add('!bg-blue-600');
+                    btn.setAttribute('data-action', 'signin');
                     status.innerText = window.t('authStatusPreparing');
                 }
             };
 
             if (authBtn) {
                 authBtn.addEventListener('click', async () => {
-                    try {
-                        if (auth.currentUser && auth.currentUser.isAnonymous) {
-                            // 匿名ユーザーを Google アカウントにリンクしてデータを保持
-                            await linkWithPopup(auth.currentUser, googleProvider);
-                        } else {
-                            await signInWithPopup(auth, googleProvider);
+                    const action = authBtn.getAttribute('data-action');
+                    
+                    if (action === 'signout') {
+                        // サインアウト処理：Google リンク解除後、匿名で続行
+                        try {
+                            await signOut(auth);
+                            await signInAnonymously(auth);
+                        } catch(e) {
+                            console.error('Sign out error:', e);
                         }
-                    } catch(e) {
-                        console.error('Google sign-in error:', e);
-                        // フォールバック：直接サインインを試す
-                        try { await signInWithPopup(auth, googleProvider); } catch(err){ console.error(err); }
+                    } else {
+                        // サインイン処理：Google と連携
+                        try {
+                            if (auth.currentUser && auth.currentUser.isAnonymous) {
+                                // 匿名ユーザーを Google アカウントにリンク
+                                await linkWithPopup(auth.currentUser, googleProvider);
+                            } else {
+                                // 非匿名ユーザーは通常のサインイン
+                                await signInWithPopup(auth, googleProvider);
+                            }
+                        } catch(e) {
+                            console.error('Google sign-in error:', e);
+                            // リンク失敗時はサインアウトして再試行
+                            if (e.code === 'auth/provider-already-linked') {
+                                try {
+                                    await signOut(auth);
+                                    await signInWithPopup(auth, googleProvider);
+                                } catch(err) { console.error('Retry error:', err); }
+                            }
+                        }
                     }
                 });
             }
-
-            // サインアウト処理（サインアウト後は匿名ログインで続行）
-            const signOutBtnHandler = async () => {
-                try {
-                    await signOut(auth);
-                    await signInAnonymously(auth);
-                } catch(e) { console.error(e); }
-            };
-
-            // クリックでサインアウトに切り替わった時の処理
-            document.addEventListener('click', (ev) => {
-                const t = ev.target;
-                if (t && t.id === 'google-auth-btn' && t.innerText === 'Sign out') {
-                    signOutBtnHandler();
-                }
-            });
         }
 
         window.addEventListener('online', () => {
