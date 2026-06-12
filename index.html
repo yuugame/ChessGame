@@ -3808,6 +3808,7 @@
                 if (action === 'signout') {
                     // サインアウト処理：Google リンク解除後、匿名で続行
                     try {
+                        console.log('Signing out...');
                         await signOut(auth);
                         await signInAnonymously(auth);
                     } catch(e) {
@@ -3816,26 +3817,15 @@
                 } else {
                     // サインイン処理：Google と連携
                     try {
-                        if (auth.currentUser && auth.currentUser.isAnonymous) {
-                            // 匿名ユーザーを Google アカウントにリンク
-                            console.log('Linking anonymous user with Google...');
-                            await linkWithPopup(auth.currentUser, googleProvider);
-                        } else {
-                            // 非匿名ユーザーは通常のサインイン
-                            console.log('Signing in with Google...');
-                            await signInWithPopup(auth, googleProvider);
-                        }
+                        console.log('Current user:', auth.currentUser?.uid, 'Is anonymous:', auth.currentUser?.isAnonymous);
+                        
+                        // シンプルな Google サインイン（リンク不要）
+                        console.log('Signing in with Google...');
+                        await signInWithPopup(auth, googleProvider);
                     } catch(e) {
                         console.error('Google sign-in error:', e.code, e.message);
-                        // リンク失敗時の対応
-                        if (e.code === 'auth/provider-already-linked') {
-                            try {
-                                await signOut(auth);
-                                await signInWithPopup(auth, googleProvider);
-                            } catch(err) { console.error('Retry error:', err); }
-                        } else if (e.code === 'auth/popup-blocked') {
-                            console.warn('Popup was blocked. Try again or use redirect.');
-                        }
+                        // ポップアップ表示用アラート
+                        alert('ログインに失敗しました: ' + (e.message || 'Unknown error'));
                     }
                 }
             };
