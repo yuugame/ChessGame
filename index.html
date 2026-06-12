@@ -160,10 +160,11 @@
                     <div class="text-3xl font-black text-amber-400 drop-shadow-md" id="display-elo">---</div>
                 </div>
 
-                <button class="btn-main !bg-amber-600 shadow-lg" onclick="game.startRankedCpu()" data-i18n="rankedMatch">ランクマッチ (VS CPU)</button>
+                <button id="ranked-match-btn" class="btn-main !bg-amber-600 shadow-lg" onclick="game.startRankedCpu()" data-i18n="rankedMatch">ランクマッチ (VS CPU)</button>
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">フリー対戦 (VS CPU)</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
-                <button class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦(合言葉)</button>
+                <button id="online-pvp-btn" class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦(合言葉)</button>
+                <div id="login-required-info" class="text-sm opacity-70 text-center mt-4 px-3" style="display:none;" data-i18n="loginRequiredInfo">ログインするとランクマッチとオンライン対戦が利用できます。</div>
             </div>
             <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" data-i18n="authStatusPreparing">アカウント同期中...</div>
             <div id="auth-controls" class="mt-2 text-center">
@@ -347,7 +348,7 @@
             ja: {
                 title: "CHESS", vsCpu: "フリー対戦 (VS CPU)", rankedMatch: "ランクマッチ (VS CPU)", currentRate: "あなたの推定ELO", cpuEloLabel: "推定ELO",
                 offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
-                authStatusPreparing: "アカウント同期中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定",
+                authStatusPreparing: "アカウント同期中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定", loginRequiredInfo: "ログインするとランクマッチとオンライン対戦が利用できます。",
                 difficulty: "初期難易度レベル", beginner: "初級", advanced: "マスター (Lv.50)", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。<br>※ 対局中、プレイヤーの動きに合わせてレベルが自動調整されます。",
                 nextToTime: "時間設定へ進む", back: "戻る", onlineSettings: "オンライン対戦", playerNamePlaceholder: "あなたの名前 (任意)",
                 roomWordPlaceholder: "合言葉を入力", joinRoom: "部屋に入る", or: "または", createRoom: "部屋を作る",
@@ -374,7 +375,7 @@
             en: {
                 title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO", cpuEloLabel: "Estimated ELO",
                 offlinePvp: "2 Player (Offline)", onlinePvp: "Online Match",
-                authStatusPreparing: "Syncing Account...", authStatusReady: "Ready for online play", cpuSettings: "CPU Settings",
+                authStatusPreparing: "Syncing Account...", authStatusReady: "Ready for online play", cpuSettings: "CPU Settings", loginRequiredInfo: "Log in to unlock ranked matches and online play.",
                 difficulty: "Initial Difficulty", beginner: "Beginner", advanced: "Grandmaster (ELO 2500)", cpuNote: "* Colors (White/Black) are random. Board inverts if Black.\n* CPU level auto-adjusts based on your performance.",
                 nextToTime: "Next", back: "Back", onlineSettings: "Online Match", playerNamePlaceholder: "Your Name (Optional)",
                 roomWordPlaceholder: "Room Word", joinRoom: "Join", or: "OR", createRoom: "Create",
@@ -401,7 +402,7 @@
             zh: {
                 title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)", cpuEloLabel: "估计ELO",
                 offlinePvp: "双人对战 (离线)", onlinePvp: "在线对战",
-                authStatusPreparing: "账号同步中...", authStatusReady: "在线对战准备就绪", cpuSettings: "人机设置",
+                authStatusPreparing: "账号同步中...", authStatusReady: "在线对战准备就绪", cpuSettings: "人机设置", loginRequiredInfo: "登录后可开启排位赛和在线对战。",
                 difficulty: "初始难度等级", beginner: "初级", advanced: "大师 (Lv.50)", cpuNote: "※ 执白或执黑随机决定。如果执黑，棋盘将会翻转。\n※ 对战中，人机等级会根据您的表现自动调整。",
                 nextToTime: "下一步", back: "返回", onlineSettings: "在线对战", playerNamePlaceholder: "你的名字 (可选)",
                 roomWordPlaceholder: "输入房间口令", joinRoom: "加入房间", or: "或", createRoom: "创建房间",
@@ -609,6 +610,7 @@
                 this.playerName = "";
                 this.currentRoomData = null; 
                 this.playerProfile = null; // プレイヤーのELOなどを保存
+                this.isLoggedIn = false;
                 this.confirmCallback = null;
                 this.confirmActiveOverlays = [];
                 
@@ -680,6 +682,12 @@
 
             async loadProfile() {
                 if (!this.userId || !db) return;
+                if (!this.isLoggedIn) {
+                    this.playerProfile = null;
+                    this.updateProfileUI();
+                    return;
+                }
+
                 try {
                     const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
                     const snap = await getDoc(profileRef);
@@ -688,7 +696,7 @@
                         if (this.playerProfile.elo === undefined) this.playerProfile.elo = 250;
                     } else {
                         // 新規プレイヤーの初期レートは250に設定
-                        this.playerProfile = { elo: 250 }; 
+                        this.playerProfile = { elo: 250 };
                         await setDoc(profileRef, this.playerProfile);
                     }
                     this.updateProfileUI();
@@ -710,12 +718,30 @@
                 if (this.playerProfile && section && eloDisplay) {
                     section.style.display = 'block';
                     eloDisplay.innerText = this.playerProfile.elo;
+                } else if (section) {
+                    section.style.display = 'none';
+                }
+            }
+
+            updateAuthDependentUI() {
+                const rankedBtn = document.getElementById('ranked-match-btn');
+                const onlineBtn = document.getElementById('online-pvp-btn');
+                const loginInfo = document.getElementById('login-required-info');
+
+                if (this.isLoggedIn) {
+                    if (rankedBtn) rankedBtn.style.display = 'inline-block';
+                    if (onlineBtn) onlineBtn.style.display = 'inline-block';
+                    if (loginInfo) loginInfo.style.display = 'none';
+                } else {
+                    if (rankedBtn) rankedBtn.style.display = 'none';
+                    if (onlineBtn) onlineBtn.style.display = 'none';
+                    if (loginInfo) loginInfo.style.display = 'block';
                 }
             }
 
             // 特製対局調整ELOスコアを保存する関数 (勝ち負け関係なく、その対局に達した実力(ELO)をそのまま適用)
             updateRankedScore() {
-                if (this.gameMode !== 'cpu_ranked' || !this.userId || !this.playerProfile) return "";
+                if (this.gameMode !== 'cpu_ranked' || !this.isLoggedIn || !this.userId || !this.playerProfile) return "";
                 
                 const oldElo = this.playerProfile.elo || 250;
                 const newElo = this.aiElo; // 対局終了または切断時の、動的調整された推定ELOを直接採用（上限撤廃）
@@ -736,6 +762,10 @@
 
             startRankedCpu() {
                 this.sfx.buttonClick();
+                if (!this.isLoggedIn) {
+                    this.showConfirm(window.t('error'), window.t('loginRequiredInfo'), ()=>{}, true);
+                    return;
+                }
                 if (!this.playerProfile) {
                     this.showConfirm(window.t('error'), window.t('connectingMsg'), ()=>{}, true);
                     return;
@@ -1465,6 +1495,9 @@
 
             showOnlineConfig() {
                 this.sfx.buttonClick();
+                if (!this.isLoggedIn) {
+                    return this.showConfirm(window.t('error'), window.t('loginRequiredInfo'), ()=>{}, true);
+                }
                 if (!auth || !db) {
                     return this.showConfirm(window.t('error'), window.t('firebaseErrorMsg'), ()=>{}, true);
                 }
@@ -3737,16 +3770,22 @@
             onAuthStateChanged(auth, user => { 
                 if (user) {
                     window.game.userId = user.uid;
-                    window.game.loadProfile(); // 認証後にプロフィールをロード
-                    
-                    document.getElementById('auth-status').innerText = window.t('authStatusReady');
+                    window.game.isLoggedIn = !user.isAnonymous;
+                    if (window.game.isLoggedIn) {
+                        window.game.loadProfile(); // 認証後にプロフィールをロード
+                        document.getElementById('auth-status').innerText = window.t('authStatusReady');
+                    } else {
+                        window.game.playerProfile = null;
+                        document.getElementById('auth-status').innerText = window.t('authStatusPreparing');
+                    }
                 } else {
-                    // 未認証になった場合は匿名でプレイできるように再取得
+                    window.game.isLoggedIn = false;
                     document.getElementById('auth-status').innerText = window.t('authStatusPreparing');
                 }
 
                 // 更新された認証状態に基づき UI を切り替え
                 updateAuthControls(user);
+                window.game.updateAuthDependentUI();
 
                 // セッション復帰の処理（保存された online ルーム情報がある場合）
                 const savedRoomId = localStorage.getItem('chessRoomId');
