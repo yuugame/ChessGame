@@ -158,11 +158,7 @@
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
                 <div id="profile-section" class="w-full max-w-[300px] bg-zinc-800 p-3 rounded-lg border border-zinc-700 text-center mb-2 shadow-inner" style="display:none;">
-                    <div class="flex items-center justify-center gap-2">
-                        <div id="display-username" class="text-sm opacity-60 mb-1">---</div>
-                        <button id="edit-username-btn" class="btn-sub ml-2" onclick="game.changeDisplayName()" style="font-size:12px;padding:4px;">Edit</button>
-                        <button id="regen-suffix-btn" class="btn-sub ml-2" onclick="game.regenerateSuffix()" style="font-size:12px;padding:4px;">Regenerate ID</button>
-                    </div>
+                    <div id="display-username" class="text-sm opacity-60 mb-1">---</div>
                     <div class="text-xs opacity-70 font-bold tracking-widest mb-1" data-i18n="currentRate">あなたの推定ELO</div>
                     <div class="text-3xl font-black text-amber-400 drop-shadow-md" id="display-elo">---</div>
                 </div>
@@ -201,7 +197,12 @@
         <div id="online-config" class="w-full flex flex-col items-center" style="display: none;">
             <h2 class="text-2xl font-bold mb-8 text-center" data-i18n="onlineSettings">オンライン対戦</h2>
             <div class="flex flex-col gap-4 w-full max-w-[300px] items-center">
-                <input type="text" id="player-name-input" data-i18n="playerNamePlaceholder" placeholder="あなたの名前 (任意)" class="p-3 w-full rounded text-black font-bold text-center text-xl" maxlength="10">
+                <div id="online-username-section" class="w-full bg-zinc-800 p-3 rounded-lg border border-zinc-700 text-center mb-2">
+                    <div class="text-xs opacity-70 mb-2">ユーザーネーム</div>
+                    <div id="online-display-username" class="text-sm font-bold mb-3">---</div>
+                    <button id="online-edit-btn" class="btn-sub !bg-blue-600" onclick="game.changeDisplayName()" style="margin-right:4px;">表示名変更</button>
+                    <button id="online-regen-btn" class="btn-sub !bg-blue-600" onclick="game.regenerateSuffix()">ID再生成</button>
+                </div>
                 <input type="text" id="room-id-input" data-i18n="roomWordPlaceholder" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl">
                 <button class="btn-sub !bg-orange-500" onclick="game.joinOnlineRoom()" data-i18n="joinRoom">部屋に入る</button>
                 <div class="my-2 opacity-50 border-b border-zinc-600 w-full text-center h-0 leading-0"><span class="bg-[#1a1a1a] px-2 text-xs" data-i18n="or">または</span></div>
@@ -769,6 +770,14 @@
                     if (nameDisplay) nameDisplay.innerText = suffix ? `${displayName}-${suffix}` : displayName;
                 } else if (section) {
                     section.style.display = 'none';
+                }
+                
+                // オンライン設定画面の username も更新
+                const onlineNameDisplay = document.getElementById('online-display-username');
+                if (onlineNameDisplay && this.playerProfile) {
+                    const displayName = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : '');
+                    const suffix = this.playerProfile.usernameSuffix || (this.playerProfile.username ? this.playerProfile.username.split('-').slice(1).join('-') : '');
+                    onlineNameDisplay.innerText = suffix ? `${displayName}-${suffix}` : displayName;
                 }
             }
 
@@ -1625,15 +1634,12 @@
                     return this.showConfirm(window.t('error'), window.t('firebaseErrorMsg'), ()=>{}, true);
                 }
                 this.hideAllOverlays();
-                const input = document.getElementById('player-name-input');
-                if (input) {
-                    // ログイン済みなら固定の username を表示し編集不可にする
-                    if (this.playerProfile && this.playerProfile.username) {
-                        input.value = this.playerProfile.username;
-                        input.readOnly = true;
-                    } else {
-                        input.readOnly = false;
-                    }
+                // オンライン画面に username を表示
+                const usernameDisplay = document.getElementById('online-display-username');
+                if (usernameDisplay && this.playerProfile) {
+                    const displayName = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : '');
+                    const suffix = this.playerProfile.usernameSuffix || (this.playerProfile.username ? this.playerProfile.username.split('-').slice(1).join('-') : '');
+                    usernameDisplay.innerText = suffix ? `${displayName}-${suffix}` : displayName;
                 }
                 document.getElementById('online-config').style.display = 'flex';
             }
@@ -1641,11 +1647,11 @@
             showOnlineTimeSelection() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                // ログイン済みならプロフィールの username を優先して使用（変更不可）
+                // ログイン済みならプロフィールの username を使用
                 if (this.isLoggedIn && this.playerProfile && this.playerProfile.username) {
                     this.playerName = this.playerProfile.username;
                 } else {
-                    this.playerName = document.getElementById('player-name-input').value.trim();
+                    this.playerName = 'Player';
                 }
                 if (!this.roomId) {
                     this.showConfirm(window.t('error'), window.t('inputRoomWordMsg'), ()=>{}, true);
@@ -1785,7 +1791,12 @@
             async joinOnlineRoom() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                this.playerName = document.getElementById('player-name-input').value.trim();
+                // ログイン済みならプロフィールの username を使用
+                if (this.isLoggedIn && this.playerProfile && this.playerProfile.username) {
+                    this.playerName = this.playerProfile.username;
+                } else {
+                    this.playerName = 'Player';
+                }
                 
                 if (!this.roomId) return this.showConfirm(window.t('error'), window.t('inputRoomWordMsg'), ()=>{}, true);
                 if (!this.userId) return this.showConfirm(window.t('authStatusPreparing'), window.t('connectingMsg'), ()=>{}, true);
