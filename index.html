@@ -3776,10 +3776,13 @@
                         document.getElementById('auth-status').innerText = window.t('authStatusReady');
                     } else {
                         window.game.playerProfile = null;
+                        window.game.updateProfileUI();
                         document.getElementById('auth-status').innerText = window.t('authStatusPreparing');
                     }
                 } else {
                     window.game.isLoggedIn = false;
+                    window.game.playerProfile = null;
+                    window.game.updateProfileUI();
                     document.getElementById('auth-status').innerText = window.t('authStatusPreparing');
                 }
 
