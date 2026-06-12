@@ -44,6 +44,8 @@
             .game-element {
                 max-width: var(--game-max-width-pc);
             }
+
+            
         }
 
         canvas {
@@ -156,6 +158,11 @@
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
                 <div id="profile-section" class="w-full max-w-[300px] bg-zinc-800 p-3 rounded-lg border border-zinc-700 text-center mb-2 shadow-inner" style="display:none;">
+                    <div class="flex items-center justify-center gap-2">
+                        <div id="display-username" class="text-sm opacity-60 mb-1">---</div>
+                        <button id="edit-username-btn" class="btn-sub ml-2" onclick="game.changeDisplayName()" style="font-size:12px;padding:4px;">Edit</button>
+                        <button id="regen-suffix-btn" class="btn-sub ml-2" onclick="game.regenerateSuffix()" style="font-size:12px;padding:4px;">Regenerate ID</button>
+                    </div>
                     <div class="text-xs opacity-70 font-bold tracking-widest mb-1" data-i18n="currentRate">あなたの推定ELO</div>
                     <div class="text-3xl font-black text-amber-400 drop-shadow-md" id="display-elo">---</div>
                 </div>
@@ -341,7 +348,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
         const TRANSLATIONS = {
@@ -699,6 +706,44 @@
                         this.playerProfile = { elo: 250 };
                         await setDoc(profileRef, this.playerProfile);
                     }
+                    // ユーザー名が未割り当てなら一意の username-xxxxx を割り当てて固定保存する
+                    if (!this.playerProfile.username) {
+                        try {
+                            // username の重複を避けるため、usernames コレクションに事前登録を試みる
+                            let attempts = 0;
+                            while (attempts < 10) {
+                                attempts++;
+                                const suffix = this.generateUsernameSuffix(5);
+                                const username = `username-${suffix}`;
+                                const nameRef = doc(db, 'artifacts', appId, 'usernames', username);
+                                const nameSnap = await getDoc(nameRef);
+                                if (!nameSnap.exists()) {
+                                    // まだ使われていなければ確保
+                                    await setDoc(nameRef, { uid: this.userId }).catch(()=>{});
+                                    this.playerProfile.username = username;
+                                    this.playerProfile.usernameLocked = true;
+                                    await updateDoc(profileRef, { username: username, usernameLocked: true }).catch(async () => {
+                                        await setDoc(profileRef, this.playerProfile).catch(()=>{});
+                                    });
+                                    break;
+                                }
+                            }
+                        } catch(e) { console.error('username assign failed', e); }
+                    }
+                    // username 情報を displayName / usernameSuffix にパースして補完
+                    if (this.playerProfile.username && (!this.playerProfile.usernameSuffix || !this.playerProfile.displayName)) {
+                        const parts = this.playerProfile.username.split('-');
+                        const suffix = parts.slice(1).join('-') || '';
+                        const name = parts[0] || 'Player';
+                        this.playerProfile.displayName = this.playerProfile.displayName || name;
+                        this.playerProfile.usernameSuffix = this.playerProfile.usernameSuffix || suffix;
+                    } else {
+                        this.playerProfile.displayName = this.playerProfile.displayName || (auth && auth.currentUser && auth.currentUser.displayName) || 'Player';
+                        if (this.playerProfile.username && this.playerProfile.username.indexOf('-')>=0) {
+                            const parts = this.playerProfile.username.split('-');
+                            this.playerProfile.usernameSuffix = this.playerProfile.usernameSuffix || parts.slice(1).join('-') || this.playerProfile.usernameSuffix;
+                        }
+                    }
                     this.updateProfileUI();
                     
                     // レートが他デバイス等で更新された時のために監視
@@ -715,12 +760,86 @@
             updateProfileUI() {
                 const section = document.getElementById('profile-section');
                 const eloDisplay = document.getElementById('display-elo');
+                const nameDisplay = document.getElementById('display-username');
                 if (this.playerProfile && section && eloDisplay) {
                     section.style.display = 'block';
                     eloDisplay.innerText = this.playerProfile.elo;
+                    const displayName = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : '');
+                    const suffix = this.playerProfile.usernameSuffix || (this.playerProfile.username ? this.playerProfile.username.split('-').slice(1).join('-') : '');
+                    if (nameDisplay) nameDisplay.innerText = suffix ? `${displayName}-${suffix}` : displayName;
                 } else if (section) {
                     section.style.display = 'none';
                 }
+            }
+
+            async changeDisplayName() {
+                if (!this.isLoggedIn || !this.userId || !this.playerProfile) return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
+                const current = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : 'Player');
+                let newName = prompt(window.t('playerNamePlaceholder') || 'Enter name', current);
+                if (newName === null) return; // cancelled
+                newName = newName.trim().replace(/-/g, '');
+                if (newName.length === 0) return alert('無効な名前です');
+
+                const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                const oldFull = this.playerProfile.username || `${current}-${this.playerProfile.usernameSuffix || ''}`;
+                const suffix = (this.playerProfile.username && this.playerProfile.username.indexOf('-')>=0) ? this.playerProfile.username.split('-').slice(1).join('-') : (this.playerProfile.usernameSuffix || this.generateUsernameSuffix(5));
+                const newFull = `${newName}-${suffix}`;
+                const newNameRef = doc(db, 'artifacts', appId, 'usernames', newFull);
+                const oldNameRef = doc(db, 'artifacts', appId, 'usernames', oldFull);
+                try {
+                    await runTransaction(db, async (tx) => {
+                        const newSnap = await tx.get(newNameRef);
+                        if (newSnap.exists() && newSnap.data().uid !== this.userId) throw new Error('taken');
+                        tx.set(newNameRef, { uid: this.userId });
+                        const oldSnap = await tx.get(oldNameRef);
+                        if (oldSnap.exists() && oldSnap.data().uid === this.userId) tx.delete(oldNameRef);
+                        tx.update(profileRef, { displayName: newName, username: newFull });
+                    });
+                    this.playerProfile.displayName = newName;
+                    this.playerProfile.username = newFull;
+                    this.updateProfileUI();
+                } catch(e) {
+                    console.error(e);
+                    if (e.message === 'taken') alert('そのユーザー名は既に使われています');
+                    else alert('名前の変更に失敗しました');
+                }
+            }
+
+            async regenerateSuffix() {
+                if (!this.isLoggedIn || !this.userId || !this.playerProfile) return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
+                const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                const display = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : 'Player');
+                const oldFull = this.playerProfile.username || `${display}-${this.playerProfile.usernameSuffix || ''}`;
+                const oldNameRef = doc(db, 'artifacts', appId, 'usernames', oldFull);
+                let attempts = 0;
+                while (attempts < 30) {
+                    attempts++;
+                    const newSuffix = this.generateUsernameSuffix(5);
+                    const newFull = `${display}-${newSuffix}`;
+                    const newNameRef = doc(db, 'artifacts', appId, 'usernames', newFull);
+                    try {
+                        await runTransaction(db, async (tx) => {
+                            const snap = await tx.get(newNameRef);
+                            if (snap.exists()) throw new Error('exists');
+                            tx.set(newNameRef, { uid: this.userId });
+                            const oldSnap = await tx.get(oldNameRef);
+                            if (oldSnap.exists() && oldSnap.data().uid === this.userId) tx.delete(oldNameRef);
+                            tx.update(profileRef, { username: newFull, usernameSuffix: newSuffix, usernameLocked: true });
+                        });
+                        this.playerProfile.username = newFull;
+                        this.playerProfile.usernameSuffix = newSuffix;
+                        this.playerProfile.usernameLocked = true;
+                        this.updateProfileUI();
+                        alert('IDを再生成しました: ' + newFull);
+                        return;
+                    } catch(e) {
+                        if (e.message === 'exists') continue;
+                        console.error(e);
+                        alert('ID生成に失敗しました');
+                        return;
+                    }
+                }
+                alert('ユニークIDの生成に失敗しました。時間を置いて再試行してください。');
             }
 
             updateAuthDependentUI() {
@@ -1506,13 +1625,28 @@
                     return this.showConfirm(window.t('error'), window.t('firebaseErrorMsg'), ()=>{}, true);
                 }
                 this.hideAllOverlays();
+                const input = document.getElementById('player-name-input');
+                if (input) {
+                    // ログイン済みなら固定の username を表示し編集不可にする
+                    if (this.playerProfile && this.playerProfile.username) {
+                        input.value = this.playerProfile.username;
+                        input.readOnly = true;
+                    } else {
+                        input.readOnly = false;
+                    }
+                }
                 document.getElementById('online-config').style.display = 'flex';
             }
 
             showOnlineTimeSelection() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
-                this.playerName = document.getElementById('player-name-input').value.trim();
+                // ログイン済みならプロフィールの username を優先して使用（変更不可）
+                if (this.isLoggedIn && this.playerProfile && this.playerProfile.username) {
+                    this.playerName = this.playerProfile.username;
+                } else {
+                    this.playerName = document.getElementById('player-name-input').value.trim();
+                }
                 if (!this.roomId) {
                     this.showConfirm(window.t('error'), window.t('inputRoomWordMsg'), ()=>{}, true);
                     return;
