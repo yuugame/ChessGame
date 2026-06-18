@@ -1,12 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
         const TRANSLATIONS = {
             ja: {
                 title: "CHESS", vsCpu: "フリー対戦 (VS CPU)", rankedMatch: "ランクマッチ (VS CPU)", currentRate: "あなたの推定ELO", cpuEloLabel: "推定ELO",
-                offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
+                offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦",
                 authStatusPreparing: "アカウント同期中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定", loginRequiredInfo: "ログインするとランクマッチとオンライン対戦が利用できます。",
                 difficulty: "初期難易度レベル", beginner: "初級", advanced: "マスター (Lv.50)", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。<br>※ 対局中、プレイヤーの動きに合わせてレベルが自動調整されます。",
                 nextToTime: "時間設定へ進む", back: "戻る", onlineSettings: "オンライン対戦", playerNamePlaceholder: "あなたの名前 (任意)",
@@ -26,6 +26,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 connectingMsg: "サーバーに接続しています。数秒後にお試しください。", roomNotFoundMsg: "指定された合言葉の部屋が見つかりません。", createRoomFailedMsg: "部屋の作成に失敗しました。\n",
                 noUndoOnlineMsg: "オンライン対戦、またはランクマッチ中は「待った」を使用できません。", confirmUndoMsg: "1手前の状態に戻しますか？", confirmExitMsg: "現在のゲームを終了してタイトルに戻りますか？\n（オンラインの場合は部屋が削除されます）",
                 rankedExitTitle: "ランクマッチ終了", rankedExitMsg: "ランクマッチを途中で終了しますか？\n（この試合の推定ELO変動は保存されません）",
+                resumeGameTitle: "続きから開始", resumeGameMsg: "続きから始めますか？\n（前回の盤面・時間・設定を復元します）",
                 colorWhiteSuffix: " (白・先手)", colorBlackSuffix: " (黒・後手)", colorWhitePvp: " (白・先手)", colorBlackPvp: " (黒・後手)",
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
                 threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: ",
@@ -34,7 +35,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityModalTitle: "名前 / ID の変更", identityNameLabel: "名前", identityIdLabel: "ID",
                 identityNamePlaceholder: "名前を入力", identityIdPlaceholder: "英数字ID", identityRandom: "ランダム",
                 identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
-                usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/idの変更", profileIdLabel: "ID"
+                usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID"
             },
             en: {
                 title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO", cpuEloLabel: "Estimated ELO",
@@ -58,6 +59,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 connectingMsg: "Connecting. Try again in a few seconds.", roomNotFoundMsg: "Room not found.", createRoomFailedMsg: "Failed to create room.\n",
                 noUndoOnlineMsg: "Cannot undo in online or ranked matches.", confirmUndoMsg: "Undo the last move?", confirmExitMsg: "Exit and return to title?\n(Online room will be deleted)",
                 rankedExitTitle: "Exit Ranked Match", rankedExitMsg: "Exit the ranked match now?\n(This match's ELO change will not be saved.)",
+                resumeGameTitle: "Resume Game", resumeGameMsg: "Continue from where you left off?\n(The previous board, time, and settings will be restored.)",
                 colorWhiteSuffix: " (White)", colorBlackSuffix: " (Black)", colorWhitePvp: " (White)", colorBlackPvp: " (Black)",
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
                 threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "ReConnecting...", moveCountPrefix: "Moves: ",
@@ -90,6 +92,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 connectingMsg: "正在连接，请稍后再试。", roomNotFoundMsg: "未找到该口令的房间。", createRoomFailedMsg: "创建房间失败。\n",
                 noUndoOnlineMsg: "在线对戦或排位赛中无法悔棋。", confirmUndoMsg: "是否撤销上一步棋？", confirmExitMsg: "是否退出当前游戏并返回标题？\n（在线房间将被删除）",
                 rankedExitTitle: "退出排位赛", rankedExitMsg: "要现在结束排位赛吗？\n（本局的 ELO 变化不会保存）",
+                resumeGameTitle: "继续游戏", resumeGameMsg: "要继续上次的进度吗？\n（将恢复上一次的棋盘、时间和设置）",
                 colorWhiteSuffix: " (白方)", colorBlackSuffix: " (黑方)", colorWhitePvp: " (白方)", colorBlackPvp: " (黑方)",
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
                 threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: ",
@@ -288,6 +291,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.isLoggedIn = false;
                 this.confirmCallback = null;
                 this.confirmActiveOverlays = [];
+                this.resumePromptHandled = false;
                 
                 this.roomId = null;
                 this.unsubRoom = null;
@@ -335,6 +339,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.opponentAckTime = null;
                 this.isOpponentDisconnected = false;
                 this.opponentDisconnectedAt = null;
+                this.lastPersistentSaveAt = 0;
 
                 this.needsRender = true;
                 
@@ -350,10 +355,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 window.addEventListener('beforeunload', () => {
                     this.saveGameState();
                 });
-
-                setTimeout(() => {
-                    this.tryRestoreGame();
-                }, 100);
             }
 
             async loadProfile() {
@@ -420,6 +421,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         this.playerProfile.usernameSuffix = String(this.playerProfile.usernameSuffix);
                     }
                     this.updateProfileUI();
+                    this.tryRestoreGame();
                     
                     // レートが他デバイス等で更新された時のために監視
                     onSnapshot(profileRef, (docSnap) => {
@@ -688,6 +690,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                 this.initGame();
                 this.startTimer();
+                this.saveGameState();
                 
                 if (this.playerColor === 'black') {
                     // エラー回避のため絶対パスで呼び出し
@@ -696,8 +699,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             saveGameState() {
-                if (this.gameMode === 'online' || this.isGameOver || !this.gameMode || !this.initialized) {
-                    sessionStorage.removeItem('chessGameState');
+                const isPersistentMode = this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked';
+                if (!isPersistentMode) {
+                    return;
+                }
+
+                if (this.isGameOver || !this.gameMode || !this.initialized) {
+                    this.clearPersistentGameState();
                     return;
                 }
 
@@ -727,16 +735,78 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     lastMove: this.lastMove,
                     initialTimeSec: this.initialTimeSec
                 };
-                sessionStorage.setItem('chessGameState', JSON.stringify(state));
+
+                if (isPersistentMode && this.isLoggedIn && this.userId && db) {
+                    localStorage.setItem('chessGameState', JSON.stringify(state));
+                    if (this.playerProfile) {
+                        this.playerProfile.resumeGameState = state;
+                        this.playerProfile.resumeGameStateUpdatedAt = Date.now();
+                    }
+                    try {
+                        const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                        updateDoc(profileRef, {
+                            resumeGameState: state,
+                            resumeGameStateUpdatedAt: Date.now()
+                        }).catch(async () => {
+                            await setDoc(profileRef, {
+                                ...(this.playerProfile || {}),
+                                resumeGameState: state,
+                                resumeGameStateUpdatedAt: Date.now()
+                            }, { merge: true }).catch(console.error);
+                        });
+                    } catch (e) { console.error(e); }
+                } else {
+                    sessionStorage.setItem('chessGameState', JSON.stringify(state));
+                }
+                this.lastPersistentSaveAt = Date.now();
             }
 
             tryRestoreGame() {
-                const stateStr = sessionStorage.getItem('chessGameState');
-                if (!stateStr) return false;
+                return this.promptResumeGame();
+            }
 
+            getStoredResumeState() {
+                let state = null;
                 try {
-                    const state = JSON.parse(stateStr);
-                    
+                    const localState = localStorage.getItem('chessGameState');
+                    if (localState) state = JSON.parse(localState);
+                } catch (e) {
+                    console.error(e);
+                }
+
+                if (!state && this.playerProfile?.resumeGameState) {
+                    state = this.playerProfile.resumeGameState;
+                }
+
+                return state;
+            }
+
+            promptResumeGame() {
+                if (this.resumePromptHandled || !this.isLoggedIn || !this.playerProfile || this.initialized || this.gameMode === 'online') {
+                    return false;
+                }
+
+                const state = this.getStoredResumeState();
+                if (!state || (state.gameMode !== 'cpu' && state.gameMode !== 'cpu_ranked')) {
+                    return false;
+                }
+
+                this.resumePromptHandled = true;
+                const noBtn = document.getElementById('confirm-no');
+                if (noBtn) {
+                    const declineHandler = () => {
+                        this.clearPersistentGameState();
+                    };
+                    noBtn.addEventListener('click', declineHandler, { once: true });
+                }
+                this.showConfirm(window.t('resumeGameTitle'), window.t('resumeGameMsg'), async () => {
+                    this.restoreGameState(state);
+                });
+                return true;
+            }
+
+            restoreGameState(state) {
+                try {
                     this.board = state.board;
                     this.turn = state.turn;
                     this.timers = state.timers;
@@ -806,9 +876,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.updateCheckStatus();
                     const checkStr = this.inCheckPos ? window.t('checkWarning') : "";
                     this.showTurnMessage(checkStr);
+                    this.lastPersistentSaveAt = Date.now();
 
                     if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') && this.turn !== this.playerColor) {
-                        // エラー回避のため絶対パスで呼び出し
                         setTimeout(() => { if (window.game) window.game.cpuMove(); }, 800);
                     } else if (this.gameMode !== 'cpu_ranked') {
                         this.updateAssistMoves();
@@ -818,9 +888,37 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return true;
                 } catch (e) {
                     console.error("復元に失敗しました", e);
-                    sessionStorage.removeItem('chessGameState');
+                    this.clearPersistentGameState();
                     return false;
                 }
+            }
+
+            async clearPersistentGameState() {
+                sessionStorage.removeItem('chessGameState');
+                localStorage.removeItem('chessGameState');
+
+                if (this.isLoggedIn && this.userId && db) {
+                    try {
+                        const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                        await updateDoc(profileRef, {
+                            resumeGameState: deleteField(),
+                            resumeGameStateUpdatedAt: deleteField()
+                        }).catch(async () => {
+                            await setDoc(profileRef, {
+                                ...(this.playerProfile || {}),
+                                resumeGameState: null,
+                                resumeGameStateUpdatedAt: null
+                            }, { merge: true }).catch(() => {});
+                        });
+                        if (this.playerProfile) {
+                            this.playerProfile.resumeGameState = null;
+                            this.playerProfile.resumeGameStateUpdatedAt = null;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+                this.lastPersistentSaveAt = 0;
             }
 
             async initStockfish() {
@@ -1359,6 +1457,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             showModeSelection() {
                 this.sfx.buttonClick();
                 this.stopTimer();
+                if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
+                    this.clearPersistentGameState();
+                }
                 if (this.unsubRoom) {
                     this.unsubRoom();
                     this.unsubRoom = null;
@@ -1833,6 +1934,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.updateTimerDisplay();
                 this.checkGameEnd(data, gs, this.turn, this.turn);
                 this.needsRender = true;
+                if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') && !this.isGameOver) {
+                    this.saveGameState();
+                }
             }
 
             handleOnlineUpdate(data) {
@@ -2114,6 +2218,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     const result = winnerColor === this.playerColor ? 'win' : 'lose';
                     rateStr = this.updateRankedScore(result);
                 }
+                if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
+                    this.clearPersistentGameState();
+                }
 
                 if (this.gameMode === 'pvp') {
                     const winnerText = winnerColor === 'white' ? window.t('p1White') : window.t('p2Black');
@@ -2137,6 +2244,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 let rateStr = "";
                 if (this.gameMode === 'cpu_ranked') {
                     rateStr = this.updateRankedScore('draw');
+                }
+                if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
+                    this.clearPersistentGameState();
                 }
                 this.updateStatus(`${reason} - ${window.t('drawMsg')}${rateStr}`);
             }
@@ -2289,6 +2399,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                 this.initGame();
                 this.startTimer(); // 無制限でも呼ぶ
+                this.saveGameState();
                 if (this.gameMode === 'cpu' && this.playerColor === 'black') {
                     setTimeout(() => { if (window.game) window.game.cpuMove(); }, 800);
                 } else {
@@ -2348,6 +2459,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.updateMoveCountDisplay();
                 this.updateRotationUI();
                 this.needsRender = true;
+                this.saveGameState();
             }
 
             startTimer() {
@@ -2425,6 +2537,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         }
                     }
                     this.updateTimerDisplay();
+                    if (this.gameMode !== 'online' && (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked')) {
+                        if (!this.lastPersistentSaveAt || now - this.lastPersistentSaveAt >= 10000) {
+                            this.lastPersistentSaveAt = now;
+                            this.saveGameState();
+                        }
+                    }
 
                     if (!this.isGameOver && this.gameMode === 'online' && this.currentRoomData && this.currentRoomData.status === 'playing') {
                         const opponentId = this.currentRoomData.white === this.userId ? this.currentRoomData.black : this.currentRoomData.white;
@@ -3307,6 +3425,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.updateRotationUI();
                 this.updateAssistMoves();
                 this.needsRender = true;
+                this.saveGameState();
             }
 
             isSquareAttacked(x, y, color, board) {
