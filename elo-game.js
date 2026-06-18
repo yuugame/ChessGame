@@ -1556,6 +1556,40 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 return true;
             }
 
+            getGameOverButtons() {
+                return ['undo-btn', 'rematch-btn', 'exit-btn']
+                    .map(id => document.getElementById(id))
+                    .filter(el => el && el.style.display !== 'none' && !el.disabled);
+            }
+
+            focusGameOverButton(direction = 0) {
+                const buttons = this.getGameOverButtons();
+                if (buttons.length === 0) return false;
+
+                const currentIndex = buttons.indexOf(document.activeElement);
+                const nextIndex = currentIndex >= 0
+                    ? (currentIndex + direction + buttons.length) % buttons.length
+                    : (direction > 0 ? 0 : buttons.length - 1);
+
+                buttons[nextIndex].focus();
+                return true;
+            }
+
+            activateFocusedGameOverButton() {
+                const active = document.activeElement;
+                const buttons = this.getGameOverButtons();
+                if (active && buttons.includes(active) && typeof active.click === 'function') {
+                    active.click();
+                    return true;
+                }
+
+                if (buttons.length > 0 && typeof buttons[0].click === 'function') {
+                    buttons[0].click();
+                    return true;
+                }
+                return false;
+            }
+
             activateFocusedElement() {
                 const active = document.activeElement;
                 if (!active) return false;
@@ -1707,7 +1741,27 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
 
-                if (!this.initialized || this.isGameOver || this.animatingPiece) {
+                if (this.isGameOver) {
+                    const gameOverButtons = this.getGameOverButtons();
+                    if (gameOverButtons.length > 0 && (key === 'ArrowDown' || key === 'ArrowRight')) {
+                        e.preventDefault();
+                        this.focusGameOverButton(1);
+                        return;
+                    }
+                    if (gameOverButtons.length > 0 && (key === 'ArrowUp' || key === 'ArrowLeft')) {
+                        e.preventDefault();
+                        this.focusGameOverButton(-1);
+                        return;
+                    }
+                    if (key === 'Enter' || key === ' ') {
+                        e.preventDefault();
+                        this.activateFocusedGameOverButton();
+                        return;
+                    }
+                    return;
+                }
+
+                if (!this.initialized || this.animatingPiece) {
                     return;
                 }
 
@@ -2681,7 +2735,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             showRematchButton() {
                 if (this.gameMode === 'online' && !this.isHost) return;
-                document.getElementById('rematch-btn').style.display = 'inline-block';
+                const rematchBtn = document.getElementById('rematch-btn');
+                if (rematchBtn) {
+                    rematchBtn.style.display = 'inline-block';
+                    setTimeout(() => rematchBtn.focus(), 0);
+                }
             }
 
             processOnlineAck(gs) {
@@ -3126,7 +3184,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.animatingPiece.promotion = move.promotion;
                 }
                 this.board[move.from.y][move.from.x] = null;
-                this.boardCursor = { x: move.to.x, y: move.to.y };
+                const isPlayerDrivenMove = this.gameMode === 'pvp' || this.turn === this.playerColor;
+                if (isPlayerDrivenMove) {
+                    this.boardCursor = { x: move.to.x, y: move.to.y };
+                }
                 this.selected = null;
                 this.draggingPiece = null;
                 this.needsRender = true;
