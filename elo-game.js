@@ -105,11 +105,29 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
         };
 
-        window.currentLang = 'ja';
+        const LANGUAGE_STORAGE_KEY = 'chessLanguage';
+        const getSavedLanguage = () => {
+            try {
+                const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+                return ['ja', 'en', 'zh'].includes(saved) ? saved : 'ja';
+            } catch (e) {
+                return 'ja';
+            }
+        };
+
+        window.currentLang = getSavedLanguage();
         window.t = (key) => TRANSLATIONS[window.currentLang][key] || key;
 
         window.setLanguage = (lang) => {
-            window.currentLang = lang;
+            const nextLang = ['ja', 'en', 'zh'].includes(lang) ? lang : 'ja';
+            window.currentLang = nextLang;
+            try {
+                localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLang);
+            } catch (e) {}
+            const languageSelect = document.getElementById('language-select');
+            if (languageSelect && languageSelect.value !== nextLang) {
+                languageSelect.value = nextLang;
+            }
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
