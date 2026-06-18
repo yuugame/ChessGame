@@ -288,6 +288,26 @@
             </div>
         </div>
 
+        <div id="identity-modal" class="w-full flex flex-col items-center" style="display: none;">
+            <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[320px] w-full border border-zinc-700">
+                <h2 class="text-xl font-bold mb-4 text-white" data-i18n="identityModalTitle">名前 / ID の変更</h2>
+                <div class="flex flex-col gap-3 text-left">
+                    <label class="text-xs opacity-70" for="identity-name-input" data-i18n="identityNameLabel">名前</label>
+                    <input id="identity-name-input" type="text" class="w-full p-3 rounded text-black font-bold text-lg outline-none" data-i18n="identityNamePlaceholder" placeholder="名前を入力">
+                    <label class="text-xs opacity-70" for="identity-id-input" data-i18n="identityIdLabel">ID</label>
+                    <div class="flex gap-2">
+                        <input id="identity-id-input" type="text" class="flex-1 p-3 rounded text-black font-mono font-bold text-lg outline-none" data-i18n="identityIdPlaceholder" placeholder="英数字ID">
+                        <button class="px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-bold" onclick="game.randomizeIdentityId()" data-i18n="identityRandom">ランダム</button>
+                    </div>
+                    <p class="text-[11px] opacity-60 leading-relaxed" data-i18n="identityHint">名前は重複可。IDは英数字のみで、他のユーザーと重複しません。</p>
+                </div>
+                <div class="flex gap-3 justify-center w-full mt-5">
+                    <button class="bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" onclick="game.saveIdentityModal()" data-i18n="identitySave">保存</button>
+                    <button class="bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" onclick="game.closeIdentityModal()" data-i18n="cancel">キャンセル</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 確認用モーダル -->
         <div id="confirm-modal" class="w-full flex flex-col items-center" style="display: none;">
             <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[300px] w-full border border-zinc-700">
@@ -378,7 +398,10 @@
                 stalemate: "ステイルメイト", drawMsg: "引き分け", insufficientMaterial: "戦力不足",
                 threefoldRepetition: "千日手", fiftyMoveRule: "50手ルール", reconnecting: "再接続しています...", moveCountPrefix: "手数: ",
                 baseTime: "持ち時間", incTime: "追加時間 (1手)", startGame: "ゲーム開始", min: "分", sec: "秒", incNone: "なし", disconnectErrorMsg: "通信エラーが発生したため、タイトル画面に戻ります。",
-                autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする", whiteShort: "白", blackShort: "黒", turnWord: "ターン"
+                autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする", whiteShort: "白", blackShort: "黒", turnWord: "ターン",
+                identityModalTitle: "名前 / ID の変更", identityNameLabel: "名前", identityIdLabel: "ID",
+                identityNamePlaceholder: "名前を入力", identityIdPlaceholder: "英数字ID", identityRandom: "ランダム",
+                identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存"
             },
             en: {
                 title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO", cpuEloLabel: "Estimated ELO",
@@ -405,7 +428,10 @@
                 stalemate: "Stalemate", drawMsg: "Draw", insufficientMaterial: "Insufficient Material",
                 threefoldRepetition: "Threefold Repetition", fiftyMoveRule: "50-Move Rule", reconnecting: "ReConnecting...", moveCountPrefix: "Moves: ",
                 baseTime: "Base Time", incTime: "Increment", startGame: "Start Game", min: "m", sec: "s", incNone: "None", disconnectErrorMsg: "Connection error occurred. Returning to title.",
-                autoRotate: "Rotate pieces and text for Black", whiteShort: "White", blackShort: "Black", turnWord: "Turn "
+                autoRotate: "Rotate pieces and text for Black", whiteShort: "White", blackShort: "Black", turnWord: "Turn ",
+                identityModalTitle: "Change Name / ID", identityNameLabel: "Name", identityIdLabel: "ID",
+                identityNamePlaceholder: "Enter name", identityIdPlaceholder: "Alphanumeric ID", identityRandom: "Random",
+                identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save"
             },
             zh: {
                 title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)", cpuEloLabel: "估计ELO",
@@ -432,7 +458,10 @@
                 stalemate: "逼和", drawMsg: "平局", insufficientMaterial: "兵力不足",
                 threefoldRepetition: "三次重复局面", fiftyMoveRule: "五十回合规则", reconnecting: "正在重新连接...", moveCountPrefix: "步数: ",
                 baseTime: "初始时间", incTime: "每步加时", startGame: "开始游戏", min: "分", sec: "秒", incNone: "无", disconnectErrorMsg: "发生通信错误，将返回标题画面。",
-                autoRotate: "黑方回合时翻转棋子和文字", whiteShort: "白方", blackShort: "黑方", turnWord: "回合"
+                autoRotate: "黑方回合时翻转棋子和文字", whiteShort: "白方", blackShort: "黑方", turnWord: "回合",
+                identityModalTitle: "修改昵称 / ID", identityNameLabel: "昵称", identityIdLabel: "ID",
+                identityNamePlaceholder: "输入昵称", identityIdPlaceholder: "字母数字ID", identityRandom: "随机",
+                identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存"
             }
         };
 
@@ -707,43 +736,47 @@
                         this.playerProfile = { elo: 250 };
                         await setDoc(profileRef, this.playerProfile);
                     }
-                    // ユーザー名が未割り当てなら一意の username-xxxxx を割り当てて固定保存する
-                    if (!this.playerProfile.username) {
+                    this.playerProfile.displayName = this.playerProfile.displayName || (auth && auth.currentUser && auth.currentUser.displayName) || 'Player';
+
+                    // ID が未割り当てなら一意の英数字IDを割り当てて固定保存する
+                    if (!this.playerProfile.usernameSuffix) {
                         try {
-                            // username の重複を避けるため、usernames コレクションに事前登録を試みる
-                            let attempts = 0;
-                            while (attempts < 10) {
-                                attempts++;
-                                const suffix = this.generateUsernameSuffix(5);
-                                const username = `username-${suffix}`;
-                                const nameRef = doc(db, 'artifacts', appId, 'usernames', username);
-                                const nameSnap = await getDoc(nameRef);
-                                if (!nameSnap.exists()) {
-                                    // まだ使われていなければ確保
-                                    await setDoc(nameRef, { uid: this.userId }).catch(()=>{});
-                                    this.playerProfile.username = username;
-                                    this.playerProfile.usernameLocked = true;
-                                    await updateDoc(profileRef, { username: username, usernameLocked: true }).catch(async () => {
-                                        await setDoc(profileRef, this.playerProfile).catch(()=>{});
+                            let created = false;
+                            for (let attempt = 0; attempt < 50 && !created; attempt++) {
+                                const suffix = this.generateUsernameSuffix(8);
+                                const suffixRef = doc(db, 'artifacts', appId, 'usernames', suffix);
+                                try {
+                                    await runTransaction(db, async (tx) => {
+                                        const existing = await tx.get(suffixRef);
+                                        if (existing.exists()) throw new Error('exists');
+                                        tx.set(suffixRef, { uid: this.userId, displayName: this.playerProfile.displayName, updatedAt: Date.now() });
+                                        tx.update(profileRef, {
+                                            displayName: this.playerProfile.displayName,
+                                            usernameSuffix: suffix,
+                                            username: `${this.playerProfile.displayName}-${suffix}`,
+                                            usernameLocked: true
+                                        });
                                     });
-                                    break;
+                                    this.playerProfile.usernameSuffix = suffix;
+                                    this.playerProfile.username = `${this.playerProfile.displayName}-${suffix}`;
+                                    this.playerProfile.usernameLocked = true;
+                                    created = true;
+                                } catch (assignError) {
+                                    if (assignError.message !== 'exists') throw assignError;
                                 }
                             }
+                            if (!created) throw new Error('username assign failed');
                         } catch(e) { console.error('username assign failed', e); }
                     }
-                    // username 情報を displayName / usernameSuffix にパースして補完
-                    if (this.playerProfile.username && (!this.playerProfile.usernameSuffix || !this.playerProfile.displayName)) {
+                    if (this.playerProfile.username && !this.playerProfile.usernameSuffix) {
                         const parts = this.playerProfile.username.split('-');
-                        const suffix = parts.slice(1).join('-') || '';
-                        const name = parts[0] || 'Player';
-                        this.playerProfile.displayName = this.playerProfile.displayName || name;
-                        this.playerProfile.usernameSuffix = this.playerProfile.usernameSuffix || suffix;
-                    } else {
-                        this.playerProfile.displayName = this.playerProfile.displayName || (auth && auth.currentUser && auth.currentUser.displayName) || 'Player';
-                        if (this.playerProfile.username && this.playerProfile.username.indexOf('-')>=0) {
-                            const parts = this.playerProfile.username.split('-');
-                            this.playerProfile.usernameSuffix = this.playerProfile.usernameSuffix || parts.slice(1).join('-') || this.playerProfile.usernameSuffix;
-                        }
+                        this.playerProfile.usernameSuffix = parts.length > 1 ? parts[parts.length - 1] : this.playerProfile.username;
+                    }
+                    if (!this.playerProfile.username) {
+                        this.playerProfile.username = `${this.playerProfile.displayName}-${this.playerProfile.usernameSuffix || ''}`.replace(/-$/, '');
+                    }
+                    if (this.playerProfile.usernameSuffix) {
+                        this.playerProfile.usernameSuffix = String(this.playerProfile.usernameSuffix);
                     }
                     this.updateProfileUI();
                     
@@ -759,17 +792,9 @@
             }
 
             getProfileIdentity() {
-                const username = this.playerProfile?.username || "";
                 const fallbackName = this.playerProfile?.displayName || "Player";
-                const fallbackSuffix = this.playerProfile?.usernameSuffix || "";
-
-                if (!username) {
-                    return { displayName: fallbackName, suffix: fallbackSuffix, full: fallbackSuffix ? `${fallbackName}-${fallbackSuffix}` : fallbackName };
-                }
-
-                const parts = username.split("-");
-                const displayName = this.playerProfile?.displayName || parts[0] || fallbackName;
-                const suffix = this.playerProfile?.usernameSuffix || parts.slice(1).join("-") || fallbackSuffix;
+                const suffix = this.playerProfile?.usernameSuffix || "";
+                const displayName = this.playerProfile?.displayName || fallbackName;
                 return { displayName, suffix, full: suffix ? `${displayName}-${suffix}` : displayName };
             }
             
@@ -800,74 +825,135 @@
             }
 
             async changeDisplayName() {
-                if (!this.isLoggedIn || !this.userId || !this.playerProfile) return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
-                const current = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : 'Player');
-                let newName = prompt(window.t('playerNamePlaceholder') || 'Enter name', current);
-                if (newName === null) return; // cancelled
-                newName = newName.trim().replace(/-/g, '');
-                if (newName.length === 0) return alert('無効な名前です');
-
-                const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
-                const oldFull = this.playerProfile.username || `${current}-${this.playerProfile.usernameSuffix || ''}`;
-                const suffix = (this.playerProfile.username && this.playerProfile.username.indexOf('-')>=0) ? this.playerProfile.username.split('-').slice(1).join('-') : (this.playerProfile.usernameSuffix || this.generateUsernameSuffix(5));
-                const newFull = `${newName}-${suffix}`;
-                const newNameRef = doc(db, 'artifacts', appId, 'usernames', newFull);
-                const oldNameRef = doc(db, 'artifacts', appId, 'usernames', oldFull);
-                try {
-                    await runTransaction(db, async (tx) => {
-                        const newSnap = await tx.get(newNameRef);
-                        if (newSnap.exists() && newSnap.data().uid !== this.userId) throw new Error('taken');
-                        tx.set(newNameRef, { uid: this.userId });
-                        const oldSnap = await tx.get(oldNameRef);
-                        if (oldSnap.exists() && oldSnap.data().uid === this.userId) tx.delete(oldNameRef);
-                        tx.update(profileRef, { displayName: newName, username: newFull });
-                    });
-                    this.playerProfile.displayName = newName;
-                    this.playerProfile.username = newFull;
-                    this.updateProfileUI();
-                } catch(e) {
-                    console.error(e);
-                    if (e.message === 'taken') alert('そのユーザー名は既に使われています');
-                    else alert('名前の変更に失敗しました');
-                }
+                return this.changeOnlineIdentity();
             }
 
             async regenerateSuffix() {
-                if (!this.isLoggedIn || !this.userId || !this.playerProfile) return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
-                const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
-                const display = this.getProfileIdentity().displayName || 'Player';
-                const oldFull = this.playerProfile.username || `${display}-${this.playerProfile.usernameSuffix || ''}`;
-                const oldNameRef = doc(db, 'artifacts', appId, 'usernames', oldFull);
-                let attempts = 0;
-                while (attempts < 30) {
-                    attempts++;
-                    const newSuffix = this.generateUsernameSuffix(5);
-                    const newFull = `${display}-${newSuffix}`;
-                    const newNameRef = doc(db, 'artifacts', appId, 'usernames', newFull);
+                return this.changeOnlineIdentity();
+            }
+
+            randomString(length) {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                const values = new Uint32Array(length);
+                crypto.getRandomValues(values);
+                return Array.from(values, value => chars[value % chars.length]).join('');
+            }
+
+            generateUsernameSuffix(length = 8) {
+                return this.randomString(length);
+            }
+
+            async generateUniqueUsernameSuffix(length = 8) {
+                if (!db) return this.generateUsernameSuffix(length);
+                for (let attempt = 0; attempt < 50; attempt++) {
+                    const suffix = this.generateUsernameSuffix(length);
+                    const suffixRef = doc(db, 'artifacts', appId, 'usernames', suffix);
+                    const snap = await getDoc(suffixRef);
+                    if (!snap.exists()) return suffix;
+                }
+                throw new Error('unique_id_generation_failed');
+            }
+
+            openIdentityModal() {
+                if (!this.isLoggedIn || !this.userId || !this.playerProfile) {
+                    return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
+                }
+                const identity = this.getProfileIdentity();
+                const nameInput = document.getElementById('identity-name-input');
+                const idInput = document.getElementById('identity-id-input');
+                if (nameInput) nameInput.value = identity.displayName || 'Player';
+                if (idInput) idInput.value = identity.suffix || '';
+                this.hideAllOverlays();
+                const modal = document.getElementById('identity-modal');
+                if (modal) modal.style.display = 'flex';
+            }
+
+            closeIdentityModal() {
+                const modal = document.getElementById('identity-modal');
+                if (modal) modal.style.display = 'none';
+                this.hideAllOverlays();
+                document.getElementById('online-config').style.display = 'flex';
+            }
+
+            async randomizeIdentityId() {
+                if (!this.isLoggedIn || !this.userId || !this.playerProfile) return;
+                const idInput = document.getElementById('identity-id-input');
+                if (!idInput) return;
+                try {
+                    idInput.value = await this.generateUniqueUsernameSuffix(8);
+                } catch (e) {
+                    console.error(e);
+                    alert('IDの生成に失敗しました');
+                }
+            }
+
+            async saveIdentityModal() {
+                if (!this.isLoggedIn || !this.userId || !this.playerProfile) return;
+                const nameInput = document.getElementById('identity-name-input');
+                const idInput = document.getElementById('identity-id-input');
+                const newDisplayName = (nameInput?.value || '').trim().replace(/[\r\n\t]/g, ' ').replace(/-/g, '');
+                let newSuffix = (idInput?.value || '').trim().replace(/[^A-Za-z0-9]/g, '');
+
+                if (!newDisplayName) {
+                    alert('名前を入力してください');
+                    return;
+                }
+                if (!newSuffix) {
                     try {
-                        await runTransaction(db, async (tx) => {
-                            const snap = await tx.get(newNameRef);
-                            if (snap.exists()) throw new Error('exists');
-                            tx.set(newNameRef, { uid: this.userId });
-                            const oldSnap = await tx.get(oldNameRef);
-                            if (oldSnap.exists() && oldSnap.data().uid === this.userId) tx.delete(oldNameRef);
-                            tx.update(profileRef, { username: newFull, usernameSuffix: newSuffix, usernameLocked: true });
-                        });
-                        this.playerProfile.username = newFull;
-                        this.playerProfile.usernameSuffix = newSuffix;
-                        this.playerProfile.usernameLocked = true;
-                        this.playerName = newFull;
-                        this.updateProfileUI();
-                        alert('IDを再生成しました: ' + newFull);
-                        return;
-                    } catch(e) {
-                        if (e.message === 'exists') continue;
+                        newSuffix = await this.generateUniqueUsernameSuffix(8);
+                        if (idInput) idInput.value = newSuffix;
+                    } catch (e) {
                         console.error(e);
-                        alert('ID生成に失敗しました');
+                        alert('IDの生成に失敗しました');
                         return;
                     }
                 }
-                alert('ユニークIDの生成に失敗しました。時間を置いて再試行してください。');
+
+                const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                const suffixRef = doc(db, 'artifacts', appId, 'usernames', newSuffix);
+                const currentSuffix = this.playerProfile.usernameSuffix || "";
+                const currentSuffixRef = currentSuffix ? doc(db, 'artifacts', appId, 'usernames', currentSuffix) : null;
+
+                try {
+                    await runTransaction(db, async (tx) => {
+                        const existing = await tx.get(suffixRef);
+                        if (existing.exists() && existing.data().uid !== this.userId) {
+                            throw new Error('id_taken');
+                        }
+                        tx.set(suffixRef, { uid: this.userId, displayName: newDisplayName, updatedAt: Date.now() });
+                        if (currentSuffixRef && currentSuffixRef.path !== suffixRef.path) {
+                            const oldSnap = await tx.get(currentSuffixRef);
+                            if (oldSnap.exists() && oldSnap.data().uid === this.userId) {
+                                tx.delete(currentSuffixRef);
+                            }
+                        }
+                        tx.update(profileRef, {
+                            displayName: newDisplayName,
+                            usernameSuffix: newSuffix,
+                            username: `${newDisplayName}-${newSuffix}`,
+                            usernameLocked: true
+                        });
+                    });
+
+                    this.playerProfile.displayName = newDisplayName;
+                    this.playerProfile.usernameSuffix = newSuffix;
+                    this.playerProfile.username = `${newDisplayName}-${newSuffix}`;
+                    this.playerProfile.usernameLocked = true;
+                    this.playerName = this.playerProfile.username;
+                    this.updateProfileUI();
+                    this.closeIdentityModal();
+                } catch (e) {
+                    console.error(e);
+                    if (e.message === 'id_taken') {
+                        alert('そのIDは既に使われています');
+                    } else {
+                        alert('名前/idの変更に失敗しました');
+                    }
+                }
+            }
+
+            async changeOnlineIdentity() {
+                this.openIdentityModal();
             }
 
             updateAuthDependentUI() {
@@ -1678,56 +1764,6 @@
                 return pool[Math.floor(Math.random() * pool.length)];
             }
 
-            async changeOnlineIdentity() {
-                if (!this.isLoggedIn || !this.userId || !this.playerProfile) {
-                    return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
-                }
-
-                const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
-                const oldFull = this.playerProfile.username || `${this.getProfileIdentity().displayName || 'Player'}-${this.playerProfile.usernameSuffix || ''}`;
-                const oldNameRef = doc(db, 'artifacts', appId, 'usernames', oldFull);
-                let attempts = 0;
-
-                while (attempts < 30) {
-                    attempts++;
-                    const newDisplayName = this.generateRandomDisplayName();
-                    const newSuffix = this.generateUsernameSuffix(5);
-                    const newFull = `${newDisplayName}-${newSuffix}`;
-                    const newNameRef = doc(db, 'artifacts', appId, 'usernames', newFull);
-
-                    try {
-                        await runTransaction(db, async (tx) => {
-                            const snap = await tx.get(newNameRef);
-                            if (snap.exists()) throw new Error('exists');
-                            tx.set(newNameRef, { uid: this.userId });
-                            const oldSnap = await tx.get(oldNameRef);
-                            if (oldSnap.exists() && oldSnap.data().uid === this.userId) tx.delete(oldNameRef);
-                            tx.update(profileRef, {
-                                displayName: newDisplayName,
-                                username: newFull,
-                                usernameSuffix: newSuffix,
-                                usernameLocked: true
-                            });
-                        });
-                        this.playerProfile.displayName = newDisplayName;
-                        this.playerProfile.username = newFull;
-                        this.playerProfile.usernameSuffix = newSuffix;
-                        this.playerProfile.usernameLocked = true;
-                        this.playerName = newFull;
-                        this.updateProfileUI();
-                        alert(`名前とIDを変更しました: ${newFull}`);
-                        return;
-                    } catch (e) {
-                        if (e.message === 'exists') continue;
-                        console.error(e);
-                        alert('名前/idの変更に失敗しました');
-                        return;
-                    }
-                }
-
-                alert('ユニークな名前/idの生成に失敗しました。時間を置いて再試行してください。');
-            }
-
             showOnlineTimeSelection() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
@@ -1763,7 +1799,7 @@
             }
 
             hideAllOverlays() {
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'confirm-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal', 'confirm-modal'];
                 ids.forEach(id => document.getElementById(id).style.display = 'none');
             }
 
@@ -1811,7 +1847,7 @@
                 document.getElementById('confirm-message').innerText = message;
                 
                 const activeOverlays = [];
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el && el.style.display === 'flex') {
