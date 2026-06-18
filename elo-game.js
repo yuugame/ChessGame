@@ -364,6 +364,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.opponentDisconnectedAt = null;
                 this.lastPersistentSaveAt = 0;
                 this.boardCursor = { x: 0, y: 0 };
+                this.keyboardEditElement = null;
 
                 this.needsRender = true;
                 
@@ -1314,8 +1315,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const toStr = files[move.to.x] + ranks[move.to.y];
                 const isPawn = move.piece && move.piece.toUpperCase() === 'P';
                 const p = !isPawn ? (move.piece ? move.piece.toUpperCase() : '') : '';
-                const capturePrefix = isPawn && move.isCapture ? files[move.from.x] : '';
-                const sep = move.isCapture ? 'x' : '';
+                const isCapture = !!(move.isCapture || move.isEnPassant);
+                const capturePrefix = isPawn && isCapture ? files[move.from.x] : '';
+                const sep = isCapture ? 'x' : '';
                 const promo = move.promotion ? '=' + move.promotion.toUpperCase() : '';
                 return p + capturePrefix + sep + toStr + promo + suffix;
             }
@@ -1479,13 +1481,39 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 window.addEventListener('mouseup', onUp);
                 window.addEventListener('touchend', onUp, { passive: false });
 
-                window.addEventListener('keydown', (e) => this.handleKeyboardInput(e));
+                window.addEventListener('keydown', (e) => this.handleKeyboardInput(e), true);
             }
 
             isTextEntryElement(element) {
                 if (!element) return false;
                 const tag = element.tagName;
-                return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable;
+                const type = (element.getAttribute && element.getAttribute('type')) ? element.getAttribute('type').toLowerCase() : '';
+                return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable || tag === 'SELECT' || type === 'range';
+            }
+
+            isEditableTextField(element) {
+                if (!element || element.tagName !== 'INPUT') return false;
+                const type = (element.getAttribute('type') || '').toLowerCase();
+                return type === '' || type === 'text' || type === 'search' || type === 'email' || type === 'password' || type === 'url' || type === 'tel';
+            }
+
+            beginKeyboardEdit(element) {
+                if (!element) return;
+                this.keyboardEditElement = element;
+                if (typeof element.focus === 'function') {
+                    element.focus();
+                }
+                if (this.isEditableTextField(element) && typeof element.select === 'function') {
+                    element.select();
+                }
+            }
+
+            endKeyboardEdit(blur = false) {
+                const element = this.keyboardEditElement;
+                this.keyboardEditElement = null;
+                if (blur && element && typeof element.blur === 'function') {
+                    element.blur();
+                }
             }
 
             isOverlayVisible(id) {
@@ -1513,6 +1541,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                 const currentIndex = focusables.indexOf(document.activeElement);
                 const nextIndex = currentIndex >= 0 ? (currentIndex + direction + focusables.length) % focusables.length : (direction > 0 ? 0 : focusables.length - 1);
+                this.keyboardEditElement = null;
                 focusables[nextIndex].focus();
                 return true;
             }
@@ -1522,6 +1551,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 if (!overlay) return false;
                 const focusables = this.getFocusableElements(overlay);
                 if (focusables.length === 0) return false;
+                this.keyboardEditElement = null;
                 focusables[0].focus();
                 return true;
             }
@@ -1540,11 +1570,32 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const overlayId = this.getVisibleOverlayId();
                 const key = e.key;
 
-                if (this.isTextEntryElement(document.activeElement) && key !== 'Escape' && key !== 'Enter') {
+                if (this.keyboardEditElement && document.activeElement === this.keyboardEditElement) {
+                    if (key === 'Escape') {
+                        e.preventDefault();
+                        this.endKeyboardEdit(true);
+                    } else if (key === 'Enter') {
+                        e.preventDefault();
+                        this.endKeyboardEdit(false);
+                    }
                     return;
                 }
 
                 if (e.repeat && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                    return;
+                }
+
+                const isModKey = e.ctrlKey || e.metaKey;
+                if (isModKey && key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    this.confirmUndo();
+                    return;
+                }
+                if (isModKey && e.shiftKey && key.toLowerCase() === 'a') {
+                    e.preventDefault();
+                    if (document.getElementById('assist-mode-container')?.style.display !== 'none') {
+                        this.toggleAssistMode(!this.isAssistMode);
+                    }
                     return;
                 }
 
@@ -1619,7 +1670,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     }
                     if (key === 'Enter' || key === ' ') {
                         e.preventDefault();
-                        this.activateFocusedElement();
+                        const activeElement = document.activeElement;
+                        const activeTag = activeElement?.tagName;
+                        const activeType = (activeElement?.getAttribute && activeElement.getAttribute('type')) ? activeElement.getAttribute('type').toLowerCase() : '';
+                        if (key === 'Enter' && this.isEditableTextField(activeElement)) {
+                            this.beginKeyboardEdit(activeElement);
+                        } else if (key === 'Enter' && (activeTag === 'SELECT' || activeType === 'range')) {
+                            this.beginKeyboardEdit(activeElement);
+                        } else if (key === ' ' && (activeTag === 'SELECT' || activeType === 'range')) {
+                            this.beginKeyboardEdit(document.activeElement);
+                        } else {
+                            this.activateFocusedElement();
+                        }
                         return;
                     }
                     return;
@@ -1630,23 +1692,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
 
                 const boardKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Escape'];
-                const shortcutKeys = (e.ctrlKey || e.altKey) && (key.toLowerCase() === 'z' || key.toLowerCase() === 'a');
-                if (!boardKeys.includes(key) && !shortcutKeys) {
+                if (!boardKeys.includes(key)) {
                     return;
-                }
-
-                if (shortcutKeys) {
-                    e.preventDefault();
-                    if (e.ctrlKey && key.toLowerCase() === 'z') {
-                        this.confirmUndo();
-                        return;
-                    }
-                    if (e.altKey && key.toLowerCase() === 'a') {
-                        if (document.getElementById('assist-mode-container')?.style.display !== 'none') {
-                            this.toggleAssistMode(!this.isAssistMode);
-                        }
-                        return;
-                    }
                 }
 
                 if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked' || this.gameMode === 'online') && this.turn !== this.playerColor) {
