@@ -166,7 +166,7 @@
                 <button id="ranked-match-btn" class="btn-main !bg-amber-600 shadow-lg" onclick="game.startRankedCpu()" data-i18n="rankedMatch">ランクマッチ (VS CPU)</button>
                 <button class="btn-main" onclick="game.showCpuConfig()" data-i18n="vsCpu">フリー対戦 (VS CPU)</button>
                 <button class="btn-main !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
-                <button id="online-pvp-btn" class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦(合言葉)</button>
+                <button id="online-pvp-btn" class="btn-main !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦</button>
                 <div id="login-required-info" class="text-sm opacity-70 text-center mt-4 px-3" style="display:none;" data-i18n="loginRequiredInfo">ログインするとランクマッチとオンライン対戦が利用できます。</div>
             </div>
             <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" data-i18n="authStatusPreparing">アカウント同期中...</div>
@@ -375,7 +375,7 @@
         const TRANSLATIONS = {
             ja: {
                 title: "CHESS", vsCpu: "フリー対戦 (VS CPU)", rankedMatch: "ランクマッチ (VS CPU)", currentRate: "あなたの推定ELO", cpuEloLabel: "推定ELO",
-                offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦(合言葉)",
+                offlinePvp: "2人プレイ(オフライン)", onlinePvp: "オンライン対戦",
                 authStatusPreparing: "アカウント同期中...", authStatusReady: "オンライン接続準備完了", cpuSettings: "CPU設定", loginRequiredInfo: "ログインするとランクマッチとオンライン対戦が利用できます。",
                 difficulty: "初期難易度レベル", beginner: "初級", advanced: "マスター (Lv.50)", cpuNote: "※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。<br>※ 対局中、プレイヤーの動きに合わせてレベルが自動調整されます。",
                 nextToTime: "時間設定へ進む", back: "戻る", onlineSettings: "オンライン対戦", playerNamePlaceholder: "あなたの名前 (任意)",
