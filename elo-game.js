@@ -106,10 +106,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         };
 
         const LANGUAGE_STORAGE_KEY = 'chessLanguage';
+        const normalizeLanguage = (lang) => ['ja', 'en', 'zh'].includes(lang) ? lang : 'ja';
         const getSavedLanguage = () => {
             try {
                 const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-                return ['ja', 'en', 'zh'].includes(saved) ? saved : 'ja';
+                return normalizeLanguage(saved);
             } catch (e) {
                 return 'ja';
             }
@@ -118,11 +119,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         window.currentLang = getSavedLanguage();
         window.t = (key) => TRANSLATIONS[window.currentLang][key] || key;
 
-        window.setLanguage = (lang) => {
-            const nextLang = ['ja', 'en', 'zh'].includes(lang) ? lang : 'ja';
+        window.setLanguage = (lang, options = {}) => {
+            const nextLang = normalizeLanguage(lang);
             window.currentLang = nextLang;
             try {
-                localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLang);
+                if (options.persistLocal !== false) {
+                    localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLang);
+                }
             } catch (e) {}
             const languageSelect = document.getElementById('language-select');
             if (languageSelect && languageSelect.value !== nextLang) {
@@ -163,6 +166,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             if (window.game) {
+                window.game.onLanguageChanged(nextLang, options);
                 window.game.updateLanguageUI();
                 window.game.updateProfileUI();
             }
@@ -438,6 +442,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     if (this.playerProfile.usernameSuffix) {
                         this.playerProfile.usernameSuffix = String(this.playerProfile.usernameSuffix);
                     }
+
+                    const resolvedLanguage = normalizeLanguage(this.playerProfile.language || window.currentLang || getSavedLanguage());
+                    const languageWasMissing = !this.playerProfile.language;
+                    this.playerProfile.language = resolvedLanguage;
+                    if (window.currentLang !== resolvedLanguage) {
+                        window.setLanguage(resolvedLanguage, { persistLocal: true, persistProfile: false });
+                    }
+                    if (languageWasMissing) {
+                        this.persistLanguagePreference(resolvedLanguage).catch(console.error);
+                    }
+
                     this.updateProfileUI();
                     this.tryRestoreGame();
                     
@@ -446,10 +461,51 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         if (docSnap.exists()) {
                             this.playerProfile = docSnap.data();
                             this.updateProfileUI();
+                            const nextLanguage = normalizeLanguage(this.playerProfile.language || window.currentLang || getSavedLanguage());
+                            this.playerProfile.language = nextLanguage;
+                            if (window.currentLang !== nextLanguage) {
+                                window.setLanguage(nextLanguage, { persistLocal: true, persistProfile: false });
+                            }
                         }
                     }, (err) => console.error(err));
                     
                 } catch(e) { console.error(e); }
+            }
+
+            async persistLanguagePreference(lang) {
+                if (!this.isLoggedIn || !this.userId || !db) return false;
+                const nextLang = normalizeLanguage(lang);
+                if (this.playerProfile) {
+                    this.playerProfile.language = nextLang;
+                }
+
+                try {
+                    const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                    await updateDoc(profileRef, { language: nextLang }).catch(async () => {
+                        await setDoc(profileRef, {
+                            ...(this.playerProfile || {}),
+                            language: nextLang
+                        }, { merge: true }).catch(console.error);
+                    });
+                    return true;
+                } catch (e) {
+                    console.error(e);
+                    return false;
+                }
+            }
+
+            onLanguageChanged(lang, options = {}) {
+                if (this.playerProfile) {
+                    this.playerProfile.language = normalizeLanguage(lang);
+                }
+
+                if (options.persistProfile === false) {
+                    return;
+                }
+
+                if (this.isLoggedIn && this.userId && db) {
+                    this.persistLanguagePreference(lang);
+                }
             }
 
             getProfileIdentity() {
