@@ -750,18 +750,20 @@
                                         const existing = await tx.get(suffixRef);
                                         if (existing.exists()) throw new Error('exists');
                                         tx.set(suffixRef, { uid: this.userId, displayName: this.playerProfile.displayName, updatedAt: Date.now() });
-                                        tx.update(profileRef, {
-                                            displayName: this.playerProfile.displayName,
-                                            usernameSuffix: suffix,
-                                            username: `${this.playerProfile.displayName}-${suffix}`,
-                                            usernameLocked: true
-                                        });
                                     });
+                                    await setDoc(profileRef, {
+                                        ...this.playerProfile,
+                                        displayName: this.playerProfile.displayName,
+                                        usernameSuffix: suffix,
+                                        username: `${this.playerProfile.displayName}-${suffix}`,
+                                        usernameLocked: true
+                                    }, { merge: true });
                                     this.playerProfile.usernameSuffix = suffix;
                                     this.playerProfile.username = `${this.playerProfile.displayName}-${suffix}`;
                                     this.playerProfile.usernameLocked = true;
                                     created = true;
                                 } catch (assignError) {
+                                    try { await deleteDoc(suffixRef); } catch (_) {}
                                     if (assignError.message !== 'exists') throw assignError;
                                 }
                             }
@@ -921,20 +923,24 @@
                             throw new Error('id_taken');
                         }
                         tx.set(suffixRef, { uid: this.userId, displayName: newDisplayName, updatedAt: Date.now() });
-                        if (currentSuffixRef && currentSuffix !== newSuffix) {
-                            const oldSnap = await tx.get(currentSuffixRef);
-                            if (oldSnap.exists() && oldSnap.data().uid === this.userId) {
-                                tx.delete(currentSuffixRef);
-                            }
-                        }
-                        tx.set(profileRef, {
+                    });
+
+                    try {
+                        await setDoc(profileRef, {
                             ...this.playerProfile,
                             displayName: newDisplayName,
                             usernameSuffix: newSuffix,
                             username: `${newDisplayName}-${newSuffix}`,
                             usernameLocked: true
-                        });
-                    });
+                        }, { merge: true });
+                    } catch (profileError) {
+                        await deleteDoc(suffixRef).catch(() => {});
+                        throw profileError;
+                    }
+
+                    if (currentSuffixRef && currentSuffix !== newSuffix) {
+                        await deleteDoc(currentSuffixRef).catch(() => {});
+                    }
 
                     this.playerProfile.displayName = newDisplayName;
                     this.playerProfile.usernameSuffix = newSuffix;
@@ -948,7 +954,7 @@
                     if (e.message === 'id_taken') {
                         alert('そのIDは既に使われています');
                     } else {
-                        alert('名前/idの変更に失敗しました');
+                        alert(`名前/idの変更に失敗しました: ${e?.message || e}`);
                     }
                 }
             }
