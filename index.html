@@ -128,12 +128,15 @@
         }
         .ui-button:hover { filter: brightness(1.08); }
         .ui-link-button {
-            background: rgba(63, 63, 70, 0.45);
-            border-color: #3f3f46;
-            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.18);
-            color: rgba(255, 255, 255, 0.78);
+            background: transparent;
+            border-color: transparent;
+            box-shadow: none;
+            color: rgba(255, 255, 255, 0.58);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            font-weight: 600;
         }
-        .ui-link-button:hover { background: rgba(63, 63, 70, 0.6); }
+        .ui-link-button:hover { color: rgba(255, 255, 255, 0.82); }
         .btn-main { background-color: #3b82f6; color: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.2rem; width: 100%; max-width: 300px; }
         .btn-main:hover { transform: scale(1.05); background-color: #2563eb; }
         .btn-sub { background-color: #10b981; color: white; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; max-width: 300px; }
@@ -166,7 +169,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a7</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a8</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -204,7 +207,7 @@
             </div>
             <p class="text-xs opacity-60 mb-6 text-center w-full max-w-[300px]" data-i18n="cpuNote">※ 先手(白)・後手(黒)はランダムに決定されます。後手の場合は盤面が反転し黒が下になります。<br>※ 对局中、プレイヤーの動きに合わせてレベルが自動調整されます。</p>
             <button class="btn-sub ui-button mb-4 !bg-blue-600" onclick="game.showTimeSelection('cpu', document.getElementById('level-slider').value)" data-i18n="nextToTime">時間設定へ進む</button>
-            <button class="ui-button ui-link-button text-sm py-2" onclick="game.showModeSelection()" data-i18n="back">戻る</button>
+            <button class="ui-link-button text-sm py-2" onclick="game.showModeSelection()" data-i18n="back">戻る</button>
         </div>
 
         <div id="online-config" class="w-full flex flex-col items-center" style="display: none;">
@@ -220,7 +223,7 @@
                 <button class="btn-sub ui-button !bg-orange-500" onclick="game.joinOnlineRoom()" data-i18n="joinRoom">部屋に入る</button>
                 <div class="my-2 opacity-50 border-b border-zinc-600 w-full text-center h-0 leading-0"><span class="bg-[#1a1a1a] px-2 text-xs" data-i18n="or">または</span></div>
                 <button class="btn-sub ui-button !bg-purple-600" onclick="game.showOnlineTimeSelection()" data-i18n="createRoom">部屋を作る</button>
-                <button class="ui-button ui-link-button mt-4 text-sm py-2" onclick="game.showModeSelection()" data-i18n="back">戻る</button>
+                <button class="ui-link-button mt-4 text-sm py-2" onclick="game.showModeSelection()" data-i18n="back">戻る</button>
             </div>
         </div>
 
