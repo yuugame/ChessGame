@@ -3247,6 +3247,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             toggleAssistMode(checked) {
                 this.sfx.buttonClick();
                 this.isAssistMode = checked;
+                const assistToggle = document.getElementById('assist-mode-toggle');
+                if (assistToggle && assistToggle.checked !== checked) {
+                    assistToggle.checked = checked;
+                }
                 if (this.isAssistMode) {
                     this.updateAssistMoves();
                 } else {
