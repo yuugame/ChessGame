@@ -153,7 +153,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a1</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -368,7 +368,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -388,7 +388,7 @@
                 undoMove: "1手戻る", rematch: "もう一回やる", exit: "終了", assistMode: "アシストモード (最善手候補を表示)", anonymous: "匿名プレイヤー",
                 whiteTurn: "白の番です", blackTurn: "黒の番です", yourTurn: "あなたの番です", opponentTurn: "相手の番です", checkmate: "チェックメイト！",
                 timeout: "時間切れ！", winSuffix: "の勝ち", youWin: "あなたの勝ち！ 🎉", youLose: "あなたの負け...", checkWarning: "⚠️ チェック！ ",
-                waitingOpponentAck: "受信待機中...", rematchPrep: "再戦の準備中...", rematchFailed: "再戦の準備に失敗しました",
+                waitingOpponentAck: "受信待機中...", waitingCommunication: "通信待機中...", rematchPrep: "再戦の準備中...", rematchFailed: "再戦の準備に失敗しました",
                 error: "エラー", commError: "通信エラー", cannotJoinTitle: "部屋に入れません", cannotJoinMsg: "この合言葉の部屋は既に対戦中か、過去の対戦データが残っています。\n\n再戦する場合は、どちらかが「部屋を作る」を押して部屋を新しく上書きしてください。",
                 disconnectTitle: "切断", disconnectMsg: "対戦相手が退出したか部屋が削除されました。", abandonTitle: "終了", abandonMsg: " が退出しました。",
                 opponentDisconnectedMsg: "対戦相手の通信が切断されました", inputRoomWordMsg: "合言葉を入力してください", firebaseErrorMsg: "Firebaseの設定が見つかりません。",
@@ -419,7 +419,7 @@
                 undoMove: "Undo", rematch: "Rematch", exit: "Exit", assistMode: "Assist Mode (Show hints)", anonymous: "Anonymous",
                 whiteTurn: "White's turn", blackTurn: "Black's turn", yourTurn: "Your turn", opponentTurn: "Opponent's turn", checkmate: "Checkmate!",
                 timeout: "Time Out!", winSuffix: " wins", youWin: "You Win! 🎉", youLose: "You Lose...", checkWarning: "⚠️ Check! ",
-                waitingOpponentAck: "Waiting...", rematchPrep: "Preparing rematch...", rematchFailed: "Failed to prepare rematch",
+                waitingOpponentAck: "Waiting...", waitingCommunication: "Waiting for communication...", rematchPrep: "Preparing rematch...", rematchFailed: "Failed to prepare rematch",
                 error: "Error", commError: "Connection Error", cannotJoinTitle: "Cannot Join", cannotJoinMsg: "Room is in play or has old data.\n\nTo rematch, please 'Create' to overwrite.",
                 disconnectTitle: "Disconnected", disconnectMsg: "Opponent left or room was deleted.", abandonTitle: "Ended", abandonMsg: " left the room.",
                 opponentDisconnectedMsg: "Opponent disconnected", inputRoomWordMsg: "Please enter a room word.", firebaseErrorMsg: "Firebase config not found.",
@@ -450,7 +450,7 @@
                 undoMove: "悔棋", rematch: "再来一局", exit: "退出", assistMode: "辅助模式 (显示提示)", anonymous: "匿名玩家",
                 whiteTurn: "白方回合", blackTurn: "黑方回合", yourTurn: "你的回合", opponentTurn: "对手回合", checkmate: "将死！",
                 timeout: "超时！", winSuffix: " 获胜", youWin: "你赢了！ 🎉", youLose: "你输了...", checkWarning: "⚠️ 将军！ ",
-                waitingOpponentAck: "等待响应...", rematchPrep: "正在准备重賽...", rematchFailed: "准备重赛失败",
+                waitingOpponentAck: "等待响应...", waitingCommunication: "等待通信中...", rematchPrep: "正在准备重賽...", rematchFailed: "准备重赛失败",
                 error: "错误", commError: "通信错误", cannotJoinTitle: "无法加入", cannotJoinMsg: "该房间正在对战中或存有旧数据。\n\n如需重赛，请点击“创建房间”以覆盖原房间。",
                 disconnectTitle: "连接断开", disconnectMsg: "对手已离开或房间被删除。", abandonTitle: "游戏结束", abandonMsg: " 离开了房间。",
                 opponentDisconnectedMsg: "对手的连接已断開", inputRoomWordMsg: "请输入房间口令", firebaseErrorMsg: "未找到Firebase配置。",
@@ -666,6 +666,7 @@
                 this.turnStartTime = 0;
                 this.baseTimers = { white: 0, black: 0 };
                 this.initialTimeSec = 600;
+                this.baseAiElo = 250;
 
                 this.board = [];
                 this.turn = 'white';
@@ -1022,6 +1023,7 @@
                 this.aiElo = oldElo;
                 this.aiLevel = Math.max(1, Math.min(50, Math.round((oldElo - 250) / 45.9) + 1));
                 this.baseAiLevel = this.aiLevel;
+                this.baseAiElo = oldElo;
                 
                 // ランクマッチは 10分 + 5秒固定 の真剣勝負
                 this.initialTimeSec = 600; 
@@ -1080,6 +1082,7 @@
                     aiLevel: this.aiLevel,
                     aiElo: this.aiElo,
                     baseAiLevel: this.baseAiLevel,
+                    baseAiElo: this.baseAiElo,
                     increment: this.increment,
                     useTimer: this.useTimer,
                     isAssistMode: this.isAssistMode,
@@ -1113,6 +1116,7 @@
                     this.aiLevel = state.aiLevel;
                     this.aiElo = state.aiElo || 250;
                     this.baseAiLevel = state.baseAiLevel || state.aiLevel;
+                    this.baseAiElo = state.baseAiElo || (this.baseAiLevel ? 250 + (this.baseAiLevel - 1) * 45 : this.aiElo || 250);
                     this.increment = state.increment;
                     this.useTimer = state.useTimer;
                     this.isAssistMode = state.isAssistMode;
@@ -1521,9 +1525,10 @@
                 const modeDisplay = document.getElementById('mode-display');
 
                 if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
+                    const baseCpuElo = this.baseAiElo ?? (this.baseAiLevel ? 250 + (this.baseAiLevel - 1) * 45 : this.aiElo || 250);
                     if (bottomLabel) bottomLabel.innerText = `${window.t('you')}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
                     if (topLabel) topLabel.innerText = `${window.t('cpuName')} (${window.t('cpuEloLabel')}: ${this.aiElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
-                    if (modeDisplay) modeDisplay.innerText = this.gameMode === 'cpu_ranked' ? `${window.t('rankedMatch')} (Rate: ${this.playerProfile?.elo || 250})` : `${window.t('vsCpu')} ELO ${this.baseAiElo}`;
+                    if (modeDisplay) modeDisplay.innerText = this.gameMode === 'cpu_ranked' ? `${window.t('rankedMatch')} (Rate: ${this.playerProfile?.elo || 250})` : `${window.t('vsCpu')} ELO ${baseCpuElo}`;
                 } else if (this.gameMode === 'pvp') {
                     if (bottomLabel) bottomLabel.innerText = `${window.t('p1White')}`;
                     if (topLabel) topLabel.innerText = `${window.t('p2Black')}`;
@@ -2602,6 +2607,7 @@
                 this.aiLevel = this.tempLevel;
                 this.baseAiLevel = this.tempLevel; // 初期レベルを保存
                 this.aiElo = 250 + (this.aiLevel - 1) * 45; // レート表示用にマッピング
+                this.baseAiElo = this.aiElo;
                 
                 this.initialTimeSec = seconds;
                 this.timers = { white: seconds, black: seconds };
