@@ -1584,7 +1584,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
 
-                if (overlayId && activeTag === 'SELECT' && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                if (overlayId === 'time-selection' && activeTag === 'SELECT' && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                    e.preventDefault();
+                    this.focusNextOverlayElement((key === 'ArrowUp' || key === 'ArrowLeft') ? -1 : 1);
                     return;
                 }
 
@@ -1680,7 +1682,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         return;
                     }
                     if (key === 'Enter' || key === ' ') {
-                        if (activeTag === 'SELECT') {
+                        if (activeTag === 'SELECT' && overlayId === 'time-selection') {
+                            e.preventDefault();
+                            if (typeof activeElement.showPicker === 'function') {
+                                activeElement.showPicker();
+                            } else {
+                                activeElement.click();
+                            }
                             return;
                         }
                         if (activeType === 'range' && overlayId === 'time-selection') {
