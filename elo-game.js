@@ -1569,6 +1569,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             handleKeyboardInput(e) {
                 const overlayId = this.getVisibleOverlayId();
                 const key = e.key;
+                const activeElement = document.activeElement;
+                const activeTag = activeElement?.tagName;
+                const activeType = (activeElement?.getAttribute && activeElement.getAttribute('type')) ? activeElement.getAttribute('type').toLowerCase() : '';
 
                 if (this.keyboardEditElement && document.activeElement === this.keyboardEditElement) {
                     if (key === 'Escape') {
@@ -1578,6 +1581,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         e.preventDefault();
                         this.endKeyboardEdit(false);
                     }
+                    return;
+                }
+
+                if (overlayId && activeTag === 'SELECT' && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                    return;
+                }
+
+                if (overlayId && activeType === 'range' && (key === 'ArrowLeft' || key === 'ArrowRight')) {
                     return;
                 }
 
@@ -1669,16 +1680,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         return;
                     }
                     if (key === 'Enter' || key === ' ') {
+                        if (activeTag === 'SELECT') {
+                            return;
+                        }
+                        if (activeType === 'range' && overlayId === 'time-selection') {
+                            e.preventDefault();
+                            this.focusNextOverlayElement(1);
+                            return;
+                        }
                         e.preventDefault();
-                        const activeElement = document.activeElement;
-                        const activeTag = activeElement?.tagName;
-                        const activeType = (activeElement?.getAttribute && activeElement.getAttribute('type')) ? activeElement.getAttribute('type').toLowerCase() : '';
                         if (key === 'Enter' && this.isEditableTextField(activeElement)) {
                             this.beginKeyboardEdit(activeElement);
-                        } else if (key === 'Enter' && (activeTag === 'SELECT' || activeType === 'range')) {
-                            this.beginKeyboardEdit(activeElement);
-                        } else if (key === ' ' && (activeTag === 'SELECT' || activeType === 'range')) {
-                            this.beginKeyboardEdit(document.activeElement);
                         } else {
                             this.activateFocusedElement();
                         }
