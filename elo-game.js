@@ -353,6 +353,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.enPassantTarget = null;
                 this.isAssistMode = false;
                 this.assistMoves = [];
+                this.validMoves = [];
                 this.inCheckPos = null;
                 this.firstMoveDone = { white: false, black: false };
                 
@@ -362,6 +363,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.isOpponentDisconnected = false;
                 this.opponentDisconnectedAt = null;
                 this.lastPersistentSaveAt = 0;
+                this.boardCursor = { x: 0, y: 0 };
 
                 this.needsRender = true;
                 
@@ -582,7 +584,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 if (idInput) idInput.value = identity.suffix || '';
                 this.hideAllOverlays();
                 const modal = document.getElementById('identity-modal');
-                if (modal) modal.style.display = 'flex';
+                if (modal) {
+                    modal.style.display = 'flex';
+                    setTimeout(() => nameInput?.focus(), 0);
+                }
             }
 
             closeIdentityModal() {
@@ -905,6 +910,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.history = state.history || [];
                     this.lastMove = state.lastMove || null;
                     this.initialTimeSec = state.initialTimeSec || 600;
+                    this.boardCursor = this.lastMove ? { x: this.lastMove.to.x, y: this.lastMove.to.y } : (this.playerColor === 'black' ? { x: 7, y: 7 } : { x: 0, y: 0 });
                     
                     this.isGameOver = false;
                     this.initialized = true;
@@ -1305,11 +1311,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
                 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
                 const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-                const p = move.piece ? move.piece.toUpperCase() : '';
                 const toStr = files[move.to.x] + ranks[move.to.y];
+                const isPawn = move.piece && move.piece.toUpperCase() === 'P';
+                const p = !isPawn ? (move.piece ? move.piece.toUpperCase() : '') : '';
+                const capturePrefix = isPawn && move.isCapture ? files[move.from.x] : '';
                 const sep = move.isCapture ? 'x' : '';
                 const promo = move.promotion ? '=' + move.promotion.toUpperCase() : '';
-                return p + sep + toStr + promo + suffix;
+                return p + capturePrefix + sep + toStr + promo + suffix;
             }
 
             updateMoveCountDisplay() {
@@ -1408,6 +1416,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             setupListeners() {
+                const promotionPieces = document.querySelectorAll('#promotion-modal [onclick*="selectPromotion"]');
+                promotionPieces.forEach((el, index) => {
+                    if (el && !el.hasAttribute('tabindex')) {
+                        el.setAttribute('tabindex', '0');
+                    }
+                    if (el && !el.dataset.keyboardIndex) {
+                        el.dataset.keyboardIndex = String(index);
+                    }
+                });
+
                 const getPointerPos = (e) => {
                     const rect = this.canvas.getBoundingClientRect();
                     const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
@@ -1460,6 +1478,257 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 
                 window.addEventListener('mouseup', onUp);
                 window.addEventListener('touchend', onUp, { passive: false });
+
+                window.addEventListener('keydown', (e) => this.handleKeyboardInput(e));
+            }
+
+            isTextEntryElement(element) {
+                if (!element) return false;
+                const tag = element.tagName;
+                return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable;
+            }
+
+            isOverlayVisible(id) {
+                const el = document.getElementById(id);
+                return !!el && el.style.display !== 'none';
+            }
+
+            getVisibleOverlayId() {
+                const overlays = ['confirm-modal', 'promotion-modal', 'identity-modal', 'waiting-room', 'time-selection', 'online-config', 'cpu-config', 'mode-selection'];
+                return overlays.find(id => this.isOverlayVisible(id)) || null;
+            }
+
+            getFocusableElements(container) {
+                if (!container) return [];
+                return Array.from(container.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'))
+                    .filter(el => !el.disabled && el.offsetParent !== null);
+            }
+
+            focusNextOverlayElement(direction = 1) {
+                const overlayId = this.getVisibleOverlayId();
+                if (!overlayId) return false;
+                const overlay = document.getElementById(overlayId);
+                const focusables = this.getFocusableElements(overlay);
+                if (focusables.length === 0) return false;
+
+                const currentIndex = focusables.indexOf(document.activeElement);
+                const nextIndex = currentIndex >= 0 ? (currentIndex + direction + focusables.length) % focusables.length : (direction > 0 ? 0 : focusables.length - 1);
+                focusables[nextIndex].focus();
+                return true;
+            }
+
+            focusFirstOverlayElement(overlayId) {
+                const overlay = document.getElementById(overlayId);
+                if (!overlay) return false;
+                const focusables = this.getFocusableElements(overlay);
+                if (focusables.length === 0) return false;
+                focusables[0].focus();
+                return true;
+            }
+
+            activateFocusedElement() {
+                const active = document.activeElement;
+                if (!active) return false;
+                if (typeof active.click === 'function') {
+                    active.click();
+                    return true;
+                }
+                return false;
+            }
+
+            handleKeyboardInput(e) {
+                const overlayId = this.getVisibleOverlayId();
+                const key = e.key;
+
+                if (this.isTextEntryElement(document.activeElement) && key !== 'Escape' && key !== 'Enter') {
+                    return;
+                }
+
+                if (e.repeat && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                    return;
+                }
+
+                if (overlayId === 'confirm-modal') {
+                    if (key === 'Escape') {
+                        e.preventDefault();
+                        this.hideConfirm();
+                        return;
+                    }
+                    if (key === 'Enter' || key === ' ') {
+                        e.preventDefault();
+                        const yesBtn = document.getElementById('confirm-yes');
+                        if (yesBtn) yesBtn.click();
+                        return;
+                    }
+                    return;
+                }
+
+                if (overlayId === 'promotion-modal') {
+                    const choices = Array.from(document.querySelectorAll('#promotion-modal [onclick*="selectPromotion"]'));
+                    if (choices.length) {
+                        const focusedIndex = Math.max(0, choices.indexOf(document.activeElement));
+                        const moveFocus = (step) => {
+                            const next = choices[(focusedIndex + step + choices.length) % choices.length];
+                            if (next) next.focus();
+                        };
+                        if (key === 'ArrowRight' || key === 'ArrowDown') {
+                            e.preventDefault();
+                            moveFocus(1);
+                            return;
+                        }
+                        if (key === 'ArrowLeft' || key === 'ArrowUp') {
+                            e.preventDefault();
+                            moveFocus(-1);
+                            return;
+                        }
+                        if (key === 'Escape') {
+                            e.preventDefault();
+                            choices[0]?.click();
+                            return;
+                        }
+                        if (key === 'Enter' || key === ' ') {
+                            e.preventDefault();
+                            if (document.activeElement && choices.includes(document.activeElement)) {
+                                document.activeElement.click();
+                            } else {
+                                choices[0]?.click();
+                            }
+                            return;
+                        }
+                    }
+                    return;
+                }
+
+                if (overlayId) {
+                    if (key === 'Escape') {
+                        e.preventDefault();
+                        if (overlayId === 'identity-modal') this.closeIdentityModal();
+                        else if (overlayId === 'waiting-room') this.cancelOnlineRoom();
+                        else if (overlayId !== 'mode-selection') this.showModeSelection();
+                        return;
+                    }
+                    if (key === 'ArrowDown' || key === 'ArrowRight') {
+                        e.preventDefault();
+                        this.focusNextOverlayElement(1);
+                        return;
+                    }
+                    if (key === 'ArrowUp' || key === 'ArrowLeft') {
+                        e.preventDefault();
+                        this.focusNextOverlayElement(-1);
+                        return;
+                    }
+                    if (key === 'Enter' || key === ' ') {
+                        e.preventDefault();
+                        this.activateFocusedElement();
+                        return;
+                    }
+                    return;
+                }
+
+                if (!this.initialized || this.isGameOver || this.animatingPiece) {
+                    return;
+                }
+
+                const boardKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Escape'];
+                const shortcutKeys = (e.ctrlKey || e.altKey) && (key.toLowerCase() === 'z' || key.toLowerCase() === 'a');
+                if (!boardKeys.includes(key) && !shortcutKeys) {
+                    return;
+                }
+
+                if (shortcutKeys) {
+                    e.preventDefault();
+                    if (e.ctrlKey && key.toLowerCase() === 'z') {
+                        this.confirmUndo();
+                        return;
+                    }
+                    if (e.altKey && key.toLowerCase() === 'a') {
+                        if (document.getElementById('assist-mode-container')?.style.display !== 'none') {
+                            this.toggleAssistMode(!this.isAssistMode);
+                        }
+                        return;
+                    }
+                }
+
+                if ((this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked' || this.gameMode === 'online') && this.turn !== this.playerColor) {
+                    return;
+                }
+
+                if (key === 'Escape') {
+                    e.preventDefault();
+                    if (this.selected) {
+                        this.selected = null;
+                        this.validMoves = [];
+                        this.needsRender = true;
+                    } else {
+                        this.confirmExit();
+                    }
+                    return;
+                }
+
+                if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+                    e.preventDefault();
+                    this.moveBoardCursor(key);
+                    return;
+                }
+
+                if (key === 'Enter' || key === ' ') {
+                    e.preventDefault();
+                    this.activateBoardCursor();
+                }
+            }
+
+            moveBoardCursor(key) {
+                if (!this.boardCursor) {
+                    this.boardCursor = { x: 0, y: 0 };
+                }
+
+                const reversed = this.playerColor === 'black';
+                const deltaMap = reversed ? {
+                    ArrowUp: { x: 0, y: 1 },
+                    ArrowDown: { x: 0, y: -1 },
+                    ArrowLeft: { x: 1, y: 0 },
+                    ArrowRight: { x: -1, y: 0 }
+                } : {
+                    ArrowUp: { x: 0, y: -1 },
+                    ArrowDown: { x: 0, y: 1 },
+                    ArrowLeft: { x: -1, y: 0 },
+                    ArrowRight: { x: 1, y: 0 }
+                };
+
+                const delta = deltaMap[key];
+                if (!delta) return;
+
+                const nextX = Math.max(0, Math.min(7, this.boardCursor.x + delta.x));
+                const nextY = Math.max(0, Math.min(7, this.boardCursor.y + delta.y));
+                this.boardCursor = { x: nextX, y: nextY };
+                this.needsRender = true;
+            }
+
+            activateBoardCursor() {
+                if (!this.boardCursor) return;
+                const { x, y } = this.boardCursor;
+                const piece = this.board[y]?.[x];
+
+                if (this.selected) {
+                    const move = this.validMoves?.find(m => m.to.x === x && m.to.y === y);
+                    if (move) {
+                        this.startMove(move);
+                        return;
+                    }
+                }
+
+                if (piece && (this.turn === 'white' ? piece === piece.toUpperCase() : piece === piece.toLowerCase())) {
+                    this.selected = { x, y };
+                    this.validMoves = this.getMoves(x, y, this.board);
+                    this.boardCursor = { x, y };
+                    this.sfx.pieceSelect();
+                    this.needsRender = true;
+                    return;
+                }
+
+                this.selected = null;
+                this.validMoves = [];
+                this.needsRender = true;
             }
 
             handlePointerDown(rawX, rawY, width) {
@@ -1485,6 +1754,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.selected = { x, y };
                     this.validMoves = this.getMoves(x, y, this.board);
                     this.sfx.pieceSelect(); 
+                    this.boardCursor = { x, y };
                     
                     this.draggingPiece = {
                         piece: p,
@@ -1525,6 +1795,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     }
                 }
                 
+                this.boardCursor = { x: pieceX, y: pieceY };
                 this.needsRender = true;
             }
 
@@ -1565,12 +1836,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.clearActiveStyles();
                 document.getElementById('game-status').innerText = window.t('statusReady');
                 this.updateProfileUI(); // モード選択画面に戻るたびにプロフィールUIを更新
+                setTimeout(() => this.focusFirstOverlayElement('mode-selection'), 0);
             }
 
             showCpuConfig() {
                 this.sfx.buttonClick();
                 this.hideAllOverlays();
                 document.getElementById('cpu-config').style.display = 'flex';
+                setTimeout(() => this.focusFirstOverlayElement('cpu-config'), 0);
             }
 
             showOnlineConfig() {
@@ -1584,6 +1857,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.hideAllOverlays();
                 this.updateProfileUI();
                 document.getElementById('online-config').style.display = 'flex';
+                setTimeout(() => this.focusFirstOverlayElement('online-config'), 0);
             }
 
             generateRandomDisplayName() {
@@ -1613,6 +1887,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.tempMode = 'online';
                 document.getElementById('online-turn-config').style.display = 'flex';
                 document.getElementById('time-selection').style.display = 'flex';
+                setTimeout(() => this.focusFirstOverlayElement('time-selection'), 0);
             }
 
             showTimeSelection(mode, level = 250) {
@@ -1628,6 +1903,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
                 
                 document.getElementById('time-selection').style.display = 'flex';
+                setTimeout(() => this.focusFirstOverlayElement('time-selection'), 0);
             }
 
             hideAllOverlays() {
@@ -1707,6 +1983,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     noBtn.style.display = 'block';
                     noBtn.innerText = window.t('no');
                 }
+                setTimeout(() => yesBtn?.focus(), 0);
             }
 
             hideConfirm() {
@@ -2501,6 +2778,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.isAssistModeThinking = false;
                 this.tempAssistMoves = [];
                 this.kingHasBeenInCheck = { white: false, black: false };
+                this.validMoves = [];
             }
 
             initGame() {
@@ -2518,6 +2796,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 };
                 this.turn = 'white';
                 this.initGameLocalVariables();
+                this.boardCursor = this.playerColor === 'black' ? { x: 7, y: 7 } : { x: 0, y: 0 };
                 
                 this.positionHistory.push(this.getPositionString());
                 
@@ -2780,6 +3059,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.animatingPiece.promotion = move.promotion;
                 }
                 this.board[move.from.y][move.from.x] = null;
+                this.boardCursor = { x: move.to.x, y: move.to.y };
                 this.selected = null;
                 this.draggingPiece = null;
                 this.needsRender = true;
@@ -2865,7 +3145,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         this.needsRender = true;
                     } else {
                         this.pendingPromotion = move;
-                        document.getElementById('promotion-modal').style.display = 'flex';
+                        const promotionModal = document.getElementById('promotion-modal');
+                        if (promotionModal) {
+                            promotionModal.style.display = 'flex';
+                            const firstChoice = promotionModal.querySelector('[onclick*="selectPromotion"]');
+                            if (firstChoice) firstChoice.focus();
+                        }
                         this.needsRender = true;
                     }
                 } else { 
@@ -3708,6 +3993,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     if (this.inCheckPos && this.inCheckPos.x === x && this.inCheckPos.y === y) {
                         this.ctx.fillStyle = 'rgba(255, 50, 50, 0.7)';
                         this.ctx.fillRect(sx*CELL, sy*CELL, CELL, CELL);
+                    }
+
+                    if (this.boardCursor && this.boardCursor.x === x && this.boardCursor.y === y) {
+                        this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.95)';
+                        this.ctx.lineWidth = 4;
+                        this.ctx.strokeRect(sx*CELL + 2, sy*CELL + 2, CELL - 4, CELL - 4);
                     }
                 }
 
