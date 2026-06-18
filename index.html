@@ -928,11 +928,12 @@
                             }
                         }
                         tx.set(profileRef, {
+                            ...this.playerProfile,
                             displayName: newDisplayName,
                             usernameSuffix: newSuffix,
                             username: `${newDisplayName}-${newSuffix}`,
                             usernameLocked: true
-                        }, { merge: true });
+                        });
                     });
 
                     this.playerProfile.displayName = newDisplayName;
