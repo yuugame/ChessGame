@@ -199,7 +199,8 @@
             <div class="flex flex-col gap-4 w-full max-w-[300px] items-center">
                 <div id="online-username-section" class="w-full bg-zinc-800 p-3 rounded-lg border border-zinc-700 text-center mb-2">
                     <div class="text-xs opacity-70 mb-2">ユーザーネーム</div>
-                    <div id="online-display-username" class="text-base font-black mb-3 text-amber-400 tracking-wide">---</div>
+                    <div id="online-display-name" class="text-base font-black text-amber-400 tracking-wide">---</div>
+                    <div id="online-display-id" class="text-xs opacity-70 mb-3 font-mono">ID: ---</div>
                     <button id="online-edit-btn" class="btn-sub !bg-blue-600 w-full" onclick="game.changeOnlineIdentity()">名前/idの変更</button>
                 </div>
                 <input type="text" id="room-id-input" data-i18n="roomWordPlaceholder" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl">
@@ -347,7 +348,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -756,6 +757,21 @@
                     
                 } catch(e) { console.error(e); }
             }
+
+            getProfileIdentity() {
+                const username = this.playerProfile?.username || "";
+                const fallbackName = this.playerProfile?.displayName || "Player";
+                const fallbackSuffix = this.playerProfile?.usernameSuffix || "";
+
+                if (!username) {
+                    return { displayName: fallbackName, suffix: fallbackSuffix, full: fallbackSuffix ? `${fallbackName}-${fallbackSuffix}` : fallbackName };
+                }
+
+                const parts = username.split("-");
+                const displayName = this.playerProfile?.displayName || parts[0] || fallbackName;
+                const suffix = this.playerProfile?.usernameSuffix || parts.slice(1).join("-") || fallbackSuffix;
+                return { displayName, suffix, full: suffix ? `${displayName}-${suffix}` : displayName };
+            }
             
             updateProfileUI() {
                 const section = document.getElementById('profile-section');
@@ -764,21 +780,22 @@
                 if (this.playerProfile && section && eloDisplay) {
                     section.style.display = 'block';
                     eloDisplay.innerText = this.playerProfile.elo;
-                    const displayName = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : '');
-                    const suffix = this.playerProfile.usernameSuffix || (this.playerProfile.username ? this.playerProfile.username.split('-').slice(1).join('-') : '');
-                    if (nameDisplay) nameDisplay.innerText = suffix ? `${displayName}-${suffix}` : displayName;
+                    const identity = this.getProfileIdentity();
+                    if (nameDisplay) nameDisplay.innerText = identity.full;
                 } else if (section) {
                     section.style.display = 'none';
                 }
                 
                 // オンライン設定画面の username も更新
-                const onlineNameDisplay = document.getElementById('online-display-username');
-                if (onlineNameDisplay && this.playerProfile) {
-                    const displayName = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : '');
-                    const suffix = this.playerProfile.usernameSuffix || (this.playerProfile.username ? this.playerProfile.username.split('-').slice(1).join('-') : '');
-                    onlineNameDisplay.innerText = suffix ? `${displayName}-${suffix}` : displayName;
-                } else if (onlineNameDisplay) {
-                    onlineNameDisplay.innerText = '---';
+                const onlineNameDisplay = document.getElementById('online-display-name');
+                const onlineIdDisplay = document.getElementById('online-display-id');
+                if (this.playerProfile) {
+                    const identity = this.getProfileIdentity();
+                    if (onlineNameDisplay) onlineNameDisplay.innerText = identity.displayName;
+                    if (onlineIdDisplay) onlineIdDisplay.innerText = `ID: ${identity.suffix || '---'}`;
+                } else {
+                    if (onlineNameDisplay) onlineNameDisplay.innerText = '---';
+                    if (onlineIdDisplay) onlineIdDisplay.innerText = 'ID: ---';
                 }
             }
 
@@ -818,7 +835,7 @@
             async regenerateSuffix() {
                 if (!this.isLoggedIn || !this.userId || !this.playerProfile) return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
                 const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
-                const display = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : 'Player');
+                const display = this.getProfileIdentity().displayName || 'Player';
                 const oldFull = this.playerProfile.username || `${display}-${this.playerProfile.usernameSuffix || ''}`;
                 const oldNameRef = doc(db, 'artifacts', appId, 'usernames', oldFull);
                 let attempts = 0;
@@ -839,6 +856,7 @@
                         this.playerProfile.username = newFull;
                         this.playerProfile.usernameSuffix = newSuffix;
                         this.playerProfile.usernameLocked = true;
+                        this.playerName = newFull;
                         this.updateProfileUI();
                         alert('IDを再生成しました: ' + newFull);
                         return;
@@ -1414,24 +1432,35 @@
                     if (topLabel) topLabel.innerText = `${window.t('p2Black')}`;
                     if (modeDisplay) modeDisplay.innerText = window.t('offlinePvp');
                 } else if (this.gameMode === 'online') {
-                    let myName = window.t('you');
+                    const formatIdentity = (value, fallbackName) => {
+                        const raw = value || '';
+                        if (!raw) return { name: fallbackName, suffix: '' };
+                        const parts = raw.split('-');
+                        return {
+                            name: parts[0] || fallbackName,
+                            suffix: parts.slice(1).join('-')
+                        };
+                    };
+
+                    const myIdentity = this.getProfileIdentity();
                     let opponentName = window.t('anonymous');
+                    let opponentIdentity = { name: opponentName, suffix: '' };
                     let myElo = this.playerProfile?.elo || 250;
                     let opponentElo = "---";
 
                     if (this.currentRoomData) {
                         if (this.currentRoomData.host === this.userId) {
-                            myName = this.currentRoomData.hostName || window.t('you');
                             opponentName = this.currentRoomData.guestName || window.t('anonymous');
+                            opponentIdentity = formatIdentity(opponentName, window.t('anonymous'));
                             opponentElo = this.currentRoomData.guestElo || "---";
                         } else {
-                            myName = this.currentRoomData.guestName || window.t('you');
                             opponentName = this.currentRoomData.hostName || window.t('anonymous');
+                            opponentIdentity = formatIdentity(opponentName, window.t('anonymous'));
                             opponentElo = this.currentRoomData.hostElo || "---";
                         }
                     }
-                    if (bottomLabel) bottomLabel.innerText = `${myName} (ELO ${myElo})${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
-                    if (topLabel) topLabel.innerText = `${opponentName} (ELO ${opponentElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (bottomLabel) bottomLabel.innerText = `${myIdentity.displayName}${myIdentity.suffix ? ` (ID: ${myIdentity.suffix})` : ''} (ELO ${myElo})${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
+                    if (topLabel) topLabel.innerText = `${opponentIdentity.name}${opponentIdentity.suffix ? ` (ID: ${opponentIdentity.suffix})` : ''} (ELO ${opponentElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
                     if (modeDisplay) modeDisplay.innerText = `${window.t('onlinePvp')} [${this.roomId}]`;
                 }
             }
@@ -1639,58 +1668,72 @@
                 document.getElementById('online-config').style.display = 'flex';
             }
 
+            generateRandomDisplayName() {
+                const namePools = {
+                    ja: ['Sakura', 'Yuki', 'Haru', 'Mikan', 'Kumo', 'Aoi', 'Rin', 'Kai', 'Momo', 'Nagi'],
+                    en: ['Nova', 'Orion', 'Milo', 'Echo', 'Luna', 'Pixel', 'Neo', 'Aria', 'Zephyr', 'Ridge'],
+                    zh: ['Ming', 'Ling', 'Lan', 'Jin', 'Yue', 'Lei', 'Shan', 'Qing', 'Xiao', 'Chen']
+                };
+                const pool = namePools[window.currentLang] || namePools.en;
+                return pool[Math.floor(Math.random() * pool.length)];
+            }
+
             async changeOnlineIdentity() {
                 if (!this.isLoggedIn || !this.userId || !this.playerProfile) {
                     return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
                 }
 
-                const currentName = this.playerProfile.displayName || (this.playerProfile.username ? this.playerProfile.username.split('-')[0] : 'Player');
-                const currentSuffix = this.playerProfile.usernameSuffix || (this.playerProfile.username ? this.playerProfile.username.split('-').slice(1).join('-') : '');
-                let newName = prompt(window.t('playerNamePlaceholder') || 'Enter name', currentName);
-                if (newName === null) return;
-
-                newName = newName.trim().replace(/-/g, '');
-                if (newName.length === 0) return alert('無効な名前です');
-
-                const shouldRegenerate = confirm('IDも再生成しますか？');
-                if (shouldRegenerate) {
-                    this.playerProfile.displayName = newName;
-                    await this.regenerateSuffix();
-                    return;
-                }
-
                 const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
-                const suffix = currentSuffix || this.generateUsernameSuffix(5);
-                const oldFull = this.playerProfile.username || `${currentName}-${suffix}`;
-                const newFull = `${newName}-${suffix}`;
-                const newNameRef = doc(db, 'artifacts', appId, 'usernames', newFull);
+                const oldFull = this.playerProfile.username || `${this.getProfileIdentity().displayName || 'Player'}-${this.playerProfile.usernameSuffix || ''}`;
                 const oldNameRef = doc(db, 'artifacts', appId, 'usernames', oldFull);
+                let attempts = 0;
 
-                try {
-                    await runTransaction(db, async (tx) => {
-                        const newSnap = await tx.get(newNameRef);
-                        if (newSnap.exists() && newSnap.data().uid !== this.userId) throw new Error('taken');
-                        tx.set(newNameRef, { uid: this.userId });
-                        const oldSnap = await tx.get(oldNameRef);
-                        if (oldSnap.exists() && oldSnap.data().uid === this.userId) tx.delete(oldNameRef);
-                        tx.update(profileRef, { displayName: newName, username: newFull });
-                    });
-                    this.playerProfile.displayName = newName;
-                    this.playerProfile.username = newFull;
-                    this.updateProfileUI();
-                } catch (e) {
-                    console.error(e);
-                    if (e.message === 'taken') alert('そのユーザー名は既に使われています');
-                    else alert('名前の変更に失敗しました');
+                while (attempts < 30) {
+                    attempts++;
+                    const newDisplayName = this.generateRandomDisplayName();
+                    const newSuffix = this.generateUsernameSuffix(5);
+                    const newFull = `${newDisplayName}-${newSuffix}`;
+                    const newNameRef = doc(db, 'artifacts', appId, 'usernames', newFull);
+
+                    try {
+                        await runTransaction(db, async (tx) => {
+                            const snap = await tx.get(newNameRef);
+                            if (snap.exists()) throw new Error('exists');
+                            tx.set(newNameRef, { uid: this.userId });
+                            const oldSnap = await tx.get(oldNameRef);
+                            if (oldSnap.exists() && oldSnap.data().uid === this.userId) tx.delete(oldNameRef);
+                            tx.update(profileRef, {
+                                displayName: newDisplayName,
+                                username: newFull,
+                                usernameSuffix: newSuffix,
+                                usernameLocked: true
+                            });
+                        });
+                        this.playerProfile.displayName = newDisplayName;
+                        this.playerProfile.username = newFull;
+                        this.playerProfile.usernameSuffix = newSuffix;
+                        this.playerProfile.usernameLocked = true;
+                        this.playerName = newFull;
+                        this.updateProfileUI();
+                        alert(`名前とIDを変更しました: ${newFull}`);
+                        return;
+                    } catch (e) {
+                        if (e.message === 'exists') continue;
+                        console.error(e);
+                        alert('名前/idの変更に失敗しました');
+                        return;
+                    }
                 }
+
+                alert('ユニークな名前/idの生成に失敗しました。時間を置いて再試行してください。');
             }
 
             showOnlineTimeSelection() {
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
                 // ログイン済みならプロフィールの username を使用
-                if (this.isLoggedIn && this.playerProfile && this.playerProfile.username) {
-                    this.playerName = this.playerProfile.username;
+                if (this.isLoggedIn && this.playerProfile) {
+                    this.playerName = this.getProfileIdentity().full;
                 } else {
                     this.playerName = 'Player';
                 }
@@ -1833,8 +1876,8 @@
                 this.sfx.buttonClick();
                 this.roomId = document.getElementById('room-id-input').value.trim();
                 // ログイン済みならプロフィールの username を使用
-                if (this.isLoggedIn && this.playerProfile && this.playerProfile.username) {
-                    this.playerName = this.playerProfile.username;
+                if (this.isLoggedIn && this.playerProfile) {
+                    this.playerName = this.getProfileIdentity().full;
                 } else {
                     this.playerName = 'Player';
                 }
@@ -3951,19 +3994,30 @@
         
         window.game = new ChessGame('chessBoard');
 
+        let authObserverReady = false;
+        let authBootstrapPending = false;
+
         const initAuth = async () => {
             try {
+                if (auth) {
+                    await setPersistence(auth, browserLocalPersistence);
+                }
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
-                } else if (auth) {
-                    await signInAnonymously(auth);
                 }
             } catch(e) { console.error(e); }
         };
-        initAuth();
 
         if (auth) {
             onAuthStateChanged(auth, user => { 
+                if (!authObserverReady) {
+                    authObserverReady = true;
+                    if (!user && !authBootstrapPending && typeof __initial_auth_token === 'undefined') {
+                        authBootstrapPending = true;
+                        signInAnonymously(auth).catch(console.error);
+                    }
+                }
+
                 if (user) {
                     window.game.userId = user.uid;
                     window.game.isLoggedIn = !user.isAnonymous;
@@ -4004,6 +4058,8 @@
                     window.game.listenToRoom();
                 }
             });
+
+            initAuth();
 
             // Auth 関連の UI ロジック：Google サインイン / サインアウト
             const googleProvider = new GoogleAuthProvider();
