@@ -198,10 +198,10 @@
             <h2 class="text-2xl font-bold mb-8 text-center" data-i18n="onlineSettings">オンライン対戦</h2>
             <div class="flex flex-col gap-4 w-full max-w-[300px] items-center">
                 <div id="online-username-section" class="w-full bg-zinc-800 p-3 rounded-lg border border-zinc-700 text-center mb-2">
-                    <div class="text-xs opacity-70 mb-2">ユーザーネーム</div>
+                    <div class="text-xs opacity-70 mb-2" data-i18n="usernameLabel">ユーザーネーム</div>
                     <div id="online-display-name" class="text-base font-black text-amber-400 tracking-wide">---</div>
                     <div id="online-display-id" class="text-xs opacity-70 mb-3 font-mono">ID: ---</div>
-                    <button id="online-edit-btn" class="btn-sub !bg-blue-600 w-full" onclick="game.changeOnlineIdentity()">名前/idの変更</button>
+                    <button id="online-edit-btn" class="btn-sub !bg-blue-600 w-full" onclick="game.changeOnlineIdentity()" data-i18n="changeIdentityBtn">名前/idの変更</button>
                 </div>
                 <input type="text" id="room-id-input" data-i18n="roomWordPlaceholder" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl">
                 <button class="btn-sub !bg-orange-500" onclick="game.joinOnlineRoom()" data-i18n="joinRoom">部屋に入る</button>
@@ -401,7 +401,8 @@
                 autoRotate: "黒(後攻)の番の時に文字と駒を逆さまにする", whiteShort: "白", blackShort: "黒", turnWord: "ターン",
                 identityModalTitle: "名前 / ID の変更", identityNameLabel: "名前", identityIdLabel: "ID",
                 identityNamePlaceholder: "名前を入力", identityIdPlaceholder: "英数字ID", identityRandom: "ランダム",
-                identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存"
+                identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
+                usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/idの変更", profileIdLabel: "ID"
             },
             en: {
                 title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO", cpuEloLabel: "Estimated ELO",
@@ -431,7 +432,8 @@
                 autoRotate: "Rotate pieces and text for Black", whiteShort: "White", blackShort: "Black", turnWord: "Turn ",
                 identityModalTitle: "Change Name / ID", identityNameLabel: "Name", identityIdLabel: "ID",
                 identityNamePlaceholder: "Enter name", identityIdPlaceholder: "Alphanumeric ID", identityRandom: "Random",
-                identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save"
+                identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save",
+                usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID"
             },
             zh: {
                 title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)", cpuEloLabel: "估计ELO",
@@ -461,7 +463,8 @@
                 autoRotate: "黑方回合时翻转棋子和文字", whiteShort: "白方", blackShort: "黑方", turnWord: "回合",
                 identityModalTitle: "修改昵称 / ID", identityNameLabel: "昵称", identityIdLabel: "ID",
                 identityNamePlaceholder: "输入昵称", identityIdPlaceholder: "字母数字ID", identityRandom: "随机",
-                identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存"
+                identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存",
+                usernameLabel: "用户名", changeIdentityBtn: "修改昵称 / ID", profileIdLabel: "ID"
             }
         };
 
@@ -506,6 +509,7 @@
 
             if (window.game) {
                 window.game.updateLanguageUI();
+                window.game.updateProfileUI();
             }
         };
 
@@ -819,10 +823,10 @@
                 if (this.playerProfile) {
                     const identity = this.getProfileIdentity();
                     if (onlineNameDisplay) onlineNameDisplay.innerText = identity.displayName;
-                    if (onlineIdDisplay) onlineIdDisplay.innerText = `ID: ${identity.suffix || '---'}`;
+                    if (onlineIdDisplay) onlineIdDisplay.innerText = `${window.t('profileIdLabel')}: ${identity.suffix || '---'}`;
                 } else {
                     if (onlineNameDisplay) onlineNameDisplay.innerText = '---';
-                    if (onlineIdDisplay) onlineIdDisplay.innerText = 'ID: ---';
+                    if (onlineIdDisplay) onlineIdDisplay.innerText = `${window.t('profileIdLabel')}: ---`;
                 }
             }
 
