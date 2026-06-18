@@ -1525,9 +1525,12 @@
                 const modeDisplay = document.getElementById('mode-display');
 
                 if (this.gameMode === 'cpu' || this.gameMode === 'cpu_ranked') {
-                    const baseCpuElo = this.baseAiElo ?? (this.baseAiLevel ? 250 + (this.baseAiLevel - 1) * 45 : this.aiElo || 250);
+                    const baseCpuElo = this.baseAiLevel === 50
+                        ? '2500+'
+                        : (this.baseAiElo ?? (this.baseAiLevel ? 250 + (this.baseAiLevel - 1) * 45 : this.aiElo || 250));
+                    const currentCpuElo = this.baseAiLevel === 50 ? '2500+' : this.aiElo;
                     if (bottomLabel) bottomLabel.innerText = `${window.t('you')}${this.playerColor === 'white' ? window.t('colorWhiteSuffix') : window.t('colorBlackSuffix')}`;
-                    if (topLabel) topLabel.innerText = `${window.t('cpuName')} (${window.t('cpuEloLabel')}: ${this.aiElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
+                    if (topLabel) topLabel.innerText = `${window.t('cpuName')} (${window.t('cpuEloLabel')}: ${currentCpuElo})${this.playerColor === 'white' ? window.t('colorBlackPvp') : window.t('colorWhitePvp')}`;
                     if (modeDisplay) modeDisplay.innerText = this.gameMode === 'cpu_ranked' ? `${window.t('rankedMatch')} (Rate: ${this.playerProfile?.elo || 250})` : `${window.t('vsCpu')} ELO ${baseCpuElo}`;
                 } else if (this.gameMode === 'pvp') {
                     if (bottomLabel) bottomLabel.innerText = `${window.t('p1White')}`;
@@ -3303,11 +3306,11 @@
                             }
                         }
                         this.aiLevel = Math.max(1, Math.min(50, Math.round((this.aiElo - 250) / 45.9) + 1));
-                    } else {
-                        // 2. フリー対戦：従来通りのレベル50段階（1レベル単位でレベルスライダー準拠で変動）
+                    } else if (this.gameMode === 'cpu_ranked') {
+                        // ランクマッチのみ、プレイヤーの内容に応じて内部難易度を変動させる
                         let targetLevel = this.baseAiLevel + advantage + Math.floor(this.moveCount / 10);
                         targetLevel = Math.max(1, Math.min(50, targetLevel));
-                        
+
                         if (targetLevel > this.aiLevel) {
                             this.aiLevel = Math.min(50, this.aiLevel + 1);
                         } else if (targetLevel < this.aiLevel) {
