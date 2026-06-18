@@ -169,7 +169,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a8</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a9</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -181,11 +181,11 @@
 
                 <button class="btn-main ui-button" onclick="game.showCpuConfig()" data-i18n="vsCpu">フリー対戦 (VS CPU)</button>
                 <button class="btn-main ui-button !bg-emerald-600" onclick="game.showTimeSelection('pvp')" data-i18n="offlinePvp">2人プレイ(オフライン)</button>
-                <button id="ranked-match-btn" class="btn-main ui-button !bg-amber-600 shadow-lg" onclick="game.startRankedCpu()" data-i18n="rankedMatch">ランクマッチ (VS CPU)</button>
-                <button id="online-pvp-btn" class="btn-main ui-button !bg-purple-600" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦</button>
+                <button id="ranked-match-btn" class="btn-main ui-button !bg-amber-600 shadow-lg" style="display:none;" onclick="game.startRankedCpu()" data-i18n="rankedMatch">ランクマッチ (VS CPU)</button>
+                <button id="online-pvp-btn" class="btn-main ui-button !bg-purple-600" style="display:none;" onclick="game.showOnlineConfig()" data-i18n="onlinePvp">オンライン対戦</button>
                 <div id="login-required-info" class="text-sm opacity-70 text-center mt-4 px-3" style="display:none;" data-i18n="loginRequiredInfo">ログインするとランクマッチとオンライン対戦が利用できます。</div>
             </div>
-            <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" data-i18n="authStatusPreparing">アカウント同期中...</div>
+            <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" style="display:none;" data-i18n="authStatusPreparing">アカウント同期中...</div>
             <div id="auth-controls" class="mt-2 text-center">
                 <button id="google-auth-btn" class="btn-sub ui-button" style="max-width:220px;">Sign in with Google</button>
             </div>
