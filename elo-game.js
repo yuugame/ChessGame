@@ -1532,6 +1532,52 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     .filter(el => !el.disabled && el.offsetParent !== null);
             }
 
+            setGameUiInteractivity(mode = 'all', allowedIds = []) {
+                const container = document.getElementById('game-ui-container');
+                if (!container) return;
+
+                const disableAll = mode === 'none';
+
+                if ('inert' in container) {
+                    container.inert = disableAll;
+                }
+                container.setAttribute('aria-hidden', disableAll ? 'true' : 'false');
+
+                const focusables = Array.from(container.querySelectorAll('button, select, input, textarea, [href], [tabindex]'));
+                focusables.forEach((el) => {
+                    const isAllowed = mode === 'all' || allowedIds.includes(el.id);
+                    if (!disableAll && isAllowed) {
+                        if (el.dataset.prevTabindex !== undefined) {
+                            if (el.dataset.prevTabindex === '') {
+                                el.removeAttribute('tabindex');
+                            } else {
+                                el.setAttribute('tabindex', el.dataset.prevTabindex);
+                            }
+                            delete el.dataset.prevTabindex;
+                        } else if (el.getAttribute('tabindex') === '-1') {
+                            el.removeAttribute('tabindex');
+                        }
+                    } else if (!el.dataset.prevTabindex) {
+                        el.dataset.prevTabindex = el.getAttribute('tabindex') ?? '';
+                        el.setAttribute('tabindex', '-1');
+                    }
+                });
+            }
+
+            updateGameUiInteractivity() {
+                const overlayId = this.getVisibleOverlayId();
+                if (!this.initialized || overlayId) {
+                    this.setGameUiInteractivity('none');
+                    return;
+                }
+                if (this.isGameOver) {
+                    const allowedIds = this.getGameOverButtons().map(button => button.id);
+                    this.setGameUiInteractivity('gameover', allowedIds);
+                    return;
+                }
+                this.setGameUiInteractivity('all');
+            }
+
             focusNextOverlayElement(direction = 1) {
                 const overlayId = this.getVisibleOverlayId();
                 if (!overlayId) return false;
@@ -1647,15 +1693,28 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
 
                 if (overlayId === 'confirm-modal') {
+                    const yesBtn = document.getElementById('confirm-yes');
+                    const noBtn = document.getElementById('confirm-no');
+                    const canToggle = yesBtn && noBtn && noBtn.style.display !== 'none';
+
                     if (key === 'Escape') {
                         e.preventDefault();
                         this.hideConfirm();
                         return;
                     }
+                    if (canToggle && (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown')) {
+                        e.preventDefault();
+                        const target = document.activeElement === yesBtn ? noBtn : yesBtn;
+                        target?.focus();
+                        return;
+                    }
                     if (key === 'Enter' || key === ' ') {
                         e.preventDefault();
-                        const yesBtn = document.getElementById('confirm-yes');
-                        if (yesBtn) yesBtn.click();
+                        if (document.activeElement === noBtn && canToggle) {
+                            noBtn.click();
+                        } else {
+                            yesBtn?.click();
+                        }
                         return;
                     }
                     return;
@@ -1956,6 +2015,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.currentRoomData = null;
                 this.clearActiveStyles();
                 document.getElementById('game-status').innerText = window.t('statusReady');
+                this.updateGameUiInteractivity();
                 this.updateProfileUI(); // モード選択画面に戻るたびにプロフィールUIを更新
                 setTimeout(() => this.focusFirstOverlayElement('mode-selection'), 0);
             }
@@ -1964,6 +2024,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.sfx.buttonClick();
                 this.hideAllOverlays();
                 document.getElementById('cpu-config').style.display = 'flex';
+                this.updateGameUiInteractivity();
                 setTimeout(() => this.focusFirstOverlayElement('cpu-config'), 0);
             }
 
@@ -1978,6 +2039,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.hideAllOverlays();
                 this.updateProfileUI();
                 document.getElementById('online-config').style.display = 'flex';
+                this.updateGameUiInteractivity();
                 setTimeout(() => this.focusFirstOverlayElement('online-config'), 0);
             }
 
@@ -2008,6 +2070,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.tempMode = 'online';
                 document.getElementById('online-turn-config').style.display = 'flex';
                 document.getElementById('time-selection').style.display = 'flex';
+                this.updateGameUiInteractivity();
                 setTimeout(() => this.focusFirstOverlayElement('time-selection'), 0);
             }
 
@@ -2024,12 +2087,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
                 
                 document.getElementById('time-selection').style.display = 'flex';
+                this.updateGameUiInteractivity();
                 setTimeout(() => this.focusFirstOverlayElement('time-selection'), 0);
             }
 
             hideAllOverlays() {
                 const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal', 'confirm-modal'];
                 ids.forEach(id => document.getElementById(id).style.display = 'none');
+                this.updateGameUiInteractivity();
             }
 
             confirmUndo() {
@@ -2091,6 +2156,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 modal.style.display = 'flex';
                 this.confirmCallback = callback;
                 this.confirmActiveOverlays = activeOverlays;
+                this.updateGameUiInteractivity();
 
                 if (isAlert) {
                     yesBtn.innerText = window.t('confirmTitle');
@@ -2117,6 +2183,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 });
                 this.confirmActiveOverlays = [];
                 this.confirmCallback = null;
+                this.updateGameUiInteractivity();
             }
 
             setupConfirmHandlers() {
@@ -2550,6 +2617,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.updateAdvantageMeter();
                     this.updateTimerDisplay();
                     this.updateLanguageUI();
+                    this.updateGameUiInteractivity();
                     
                     this.needsRender = true;
                     return;
@@ -2740,6 +2808,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     rematchBtn.style.display = 'inline-block';
                     setTimeout(() => rematchBtn.focus(), 0);
                 }
+                this.updateGameUiInteractivity();
             }
 
             processOnlineAck(gs) {
@@ -2874,6 +2943,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
 
                 this.initGame();
+                this.updateGameUiInteractivity();
                 this.startTimer(); // 無制限でも呼ぶ
                 this.saveGameState();
                 if (this.gameMode === 'cpu' && this.playerColor === 'black') {
@@ -2937,6 +3007,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.updateMoveCountDisplay();
                 this.updateRotationUI();
                 this.needsRender = true;
+                this.updateGameUiInteractivity();
                 this.saveGameState();
             }
 
@@ -4382,6 +4453,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const btn = document.getElementById('google-auth-btn');
                 const status = document.getElementById('auth-status');
                 if (!btn || !status) return;
+                status.style.display = 'block';
                 
                 // Google 連携状態を判定（providerData に google.com が含まれているか）
                 isGoogleLinked = user && user.providerData.some(p => p.providerId === 'google.com');
