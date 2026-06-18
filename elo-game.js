@@ -363,7 +363,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 this.isOpponentDisconnected = false;
                 this.opponentDisconnectedAt = null;
                 this.lastPersistentSaveAt = 0;
-                this.boardCursor = { x: 0, y: 0 };
+                this.boardCursor = { x: 3, y: 6 };
                 this.keyboardEditElement = null;
 
                 this.needsRender = true;
@@ -911,7 +911,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.history = state.history || [];
                     this.lastMove = state.lastMove || null;
                     this.initialTimeSec = state.initialTimeSec || 600;
-                    this.boardCursor = this.lastMove ? { x: this.lastMove.to.x, y: this.lastMove.to.y } : (this.playerColor === 'black' ? { x: 7, y: 7 } : { x: 0, y: 0 });
+                    this.boardCursor = this.lastMove ? { x: this.lastMove.to.x, y: this.lastMove.to.y } : (this.playerColor === 'black' ? { x: 3, y: 1 } : { x: 3, y: 6 });
                     
                     this.isGameOver = false;
                     this.initialized = true;
@@ -1800,7 +1800,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             moveBoardCursor(key) {
                 if (!this.boardCursor) {
-                    this.boardCursor = { x: 0, y: 0 };
+                this.boardCursor = { x: 3, y: 6 };
                 }
 
                 const reversed = this.playerColor === 'black';
@@ -2921,7 +2921,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 };
                 this.turn = 'white';
                 this.initGameLocalVariables();
-                this.boardCursor = this.playerColor === 'black' ? { x: 7, y: 7 } : { x: 0, y: 0 };
+                this.boardCursor = this.playerColor === 'black' ? { x: 3, y: 1 } : { x: 3, y: 6 };
                 
                 this.positionHistory.push(this.getPositionString());
                 
