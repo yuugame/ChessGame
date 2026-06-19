@@ -783,22 +783,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             async reauthenticateForSensitiveAction() {
                 if (!auth || !auth.currentUser) return false;
-                return new Promise((resolve) => {
-                    this.showConfirm(
-                        window.t('deleteAccountReauthTitle'),
-                        window.t('deleteAccountReauthMsg'),
-                        async () => {
-                            try {
-                                await reauthenticateWithPopup(auth.currentUser, googleProvider);
-                                resolve(true);
-                            } catch (e) {
-                                console.error('Reauthentication failed:', e);
-                                this.showConfirm(window.t('error'), `${window.t('commError')}\n${e?.message || e}`, ()=>{}, true);
-                                resolve(false);
-                            }
-                        }
-                    );
-                });
+                try {
+                    await reauthenticateWithPopup(auth.currentUser, googleProvider);
+                    return true;
+                } catch (e) {
+                    console.error('Reauthentication failed:', e);
+                    this.showConfirm(window.t('error'), `${window.t('commError')}\n${e?.message || e}`, ()=>{}, true);
+                    return false;
+                }
             }
 
             async deleteCurrentAccount() {
