@@ -213,7 +213,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t3</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t5</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -285,6 +285,30 @@
                     <input id="auth-login-password" type="password" class="w-full p-3 rounded text-black outline-none" data-i18n="authPasswordLabel" placeholder="パスワード">
                     <button id="auth-email-login-btn" class="ui-button bg-emerald-600 hover:bg-emerald-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="authPasswordLogin">ログイン</button>
                     <button id="auth-modal-close-btn" class="ui-button bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="cancel">キャンセル</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="email-link-registration-modal" class="w-full flex flex-col items-center" style="display:none;">
+            <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[360px] w-full border border-zinc-700">
+                <h2 class="text-xl font-bold mb-2 text-white" data-i18n="authRegistrationTitle">登録情報の入力</h2>
+                <p class="text-xs opacity-70 mb-4 leading-relaxed" data-i18n="authRegistrationHint">メールリンク認証が完了しました。アカウント情報を設定してください。</p>
+                <div id="email-link-registration-email" class="text-xs opacity-60 font-mono mb-4 break-all">---</div>
+                <div class="flex flex-col gap-3 text-left">
+                    <label class="text-xs opacity-70" for="email-link-registration-name" data-i18n="authUsernameLabel">ユーザーネーム</label>
+                    <input id="email-link-registration-name" type="text" class="w-full p-3 rounded text-black font-bold text-lg outline-none" data-i18n="identityNamePlaceholder" placeholder="名前を入力" autocomplete="nickname">
+                    <label class="text-xs opacity-70" for="email-link-registration-id" data-i18n="identityIdLabel">ID</label>
+                    <div class="flex gap-2">
+                        <input id="email-link-registration-id" type="text" class="flex-1 p-3 rounded text-black font-mono font-bold text-lg outline-none" data-i18n="identityIdPlaceholder" placeholder="英数字ID" autocomplete="off" autocapitalize="off" spellcheck="false">
+                        <button class="ui-button px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-bold" onclick="game.randomizeEmailLinkRegistrationId()" data-i18n="identityRandom">ランダム</button>
+                    </div>
+                    <label class="text-xs opacity-70" for="email-link-registration-password" data-i18n="authPasswordLabel">パスワード</label>
+                    <input id="email-link-registration-password" type="password" class="w-full p-3 rounded text-black font-bold text-lg outline-none" data-i18n="authPasswordLabel" placeholder="パスワード" autocomplete="new-password">
+                    <label class="text-xs opacity-70" for="email-link-registration-password-confirm" data-i18n="authPasswordConfirmLabel">パスワード（確認）</label>
+                    <input id="email-link-registration-password-confirm" type="password" class="w-full p-3 rounded text-black font-bold text-lg outline-none" data-i18n="authPasswordConfirmLabel" placeholder="パスワード（確認）" autocomplete="new-password">
+                </div>
+                <div class="flex gap-3 justify-center w-full mt-5">
+                    <button class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" onclick="game.submitEmailLinkRegistration()" data-i18n="authRegisterBtn">登録</button>
                 </div>
             </div>
         </div>
