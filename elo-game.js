@@ -229,6 +229,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         const EMAIL_LINK_STORAGE_KEY = 'chessEmailForEmailLink';
         const getEmailLinkContinueUrl = () => {
             try {
+                if (typeof __email_link_continue_url !== 'undefined' && __email_link_continue_url) {
+                    return String(__email_link_continue_url);
+                }
+                if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                    return `${window.location.origin}${window.location.pathname}`;
+                }
+                if (firebaseConfig?.authDomain) {
+                    return `https://${firebaseConfig.authDomain}/elo.html`;
+                }
                 return `${window.location.origin}${window.location.pathname}`;
             } catch (e) {
                 return window.location.href.split('?')[0];
@@ -4960,6 +4969,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
                 try {
                     const continueUrl = getEmailLinkContinueUrl();
+                    if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:' && !(typeof __email_link_continue_url !== 'undefined' && __email_link_continue_url)) {
+                        alert('この画面はローカルファイルではなく、HTTPSで公開されたURLで開いてください。');
+                        return;
+                    }
                     const actionCodeSettings = {
                         url: continueUrl,
                         handleCodeInApp: true
