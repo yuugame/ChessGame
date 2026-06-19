@@ -227,10 +227,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         appleProvider.addScope('email');
         appleProvider.addScope('name');
         const EMAIL_LINK_STORAGE_KEY = 'chessEmailForEmailLink';
+        const DEFAULT_EMAIL_LINK_CONTINUE_URL = 'https://yuugame.github.io/ChessGame/';
         const getEmailLinkContinueUrl = () => {
             try {
                 if (typeof __email_link_continue_url !== 'undefined' && __email_link_continue_url) {
                     return String(__email_link_continue_url);
+                }
+                if (window.location.hostname === 'yuugame.github.io') {
+                    return DEFAULT_EMAIL_LINK_CONTINUE_URL;
                 }
                 if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
                     return `${window.location.origin}${window.location.pathname}`;
