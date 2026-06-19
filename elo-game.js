@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -35,7 +35,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityModalTitle: "名前 / ID の変更", identityNameLabel: "名前", identityIdLabel: "ID",
                 identityNamePlaceholder: "名前を入力", identityIdPlaceholder: "英数字ID", identityRandom: "ランダム",
                 identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
-                usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID"
+                usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID", logoutBtn: "ログアウト",
+                settingsBtn: "設定", settingsTitle: "設定", deleteAccountBtn: "アカウントの削除", deleteAccountHint: "削除するには、自分のユーザーIDを入力してください。", deleteAccountInputPlaceholder: "ユーザーIDを入力",
+                deleteAccountVerify: "確認", deleteAccountConfirmTitle: "アカウント削除", deleteAccountConfirmMsg: "本当に削除しますか？", deleteAccountIdMismatch: "ユーザーIDが一致しません"
             },
             en: {
                 title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO", cpuEloLabel: "Estimated ELO",
@@ -68,7 +70,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityModalTitle: "Change Name / ID", identityNameLabel: "Name", identityIdLabel: "ID",
                 identityNamePlaceholder: "Enter name", identityIdPlaceholder: "Alphanumeric ID", identityRandom: "Random",
                 identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save",
-                usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID"
+                usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID", logoutBtn: "Log out",
+                settingsBtn: "Settings", settingsTitle: "Settings", deleteAccountBtn: "Delete Account", deleteAccountHint: "To delete the account, enter your user ID.", deleteAccountInputPlaceholder: "Enter user ID",
+                deleteAccountVerify: "Verify", deleteAccountConfirmTitle: "Delete Account", deleteAccountConfirmMsg: "Do you really want to delete your account?", deleteAccountIdMismatch: "User ID does not match"
             },
             zh: {
                 title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)", cpuEloLabel: "估计ELO",
@@ -101,7 +105,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityModalTitle: "修改昵称 / ID", identityNameLabel: "昵称", identityIdLabel: "ID",
                 identityNamePlaceholder: "输入昵称", identityIdPlaceholder: "字母数字ID", identityRandom: "随机",
                 identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存",
-                usernameLabel: "用户名", changeIdentityBtn: "修改昵称 / ID", profileIdLabel: "ID"
+                usernameLabel: "用户名", changeIdentityBtn: "修改昵称 / ID", profileIdLabel: "ID", logoutBtn: "退出登录",
+                settingsBtn: "设置", settingsTitle: "设置", deleteAccountBtn: "删除账号", deleteAccountHint: "删除账号前，请输入自己的用户ID。", deleteAccountInputPlaceholder: "输入用户ID",
+                deleteAccountVerify: "确认", deleteAccountConfirmTitle: "删除账号", deleteAccountConfirmMsg: "真的要删除吗？", deleteAccountIdMismatch: "用户ID不一致"
             }
         };
 
@@ -595,7 +601,39 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const modal = document.getElementById('identity-modal');
                 if (modal) modal.style.display = 'none';
                 this.hideAllOverlays();
-                document.getElementById('online-config').style.display = 'flex';
+                document.getElementById('settings-modal').style.display = 'flex';
+                this.updateGameUiInteractivity();
+                setTimeout(() => this.focusFirstOverlayElement('settings-modal'), 0);
+            }
+
+            openSettingsModal() {
+                if (!this.isLoggedIn || !this.userId || !this.playerProfile) {
+                    return this.showConfirm(window.t('error'), window.t('authStatusPreparing'), ()=>{}, true);
+                }
+                this.hideAllOverlays();
+                const modal = document.getElementById('settings-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    const deletePanel = document.getElementById('delete-account-panel');
+                    const deleteInput = document.getElementById('delete-account-id-input');
+                    if (deletePanel) deletePanel.style.display = 'none';
+                    if (deleteInput) deleteInput.value = '';
+                    this.updateGameUiInteractivity();
+                    setTimeout(() => this.focusFirstOverlayElement('settings-modal'), 0);
+                }
+            }
+
+            closeSettingsModal() {
+                const modal = document.getElementById('settings-modal');
+                if (modal) modal.style.display = 'none';
+                const deletePanel = document.getElementById('delete-account-panel');
+                const deleteInput = document.getElementById('delete-account-id-input');
+                if (deletePanel) deletePanel.style.display = 'none';
+                if (deleteInput) deleteInput.value = '';
+                this.hideAllOverlays();
+                document.getElementById('mode-selection').style.display = 'flex';
+                this.updateGameUiInteractivity();
+                setTimeout(() => this.focusFirstOverlayElement('mode-selection'), 0);
             }
 
             async randomizeIdentityId() {
@@ -682,6 +720,81 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             async changeOnlineIdentity() {
                 this.openIdentityModal();
+            }
+
+            async handleSettingsLogout() {
+                if (!auth) return;
+                this.closeSettingsModal();
+                try {
+                    await signOut(auth);
+                    await signInAnonymously(auth);
+                } catch (e) {
+                    console.error('Settings logout error:', e);
+                    this.showConfirm(window.t('commError'), `${window.t('error')}\n${e?.message || e}`, ()=>{}, true);
+                }
+            }
+
+            openDeleteAccountPanel() {
+                const panel = document.getElementById('delete-account-panel');
+                const input = document.getElementById('delete-account-id-input');
+                if (!panel || !input) return;
+                panel.style.display = 'flex';
+                input.value = '';
+                setTimeout(() => input.focus(), 0);
+            }
+
+            cancelDeleteAccountPanel() {
+                const panel = document.getElementById('delete-account-panel');
+                const input = document.getElementById('delete-account-id-input');
+                if (panel) panel.style.display = 'none';
+                if (input) input.value = '';
+                setTimeout(() => this.focusFirstOverlayElement('settings-modal'), 0);
+            }
+
+            verifyDeleteAccountId() {
+                const input = document.getElementById('delete-account-id-input');
+                const typedId = (input?.value || '').trim();
+                const expectedId = (this.userId || '').trim();
+                if (!typedId || typedId !== expectedId) {
+                    this.showConfirm(window.t('error'), window.t('deleteAccountIdMismatch'), ()=>{}, true);
+                    return;
+                }
+                this.showConfirm(
+                    window.t('deleteAccountConfirmTitle'),
+                    window.t('deleteAccountConfirmMsg'),
+                    async () => {
+                        await this.deleteCurrentAccount();
+                    }
+                );
+            }
+
+            async deleteCurrentAccount() {
+                if (!auth || !this.userId) return;
+                const currentUid = this.userId;
+                const currentSuffix = this.playerProfile?.usernameSuffix || "";
+                try {
+                    const profileRef = doc(db, 'artifacts', appId, 'users', currentUid, 'profile', 'data');
+                    const usernameRef = currentSuffix ? doc(db, 'artifacts', appId, 'usernames', currentSuffix) : null;
+                    const currentUser = auth.currentUser;
+
+                    if (usernameRef) {
+                        await deleteDoc(usernameRef).catch(() => {});
+                    }
+                    await deleteDoc(profileRef).catch(() => {});
+                    if (currentUser) {
+                        await deleteUser(currentUser);
+                    }
+
+                    this.clearSession();
+                    await this.clearPersistentGameState().catch(() => {});
+                    this.playerProfile = null;
+                    this.updateProfileUI();
+                    this.updateAuthDependentUI();
+                    this.closeSettingsModal();
+                } catch (e) {
+                    console.error(e);
+                    this.showConfirm(window.t('commError'), `${window.t('error')}\n${e?.message || e}`, ()=>{}, true);
+                }
             }
 
             updateAuthDependentUI() {
@@ -1522,7 +1635,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             getVisibleOverlayId() {
-                const overlays = ['confirm-modal', 'promotion-modal', 'identity-modal', 'waiting-room', 'time-selection', 'online-config', 'cpu-config', 'mode-selection'];
+                const overlays = ['confirm-modal', 'promotion-modal', 'identity-modal', 'settings-modal', 'waiting-room', 'time-selection', 'online-config', 'cpu-config', 'mode-selection'];
                 return overlays.find(id => this.isOverlayVisible(id)) || null;
             }
 
@@ -1760,6 +1873,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     if (key === 'Escape') {
                         e.preventDefault();
                         if (overlayId === 'identity-modal') this.closeIdentityModal();
+                        else if (overlayId === 'settings-modal') this.closeSettingsModal();
                         else if (overlayId === 'waiting-room') this.cancelOnlineRoom();
                         else if (overlayId !== 'mode-selection') this.showModeSelection();
                         return;
@@ -2092,7 +2206,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             hideAllOverlays() {
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal', 'confirm-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal', 'settings-modal', 'confirm-modal'];
                 ids.forEach(id => document.getElementById(id).style.display = 'none');
                 this.updateGameUiInteractivity();
             }
@@ -2140,7 +2254,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 document.getElementById('confirm-message').innerText = message;
                 
                 const activeOverlays = [];
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal', 'settings-modal'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el && el.style.display === 'flex') {
@@ -4451,6 +4565,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             const updateAuthControls = (user) => {
                 const btn = document.getElementById('google-auth-btn');
+                const settingsBtn = document.getElementById('settings-btn');
                 const status = document.getElementById('auth-status');
                 if (!btn || !status) return;
                 status.style.display = 'block';
@@ -4459,14 +4574,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 isGoogleLinked = user && user.providerData.some(p => p.providerId === 'google.com');
                 
                 if (isGoogleLinked) {
-                    btn.innerText = 'Sign out';
-                    btn.classList.remove('!bg-blue-600');
-                    btn.setAttribute('data-action', 'signout');
-                    status.innerText = window.t('authStatusReady');
-                } else {
+                    btn.style.display = 'none';
                     btn.innerText = 'Sign in with Google';
                     btn.classList.add('!bg-blue-600');
                     btn.setAttribute('data-action', 'signin');
+                    if (settingsBtn) settingsBtn.style.display = 'inline-block';
+                    status.innerText = window.t('authStatusReady');
+                } else {
+                    btn.style.display = 'inline-block';
+                    btn.innerText = 'Sign in with Google';
+                    btn.classList.add('!bg-blue-600');
+                    btn.setAttribute('data-action', 'signin');
+                    if (settingsBtn) settingsBtn.style.display = 'none';
                     status.innerText = window.t('authStatusPreparing');
                 }
             };
