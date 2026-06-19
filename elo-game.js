@@ -1781,7 +1781,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     eventTarget?.isContentEditable ||
                     eventSource?.isContentEditable
                 );
-                const isEditingArrow = editingElement && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight');
+                const isArrowKey = key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight';
 
                 if (this.keyboardEditElement && document.activeElement === this.keyboardEditElement) {
                     if (key === 'Escape') {
@@ -1794,15 +1794,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
 
-                if (overlayId === 'time-selection' && activeTag === 'SELECT' && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
-                    e.preventDefault();
-                    this.focusNextOverlayElement((key === 'ArrowUp' || key === 'ArrowLeft') ? -1 : 1);
+                if (editingElement && isArrowKey) {
                     return;
                 }
 
-                if (isEditingArrow) {
+                if (overlayId === 'time-selection' && activeTag === 'SELECT' && isArrowKey) {
                     e.preventDefault();
-                    e.stopImmediatePropagation();
+                    this.focusNextOverlayElement((key === 'ArrowUp' || key === 'ArrowLeft') ? -1 : 1);
                     return;
                 }
 
@@ -1810,7 +1808,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
 
-                if (e.repeat && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                if (e.repeat && isArrowKey) {
                     return;
                 }
 
@@ -1838,7 +1836,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         this.hideConfirm();
                         return;
                     }
-                    if (canToggle && (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown')) {
+                    if (canToggle && isArrowKey) {
                         e.preventDefault();
                         const target = document.activeElement === yesBtn ? noBtn : yesBtn;
                         target?.focus();
