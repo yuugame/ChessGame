@@ -213,7 +213,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t7</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t8</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -240,10 +240,11 @@
             <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[360px] w-full border border-zinc-700">
                 <h2 class="text-xl font-bold mb-4 text-white" data-i18n="authModalTitle">サインアップ / ログイン</h2>
                 <div class="flex flex-col gap-2">
-                    <div class="text-xs opacity-70 font-bold mb-1" data-i18n="authSignupTitle">Eメールアドレス　サインアップ</div>
+                    <div class="text-xs opacity-70 font-bold mb-1" data-i18n="authSignupTitle">Eメールアドレスで登録</div>
                     <div class="auth-email-signup-row w-full">
                         <input id="auth-signup-email" type="email" class="p-3 rounded text-black outline-none" data-i18n="authEmailLabel" placeholder="Eメールアドレス">
-                        <button id="auth-email-signup-btn" class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white" data-i18n="authSignupBtn">サインアップ</button>
+                        <input id="auth-signup-password" type="password" class="p-3 rounded text-black outline-none" data-i18n="authPasswordLabel" placeholder="パスワード" autocomplete="new-password">
+                        <button id="auth-email-signup-btn" class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white" data-i18n="authSignupBtn">登録</button>
                     </div>
                     <button id="auth-google-login-btn" class="ui-button auth-provider-btn bg-white hover:bg-zinc-100 py-2 px-4 rounded font-bold transition-colors text-zinc-900 w-full" data-provider="google">
                         <span class="auth-provider-icon" aria-hidden="true">
