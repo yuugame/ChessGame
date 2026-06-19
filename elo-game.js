@@ -227,7 +227,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         appleProvider.addScope('email');
         appleProvider.addScope('name');
         const EMAIL_LINK_STORAGE_KEY = 'chessEmailForEmailLink';
-        const DEFAULT_EMAIL_LINK_CONTINUE_URL = 'https://yuugame.github.io/ChessGame/elo.html';
+        const DEFAULT_EMAIL_LINK_CONTINUE_URL = 'https://yuugame.github.io/ChessGame/';
         const getEmailLinkContinueUrl = () => {
             try {
                 if (typeof __email_link_continue_url !== 'undefined' && __email_link_continue_url) {
@@ -5039,7 +5039,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             if (emailSignupBtn) {
                 emailSignupBtn.addEventListener('click', async () => {
-                    await handleEmailSignup();
+                    try {
+                        await handleEmailSignup();
+                    } catch (e) {
+                        console.error('Email sign-in error:', e?.code, e?.message);
+                        alert('登録に失敗しました: ' + (e?.message || 'Unknown error'));
+                    }
                 });
             }
 
