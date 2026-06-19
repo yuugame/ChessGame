@@ -758,12 +758,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const input = document.getElementById('delete-account-id-input');
                 const typedId = (input?.value || '').trim();
                 const identity = this.getProfileIdentity();
+                const authUid = auth?.currentUser?.uid || '';
                 const expectedIds = new Set([
+                    authUid.trim(),
                     (this.userId || '').trim(),
                     (this.playerProfile?.usernameSuffix || '').trim(),
+                    (this.playerProfile?.username || '').trim(),
                     (identity.full || '').trim()
                 ].filter(Boolean));
-                if (!typedId || !expectedIds.has(typedId)) {
+                const normalizedTypedId = typedId.toLowerCase();
+                const normalizedExpectedIds = new Set(Array.from(expectedIds).map(id => id.toLowerCase()));
+                if (!normalizedTypedId || !normalizedExpectedIds.has(normalizedTypedId)) {
                     this.showConfirm(window.t('error'), window.t('deleteAccountIdMismatch'), ()=>{}, true);
                     return;
                 }
@@ -800,6 +805,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 if (!auth || !this.userId) return;
                 const currentUid = this.userId;
                 const currentSuffix = this.playerProfile?.usernameSuffix || "";
+                const finalizeDeletion = async () => {
+                    this.clearSession();
+                    await this.clearPersistentGameState().catch(() => {});
+                    this.playerProfile = null;
+                    this.updateProfileUI();
+                    this.updateAuthDependentUI();
+                    this.closeSettingsModal();
+                };
                 try {
                     const currentUser = auth.currentUser;
                     const needsReauth = !!currentUser && !currentUser.isAnonymous;
@@ -810,26 +823,25 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                     const profileRef = doc(db, 'artifacts', appId, 'users', currentUid, 'profile', 'data');
                     const usernameRef = currentSuffix ? doc(db, 'artifacts', appId, 'usernames', currentSuffix) : null;
+                    const userToDelete = auth.currentUser;
 
                     if (usernameRef) {
                         await deleteDoc(usernameRef).catch(() => {});
                     }
                     await deleteDoc(profileRef).catch(() => {});
-                    if (currentUser) {
-                        await deleteUser(currentUser);
+                    if (userToDelete) {
+                        await deleteUser(userToDelete);
                     }
-
-                    this.clearSession();
-                    await this.clearPersistentGameState().catch(() => {});
-                    this.playerProfile = null;
-                    this.updateProfileUI();
-                    this.updateAuthDependentUI();
-                    this.closeSettingsModal();
+                    await finalizeDeletion();
                 } catch (e) {
                     if (e?.code === 'auth/requires-recent-login') {
                         const reauthed = await this.reauthenticateForSensitiveAction();
                         if (reauthed) {
-                            await this.deleteCurrentAccount();
+                            const freshUser = auth?.currentUser;
+                            if (freshUser) {
+                                await deleteUser(freshUser);
+                            }
+                            await finalizeDeletion();
                             return;
                         }
                     }
