@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, FacebookAuthProvider, GithubAuthProvider, OAuthProvider, EmailAuthProvider, signInWithPopup, signInWithEmailAndPassword, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, fetchSignInMethodsForEmail, reauthenticateWithPopup, reauthenticateWithCredential, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, FacebookAuthProvider, GithubAuthProvider, OAuthProvider, EmailAuthProvider, linkWithCredential, updateProfile, signInWithPopup, signInWithEmailAndPassword, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, fetchSignInMethodsForEmail, reauthenticateWithPopup, reauthenticateWithCredential, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -41,6 +41,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 authPasswordLogin: "ログイン", authOrDivider: "または",
                 authGoogleLogin: "Googleでログイン", authFacebookLogin: "Facebookでログイン", authAppleLogin: "Appleでログイン", authGitHubLogin: "GitHubでログイン",
                 authProviderEmail: "Eメール", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
+                authRegistrationTitle: "登録情報の入力", authRegistrationHint: "メールリンク認証が完了しました。アカウント情報を設定してください。", authRegistrationPending: "登録情報を入力してください。",
+                authUsernameLabel: "ユーザーネーム", authPasswordConfirmLabel: "パスワード（確認）", authRegisterBtn: "登録",
                 authEmailLinkSent: "確認リンクをメール送信しました。メールを開いてログインを完了してください。",
                 settingsBtn: "設定", settingsTitle: "設定", deleteAccountBtn: "アカウントの削除", deleteAccountHint: "削除するには、自分のユーザーIDまたはプロフィールIDを入力してください。", deleteAccountInputPlaceholder: "ユーザーIDを入力",
                 deleteAccountVerify: "確認", deleteAccountConfirmTitle: "アカウント削除", deleteAccountConfirmMsg: "本当に削除しますか？", deleteAccountIdMismatch: "ユーザーIDが一致しません",
@@ -83,6 +85,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 authPasswordLogin: "Sign in", authOrDivider: "OR",
                 authGoogleLogin: "Sign in with Google", authFacebookLogin: "Sign in with Facebook", authAppleLogin: "Sign in with Apple", authGitHubLogin: "Sign in with GitHub",
                 authProviderEmail: "Email", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
+                authRegistrationTitle: "Complete Registration", authRegistrationHint: "Email link sign-in is complete. Set up your account details.", authRegistrationPending: "Please finish registration.",
+                authUsernameLabel: "Username", authPasswordConfirmLabel: "Confirm Password", authRegisterBtn: "Register",
                 authEmailLinkSent: "A verification link was sent. Open your email to finish sign-in.",
                 settingsBtn: "Settings", settingsTitle: "Settings", deleteAccountBtn: "Delete Account", deleteAccountHint: "To delete the account, enter your user ID or profile ID.", deleteAccountInputPlaceholder: "Enter user ID",
                 deleteAccountVerify: "Verify", deleteAccountConfirmTitle: "Delete Account", deleteAccountConfirmMsg: "Do you really want to delete your account?", deleteAccountIdMismatch: "User ID does not match",
@@ -125,6 +129,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 authPasswordLogin: "登录", authOrDivider: "或者",
                 authGoogleLogin: "使用 Google 登录", authFacebookLogin: "使用 Facebook 登录", authAppleLogin: "使用 Apple 登录", authGitHubLogin: "使用 GitHub 登录",
                 authProviderEmail: "邮箱", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
+                authRegistrationTitle: "完成注册", authRegistrationHint: "邮件链接登录已完成，请设置你的账号信息。", authRegistrationPending: "请完成注册信息。",
+                authUsernameLabel: "用户名", authPasswordConfirmLabel: "确认密码", authRegisterBtn: "注册",
                 authEmailLinkSent: "验证链接已发送到邮箱。请打开邮件完成登录。",
                 settingsBtn: "设置", settingsTitle: "设置", deleteAccountBtn: "删除账号", deleteAccountHint: "删除账号前，请输入自己的用户ID或个人资料ID。", deleteAccountInputPlaceholder: "输入用户ID",
                 deleteAccountVerify: "确认", deleteAccountConfirmTitle: "删除账号", deleteAccountConfirmMsg: "真的要删除吗？", deleteAccountIdMismatch: "用户ID不一致",
@@ -631,6 +637,149 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 if (modal) {
                     modal.style.display = 'flex';
                     setTimeout(() => nameInput?.focus(), 0);
+                }
+            }
+
+            openEmailLinkRegistrationModal(email) {
+                if (!this.isLoggedIn || !this.userId) {
+                    return;
+                }
+                const modal = document.getElementById('email-link-registration-modal');
+                const emailDisplay = document.getElementById('email-link-registration-email');
+                const nameInput = document.getElementById('email-link-registration-name');
+                const idInput = document.getElementById('email-link-registration-id');
+                const passwordInput = document.getElementById('email-link-registration-password');
+                const passwordConfirmInput = document.getElementById('email-link-registration-password-confirm');
+                if (emailDisplay) emailDisplay.innerText = email || '';
+                if (nameInput) nameInput.value = '';
+                if (idInput) idInput.value = '';
+                if (passwordInput) passwordInput.value = '';
+                if (passwordConfirmInput) passwordConfirmInput.value = '';
+                this.hideAllOverlays();
+                if (modal) {
+                    modal.style.display = 'flex';
+                    setTimeout(() => nameInput?.focus(), 0);
+                }
+            }
+
+            async randomizeEmailLinkRegistrationId() {
+                const idInput = document.getElementById('email-link-registration-id');
+                if (!idInput) return;
+                try {
+                    idInput.value = await this.generateUniqueUsernameSuffix(8);
+                } catch (e) {
+                    console.error(e);
+                    alert('IDの生成に失敗しました');
+                }
+            }
+
+            async submitEmailLinkRegistration() {
+                if (!auth?.currentUser || !this.userId) return;
+
+                const email = auth.currentUser.email || emailLinkRegistrationEmail || '';
+                const nameInput = document.getElementById('email-link-registration-name');
+                const idInput = document.getElementById('email-link-registration-id');
+                const passwordInput = document.getElementById('email-link-registration-password');
+                const passwordConfirmInput = document.getElementById('email-link-registration-password-confirm');
+
+                const newDisplayName = (nameInput?.value || '').trim().replace(/[\r\n\t]/g, ' ').replace(/-/g, '');
+                let newSuffix = (idInput?.value || '').trim().replace(/[^A-Za-z0-9]/g, '');
+                const password = passwordInput?.value || '';
+                const passwordConfirm = passwordConfirmInput?.value || '';
+
+                if (!newDisplayName) {
+                    alert('ユーザーネームを入力してください');
+                    return;
+                }
+                if (!newSuffix) {
+                    try {
+                        newSuffix = await this.generateUniqueUsernameSuffix(8);
+                        if (idInput) idInput.value = newSuffix;
+                    } catch (e) {
+                        console.error(e);
+                        alert('IDの生成に失敗しました');
+                        return;
+                    }
+                }
+                if (!password) {
+                    alert('パスワードを入力してください');
+                    return;
+                }
+                if (password.length < 6) {
+                    alert('パスワードは6文字以上にしてください');
+                    return;
+                }
+                if (password !== passwordConfirm) {
+                    alert('パスワードが一致しません');
+                    return;
+                }
+                if (!email) {
+                    alert('Eメールアドレスが見つかりません');
+                    return;
+                }
+
+                const profileRef = doc(db, 'artifacts', appId, 'users', this.userId, 'profile', 'data');
+                const suffixRef = doc(db, 'artifacts', appId, 'usernames', newSuffix);
+
+                try {
+                    const credential = EmailAuthProvider.credential(email, password);
+                    await linkWithCredential(auth.currentUser, credential);
+                    await updateProfile(auth.currentUser, { displayName: newDisplayName }).catch(() => {});
+
+                    await runTransaction(db, async (tx) => {
+                        const existing = await tx.get(suffixRef);
+                        if (existing.exists() && existing.data().uid !== this.userId) {
+                            throw new Error('id_taken');
+                        }
+                        tx.set(suffixRef, { uid: this.userId, displayName: newDisplayName, updatedAt: Date.now() });
+                    });
+
+                    try {
+                        await setDoc(profileRef, {
+                            elo: this.playerProfile?.elo ?? 250,
+                            displayName: newDisplayName,
+                            usernameSuffix: newSuffix,
+                            username: `${newDisplayName}-${newSuffix}`,
+                            usernameLocked: true,
+                            language: window.currentLang,
+                            email: email
+                        }, { merge: true });
+                    } catch (profileError) {
+                        await deleteDoc(suffixRef).catch(() => {});
+                        throw profileError;
+                    }
+
+                    emailLinkRegistrationPending = false;
+                    emailLinkRegistrationEmail = '';
+                    localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
+
+                    this.playerProfile = {
+                        ...(this.playerProfile || {}),
+                        elo: this.playerProfile?.elo ?? 250,
+                        displayName: newDisplayName,
+                        usernameSuffix: newSuffix,
+                        username: `${newDisplayName}-${newSuffix}`,
+                        usernameLocked: true,
+                        language: window.currentLang,
+                        email: email
+                    };
+                    this.updateProfileUI();
+                    this.updateAuthDependentUI();
+
+                    const modal = document.getElementById('email-link-registration-modal');
+                    if (modal) modal.style.display = 'none';
+                    await this.loadProfile();
+                } catch (e) {
+                    console.error(e);
+                    if (e?.message === 'id_taken') {
+                        alert('そのIDは既に使われています');
+                    } else if (e?.code === 'auth/credential-already-in-use') {
+                        alert('そのEメールアドレスは既に使用されています');
+                    } else if (e?.code === 'auth/weak-password') {
+                        alert('パスワードが弱すぎます');
+                    } else {
+                        alert(`登録に失敗しました: ${e?.message || e}`);
+                    }
                 }
             }
 
@@ -1733,7 +1882,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             getVisibleOverlayId() {
-                const overlays = ['confirm-modal', 'promotion-modal', 'auth-modal', 'identity-modal', 'settings-modal', 'waiting-room', 'time-selection', 'online-config', 'cpu-config', 'mode-selection'];
+                const overlays = ['confirm-modal', 'promotion-modal', 'email-link-registration-modal', 'auth-modal', 'identity-modal', 'settings-modal', 'waiting-room', 'time-selection', 'online-config', 'cpu-config', 'mode-selection'];
                 return overlays.find(id => this.isOverlayVisible(id)) || null;
             }
 
@@ -1947,6 +2096,29 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         } else {
                             yesBtn?.click();
                         }
+                        return;
+                    }
+                    return;
+                }
+
+                if (overlayId === 'email-link-registration-modal') {
+                    if (key === 'Escape') {
+                        e.preventDefault();
+                        return;
+                    }
+                    if (key === 'ArrowDown' || key === 'ArrowRight') {
+                        e.preventDefault();
+                        this.focusNextOverlayElement(1);
+                        return;
+                    }
+                    if (key === 'ArrowUp' || key === 'ArrowLeft') {
+                        e.preventDefault();
+                        this.focusNextOverlayElement(-1);
+                        return;
+                    }
+                    if (key === 'Enter' || key === ' ') {
+                        e.preventDefault();
+                        this.activateFocusedElement();
                         return;
                     }
                     return;
@@ -2350,7 +2522,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             hideAllOverlays() {
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'auth-modal', 'identity-modal', 'settings-modal', 'confirm-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'email-link-registration-modal', 'auth-modal', 'identity-modal', 'settings-modal', 'confirm-modal'];
                 ids.forEach(id => document.getElementById(id).style.display = 'none');
                 this.updateGameUiInteractivity();
             }
@@ -2398,7 +2570,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 document.getElementById('confirm-message').innerText = message;
                 
                 const activeOverlays = [];
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'auth-modal', 'identity-modal', 'settings-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'email-link-registration-modal', 'auth-modal', 'identity-modal', 'settings-modal'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el && el.style.display === 'flex') {
@@ -4635,6 +4807,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         let authObserverReady = false;
         let authBootstrapPending = false;
         let emailLinkSignInPending = false;
+        let emailLinkRegistrationPending = false;
+        let emailLinkRegistrationEmail = '';
 
         const initAuth = async () => {
             try {
@@ -4653,7 +4827,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             try {
                 const savedEmail = localStorage.getItem(EMAIL_LINK_STORAGE_KEY) || window.prompt('確認メールを送ったEメールアドレスを入力してください');
                 if (!savedEmail) return false;
+                emailLinkRegistrationEmail = savedEmail.trim();
                 await signInWithEmailLink(auth, savedEmail.trim(), window.location.href);
+                emailLinkRegistrationPending = true;
                 localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
                 try {
                     window.history.replaceState({}, document.title, `${window.location.origin}${window.location.pathname}`);
@@ -4682,14 +4858,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     window.game.userId = user.uid;
                     window.game.isLoggedIn = !user.isAnonymous;
                     if (window.game.isLoggedIn) {
-                        window.game.loadProfile(); // 認証後にプロフィールをロード
-                        document.getElementById('auth-status').innerText = window.t('authStatusReady');
+                        if (emailLinkRegistrationPending) {
+                            window.game.playerProfile = null;
+                            window.game.updateProfileUI();
+                            document.getElementById('auth-status').innerText = window.t('authRegistrationPending');
+                            window.game.openEmailLinkRegistrationModal(emailLinkRegistrationEmail || user.email || '');
+                        } else {
+                            window.game.loadProfile(); // 認証後にプロフィールをロード
+                            document.getElementById('auth-status').innerText = window.t('authStatusReady');
+                        }
                     } else {
                         window.game.playerProfile = null;
                         window.game.updateProfileUI();
                         document.getElementById('auth-status').innerText = window.t('authStatusPreparing');
                     }
                 } else {
+                    emailLinkRegistrationPending = false;
+                    emailLinkRegistrationEmail = '';
                     window.game.isLoggedIn = false;
                     window.game.playerProfile = null;
                     window.game.updateProfileUI();
@@ -4736,12 +4921,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 status.style.display = 'block';
                 
                 const isSignedIn = !!user && !user.isAnonymous;
+                const needsRegistration = isSignedIn && emailLinkRegistrationPending;
 
                 if (isSignedIn) {
                     btn.style.display = 'none';
                     if (authModal) authModal.style.display = 'none';
-                    if (settingsBtn) settingsBtn.style.display = 'inline-block';
-                    status.innerText = window.t('authStatusReady');
+                    if (settingsBtn) settingsBtn.style.display = needsRegistration ? 'none' : 'inline-block';
+                    status.innerText = needsRegistration ? window.t('authRegistrationPending') : window.t('authStatusReady');
                 } else {
                     btn.style.display = 'inline-block';
                     if (settingsBtn) settingsBtn.style.display = 'none';
