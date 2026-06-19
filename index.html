@@ -169,7 +169,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t1</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t2</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -187,15 +187,28 @@
             </div>
             <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" style="display:none;" data-i18n="authStatusPreparing">アカウント同期中...</div>
             <div id="auth-controls" class="mt-2 text-center flex flex-col items-center gap-2">
-                <select id="auth-provider-select" class="w-full max-w-[220px] p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm outline-none">
-                    <option value="email" data-i18n="authProviderEmail">Eメール</option>
-                    <option value="google" data-i18n="authProviderGoogle">Google</option>
-                    <option value="apple" data-i18n="authProviderApple">Apple</option>
-                    <option value="facebook" data-i18n="authProviderFacebook">Facebook</option>
-                    <option value="github" data-i18n="authProviderGitHub">GitHub</option>
-                </select>
-                <button id="auth-signin-btn" class="btn-sub ui-button" style="max-width:220px;" data-i18n="authSignIn">ログイン</button>
+                <button id="auth-signin-btn" class="btn-sub ui-button" style="max-width:220px;" data-i18n="authOpenModal">サインアップ / ログイン</button>
                 <button id="settings-btn" class="btn-sub ui-button !bg-zinc-700" style="display:none; max-width:120px;" onclick="game.openSettingsModal()" data-i18n="settingsBtn">設定</button>
+            </div>
+        </div>
+
+        <div id="auth-modal" class="w-full flex flex-col items-center" style="display:none;">
+            <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[360px] w-full border border-zinc-700">
+                <h2 class="text-xl font-bold mb-4 text-white" data-i18n="authModalTitle">サインアップ / ログイン</h2>
+                <div class="flex flex-col gap-2">
+                    <div class="text-xs opacity-70 font-bold mb-1" data-i18n="authSignupTitle">Eメールアドレス　サインアップ</div>
+                    <input id="auth-signup-email" type="email" class="w-full p-3 rounded text-black outline-none" data-i18n="authEmailLabel" placeholder="Eメールアドレス">
+                    <button id="auth-email-signup-btn" class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="authSignupTitle">Eメールアドレス　サインアップ</button>
+                    <button id="auth-google-login-btn" class="ui-button bg-red-600 hover:bg-red-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="google" data-i18n="authGoogleLogin">Googleでログイン</button>
+                    <button id="auth-facebook-login-btn" class="ui-button bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="facebook" data-i18n="authFacebookLogin">Facebookでログイン</button>
+                    <button id="auth-apple-login-btn" class="ui-button bg-zinc-900 hover:bg-zinc-800 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="apple" data-i18n="authAppleLogin">Appleでログイン</button>
+                    <button id="auth-github-login-btn" class="ui-button bg-zinc-700 hover:bg-zinc-600 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="github" data-i18n="authGitHubLogin">GitHubでログイン</button>
+                    <div class="text-xs opacity-60 font-bold my-1" data-i18n="authOrDivider">----または----</div>
+                    <input id="auth-login-email" type="email" class="w-full p-3 rounded text-black outline-none" data-i18n="authEmailLabel" placeholder="Eメールアドレス">
+                    <input id="auth-login-password" type="password" class="w-full p-3 rounded text-black outline-none" data-i18n="authPasswordLabel" placeholder="パスワード">
+                    <button id="auth-email-login-btn" class="ui-button bg-emerald-600 hover:bg-emerald-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="authPasswordLogin">ログイン</button>
+                    <button id="auth-modal-close-btn" class="ui-button bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="cancel">キャンセル</button>
+                </div>
             </div>
         </div>
 
