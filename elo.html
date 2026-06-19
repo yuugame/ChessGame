@@ -241,10 +241,12 @@
                 <h2 class="text-xl font-bold mb-4 text-white" data-i18n="authModalTitle">サインアップ / ログイン</h2>
                 <div class="flex flex-col gap-2">
                     <div class="text-xs opacity-70 font-bold mb-1" data-i18n="authSignupTitle">Eメールアドレスで登録</div>
-                    <div class="auth-email-signup-row w-full">
-                        <input id="auth-signup-email" type="email" class="p-3 rounded text-black outline-none" data-i18n="authEmailLabel" placeholder="Eメールアドレス">
-                        <input id="auth-signup-password" type="password" class="p-3 rounded text-black outline-none" data-i18n="authPasswordLabel" placeholder="パスワード" autocomplete="new-password">
-                        <button id="auth-email-signup-btn" class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white" data-i18n="authSignupBtn">登録</button>
+                    <button id="auth-email-signup-toggle-btn" class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="authSignupBtn">登録</button>
+                    <div id="auth-email-signup-form" class="flex flex-col gap-2 w-full" style="display:none;">
+                        <input id="auth-signup-email" type="email" class="w-full p-3 rounded text-black outline-none" data-i18n="authEmailLabel" placeholder="Eメールアドレス">
+                        <input id="auth-signup-password" type="password" class="w-full p-3 rounded text-black outline-none" data-i18n="authPasswordLabel" placeholder="パスワード" autocomplete="new-password">
+                        <input id="auth-signup-password-confirm" type="password" class="w-full p-3 rounded text-black outline-none" data-i18n="authPasswordConfirmLabel" placeholder="パスワード（確認）" autocomplete="new-password">
+                        <button id="auth-email-signup-btn" class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="authSignupBtn">登録</button>
                     </div>
                     <button id="auth-google-login-btn" class="ui-button auth-provider-btn bg-white hover:bg-zinc-100 py-2 px-4 rounded font-bold transition-colors text-zinc-900 w-full" data-provider="google">
                         <span class="auth-provider-icon" aria-hidden="true">
