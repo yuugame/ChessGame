@@ -36,7 +36,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "名前を入力", identityIdPlaceholder: "英数字ID", identityRandom: "ランダム",
                 identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
                 usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID", logoutBtn: "ログアウト",
-                settingsBtn: "設定", settingsTitle: "設定", deleteAccountBtn: "アカウントの削除", deleteAccountHint: "削除するには、自分のユーザーIDを入力してください。", deleteAccountInputPlaceholder: "ユーザーIDを入力",
+                settingsBtn: "設定", settingsTitle: "設定", deleteAccountBtn: "アカウントの削除", deleteAccountHint: "削除するには、自分のユーザーIDまたはプロフィールIDを入力してください。", deleteAccountInputPlaceholder: "ユーザーIDを入力",
                 deleteAccountVerify: "確認", deleteAccountConfirmTitle: "アカウント削除", deleteAccountConfirmMsg: "本当に削除しますか？", deleteAccountIdMismatch: "ユーザーIDが一致しません"
             },
             en: {
@@ -71,7 +71,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "Enter name", identityIdPlaceholder: "Alphanumeric ID", identityRandom: "Random",
                 identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save",
                 usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID", logoutBtn: "Log out",
-                settingsBtn: "Settings", settingsTitle: "Settings", deleteAccountBtn: "Delete Account", deleteAccountHint: "To delete the account, enter your user ID.", deleteAccountInputPlaceholder: "Enter user ID",
+                settingsBtn: "Settings", settingsTitle: "Settings", deleteAccountBtn: "Delete Account", deleteAccountHint: "To delete the account, enter your user ID or profile ID.", deleteAccountInputPlaceholder: "Enter user ID",
                 deleteAccountVerify: "Verify", deleteAccountConfirmTitle: "Delete Account", deleteAccountConfirmMsg: "Do you really want to delete your account?", deleteAccountIdMismatch: "User ID does not match"
             },
             zh: {
@@ -106,7 +106,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "输入昵称", identityIdPlaceholder: "字母数字ID", identityRandom: "随机",
                 identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存",
                 usernameLabel: "用户名", changeIdentityBtn: "修改昵称 / ID", profileIdLabel: "ID", logoutBtn: "退出登录",
-                settingsBtn: "设置", settingsTitle: "设置", deleteAccountBtn: "删除账号", deleteAccountHint: "删除账号前，请输入自己的用户ID。", deleteAccountInputPlaceholder: "输入用户ID",
+                settingsBtn: "设置", settingsTitle: "设置", deleteAccountBtn: "删除账号", deleteAccountHint: "删除账号前，请输入自己的用户ID或个人资料ID。", deleteAccountInputPlaceholder: "输入用户ID",
                 deleteAccountVerify: "确认", deleteAccountConfirmTitle: "删除账号", deleteAccountConfirmMsg: "真的要删除吗？", deleteAccountIdMismatch: "用户ID不一致"
             }
         };
@@ -754,8 +754,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             verifyDeleteAccountId() {
                 const input = document.getElementById('delete-account-id-input');
                 const typedId = (input?.value || '').trim();
-                const expectedId = (this.userId || '').trim();
-                if (!typedId || typedId !== expectedId) {
+                const identity = this.getProfileIdentity();
+                const expectedIds = new Set([
+                    (this.userId || '').trim(),
+                    (this.playerProfile?.usernameSuffix || '').trim(),
+                    (identity.full || '').trim()
+                ].filter(Boolean));
+                if (!typedId || !expectedIds.has(typedId)) {
                     this.showConfirm(window.t('error'), window.t('deleteAccountIdMismatch'), ()=>{}, true);
                     return;
                 }
