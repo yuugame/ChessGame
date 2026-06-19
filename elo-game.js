@@ -1764,11 +1764,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const key = e.key;
                 const activeElement = document.activeElement;
                 const eventTarget = e.target;
+                const eventSource = (typeof e.composedPath === 'function' && e.composedPath().length > 0) ? e.composedPath()[0] : eventTarget;
                 const activeTag = activeElement?.tagName;
                 const activeType = (activeElement?.getAttribute && activeElement.getAttribute('type')) ? activeElement.getAttribute('type').toLowerCase() : '';
                 const targetTag = eventTarget?.tagName;
                 const targetType = (eventTarget?.getAttribute && eventTarget.getAttribute('type')) ? eventTarget.getAttribute('type').toLowerCase() : '';
-                const editingElement = (this.isEditableTextField(activeElement) || this.isEditableTextField(eventTarget) || targetTag === 'TEXTAREA' || activeElement?.isContentEditable || eventTarget?.isContentEditable);
+                const sourceTag = eventSource?.tagName;
+                const sourceType = (eventSource?.getAttribute && eventSource.getAttribute('type')) ? eventSource.getAttribute('type').toLowerCase() : '';
+                const editingElement = (
+                    this.isEditableTextField(activeElement) ||
+                    this.isEditableTextField(eventTarget) ||
+                    this.isEditableTextField(eventSource) ||
+                    targetTag === 'TEXTAREA' ||
+                    sourceTag === 'TEXTAREA' ||
+                    activeElement?.isContentEditable ||
+                    eventTarget?.isContentEditable ||
+                    eventSource?.isContentEditable
+                );
+                const isEditingArrow = editingElement && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight');
 
                 if (this.keyboardEditElement && document.activeElement === this.keyboardEditElement) {
                     if (key === 'Escape') {
@@ -1787,8 +1800,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
 
-                if (editingElement && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
-                    e.stopPropagation();
+                if (isEditingArrow) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
                     return;
                 }
 
