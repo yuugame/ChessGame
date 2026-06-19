@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -37,7 +37,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
                 usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID", logoutBtn: "ログアウト",
                 settingsBtn: "設定", settingsTitle: "設定", deleteAccountBtn: "アカウントの削除", deleteAccountHint: "削除するには、自分のユーザーIDまたはプロフィールIDを入力してください。", deleteAccountInputPlaceholder: "ユーザーIDを入力",
-                deleteAccountVerify: "確認", deleteAccountConfirmTitle: "アカウント削除", deleteAccountConfirmMsg: "本当に削除しますか？", deleteAccountIdMismatch: "ユーザーIDが一致しません"
+                deleteAccountVerify: "確認", deleteAccountConfirmTitle: "アカウント削除", deleteAccountConfirmMsg: "本当に削除しますか？", deleteAccountIdMismatch: "ユーザーIDが一致しません",
+                deleteAccountReauthTitle: "再認証が必要です", deleteAccountReauthMsg: "アカウント削除の前に、もう一度ログインしてください。"
             },
             en: {
                 title: "CHESS", vsCpu: "Free Match (VS CPU)", rankedMatch: "Ranked Match (VS CPU)", currentRate: "Your Estimated ELO", cpuEloLabel: "Estimated ELO",
@@ -72,7 +73,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save",
                 usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID", logoutBtn: "Log out",
                 settingsBtn: "Settings", settingsTitle: "Settings", deleteAccountBtn: "Delete Account", deleteAccountHint: "To delete the account, enter your user ID or profile ID.", deleteAccountInputPlaceholder: "Enter user ID",
-                deleteAccountVerify: "Verify", deleteAccountConfirmTitle: "Delete Account", deleteAccountConfirmMsg: "Do you really want to delete your account?", deleteAccountIdMismatch: "User ID does not match"
+                deleteAccountVerify: "Verify", deleteAccountConfirmTitle: "Delete Account", deleteAccountConfirmMsg: "Do you really want to delete your account?", deleteAccountIdMismatch: "User ID does not match",
+                deleteAccountReauthTitle: "Re-authentication Required", deleteAccountReauthMsg: "Please sign in again before deleting your account."
             },
             zh: {
                 title: "国际象棋", vsCpu: "自由对战 (人机)", rankedMatch: "排位赛 (人机)", currentRate: "您的估计评分 (ELO)", cpuEloLabel: "估计ELO",
@@ -107,7 +109,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存",
                 usernameLabel: "用户名", changeIdentityBtn: "修改昵称 / ID", profileIdLabel: "ID", logoutBtn: "退出登录",
                 settingsBtn: "设置", settingsTitle: "设置", deleteAccountBtn: "删除账号", deleteAccountHint: "删除账号前，请输入自己的用户ID或个人资料ID。", deleteAccountInputPlaceholder: "输入用户ID",
-                deleteAccountVerify: "确认", deleteAccountConfirmTitle: "删除账号", deleteAccountConfirmMsg: "真的要删除吗？", deleteAccountIdMismatch: "用户ID不一致"
+                deleteAccountVerify: "确认", deleteAccountConfirmTitle: "删除账号", deleteAccountConfirmMsg: "真的要删除吗？", deleteAccountIdMismatch: "用户ID不一致",
+                deleteAccountReauthTitle: "需要重新验证", deleteAccountReauthMsg: "删除账号前，请重新登录。"
             }
         };
 
@@ -773,14 +776,40 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 );
             }
 
+            async reauthenticateForSensitiveAction() {
+                if (!auth || !auth.currentUser) return false;
+                return new Promise((resolve) => {
+                    this.showConfirm(
+                        window.t('deleteAccountReauthTitle'),
+                        window.t('deleteAccountReauthMsg'),
+                        async () => {
+                            try {
+                                await reauthenticateWithPopup(auth.currentUser, googleProvider);
+                                resolve(true);
+                            } catch (e) {
+                                console.error('Reauthentication failed:', e);
+                                this.showConfirm(window.t('error'), `${window.t('commError')}\n${e?.message || e}`, ()=>{}, true);
+                                resolve(false);
+                            }
+                        }
+                    );
+                });
+            }
+
             async deleteCurrentAccount() {
                 if (!auth || !this.userId) return;
                 const currentUid = this.userId;
                 const currentSuffix = this.playerProfile?.usernameSuffix || "";
                 try {
+                    const currentUser = auth.currentUser;
+                    const needsReauth = !!currentUser && !currentUser.isAnonymous;
+                    if (needsReauth) {
+                        const reauthed = await this.reauthenticateForSensitiveAction();
+                        if (!reauthed) return;
+                    }
+
                     const profileRef = doc(db, 'artifacts', appId, 'users', currentUid, 'profile', 'data');
                     const usernameRef = currentSuffix ? doc(db, 'artifacts', appId, 'usernames', currentSuffix) : null;
-                    const currentUser = auth.currentUser;
 
                     if (usernameRef) {
                         await deleteDoc(usernameRef).catch(() => {});
@@ -797,6 +826,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     this.updateAuthDependentUI();
                     this.closeSettingsModal();
                 } catch (e) {
+                    if (e?.code === 'auth/requires-recent-login') {
+                        const reauthed = await this.reauthenticateForSensitiveAction();
+                        if (reauthed) {
+                            await this.deleteCurrentAccount();
+                            return;
+                        }
+                    }
                     console.error(e);
                     this.showConfirm(window.t('commError'), `${window.t('error')}\n${e?.message || e}`, ()=>{}, true);
                 }
