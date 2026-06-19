@@ -36,7 +36,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "名前を入力", identityIdPlaceholder: "英数字ID", identityRandom: "ランダム",
                 identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
                 usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID", logoutBtn: "ログアウト",
-                authChooseProvider: "ログイン方法を選択", authSignIn: "ログイン",
+                authChooseProvider: "ログイン方法を選択", authOpenModal: "サインアップ / ログイン", authModalTitle: "サインアップ / ログイン",
+                authSignupTitle: "Eメールアドレス　サインアップ", authEmailLabel: "Eメールアドレス", authPasswordLabel: "パスワード",
+                authPasswordLogin: "ログイン", authOrDivider: "----または----",
+                authGoogleLogin: "Googleでログイン", authFacebookLogin: "Facebookでログイン", authAppleLogin: "Appleでログイン", authGitHubLogin: "GitHubでログイン",
                 authProviderEmail: "Eメール", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
                 authEmailLinkSent: "確認リンクをメール送信しました。メールを開いてログインを完了してください。",
                 settingsBtn: "設定", settingsTitle: "設定", deleteAccountBtn: "アカウントの削除", deleteAccountHint: "削除するには、自分のユーザーIDまたはプロフィールIDを入力してください。", deleteAccountInputPlaceholder: "ユーザーIDを入力",
@@ -75,7 +78,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "Enter name", identityIdPlaceholder: "Alphanumeric ID", identityRandom: "Random",
                 identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save",
                 usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID", logoutBtn: "Log out",
-                authChooseProvider: "Choose sign-in method", authSignIn: "Sign in",
+                authChooseProvider: "Choose sign-in method", authOpenModal: "Sign up / Sign in", authModalTitle: "Sign up / Sign in",
+                authSignupTitle: "Email Signup", authEmailLabel: "Email", authPasswordLabel: "Password",
+                authPasswordLogin: "Sign in", authOrDivider: "----OR----",
+                authGoogleLogin: "Sign in with Google", authFacebookLogin: "Sign in with Facebook", authAppleLogin: "Sign in with Apple", authGitHubLogin: "Sign in with GitHub",
                 authProviderEmail: "Email", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
                 authEmailLinkSent: "A verification link was sent. Open your email to finish sign-in.",
                 settingsBtn: "Settings", settingsTitle: "Settings", deleteAccountBtn: "Delete Account", deleteAccountHint: "To delete the account, enter your user ID or profile ID.", deleteAccountInputPlaceholder: "Enter user ID",
@@ -114,7 +120,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "输入昵称", identityIdPlaceholder: "字母数字ID", identityRandom: "随机",
                 identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存",
                 usernameLabel: "用户名", changeIdentityBtn: "修改昵称 / ID", profileIdLabel: "ID", logoutBtn: "退出登录",
-                authChooseProvider: "选择登录方式", authSignIn: "登录",
+                authChooseProvider: "选择登录方式", authOpenModal: "注册 / 登录", authModalTitle: "注册 / 登录",
+                authSignupTitle: "邮箱注册", authEmailLabel: "邮箱", authPasswordLabel: "密码",
+                authPasswordLogin: "登录", authOrDivider: "----或者----",
+                authGoogleLogin: "使用 Google 登录", authFacebookLogin: "使用 Facebook 登录", authAppleLogin: "使用 Apple 登录", authGitHubLogin: "使用 GitHub 登录",
                 authProviderEmail: "邮箱", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
                 authEmailLinkSent: "验证链接已发送到邮箱。请打开邮件完成登录。",
                 settingsBtn: "设置", settingsTitle: "设置", deleteAccountBtn: "删除账号", deleteAccountHint: "删除账号前，请输入自己的用户ID或个人资料ID。", deleteAccountInputPlaceholder: "输入用户ID",
@@ -1724,7 +1733,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             getVisibleOverlayId() {
-                const overlays = ['confirm-modal', 'promotion-modal', 'identity-modal', 'settings-modal', 'waiting-room', 'time-selection', 'online-config', 'cpu-config', 'mode-selection'];
+                const overlays = ['confirm-modal', 'promotion-modal', 'auth-modal', 'identity-modal', 'settings-modal', 'waiting-room', 'time-selection', 'online-config', 'cpu-config', 'mode-selection'];
                 return overlays.find(id => this.isOverlayVisible(id)) || null;
             }
 
@@ -1938,6 +1947,31 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         } else {
                             yesBtn?.click();
                         }
+                        return;
+                    }
+                    return;
+                }
+
+                if (overlayId === 'auth-modal') {
+                    if (key === 'Escape') {
+                        e.preventDefault();
+                        const modal = document.getElementById('auth-modal');
+                        if (modal) modal.style.display = 'none';
+                        return;
+                    }
+                    if (key === 'ArrowDown' || key === 'ArrowRight') {
+                        e.preventDefault();
+                        this.focusNextOverlayElement(1);
+                        return;
+                    }
+                    if (key === 'ArrowUp' || key === 'ArrowLeft') {
+                        e.preventDefault();
+                        this.focusNextOverlayElement(-1);
+                        return;
+                    }
+                    if (key === 'Enter' || key === ' ') {
+                        e.preventDefault();
+                        this.activateFocusedElement();
                         return;
                     }
                     return;
@@ -2316,7 +2350,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             hideAllOverlays() {
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal', 'settings-modal', 'confirm-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'auth-modal', 'identity-modal', 'settings-modal', 'confirm-modal'];
                 ids.forEach(id => document.getElementById(id).style.display = 'none');
                 this.updateGameUiInteractivity();
             }
@@ -2364,7 +2398,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 document.getElementById('confirm-message').innerText = message;
                 
                 const activeOverlays = [];
-                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'identity-modal', 'settings-modal'];
+                const ids = ['mode-selection', 'cpu-config', 'online-config', 'waiting-room', 'time-selection', 'promotion-modal', 'auth-modal', 'identity-modal', 'settings-modal'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el && el.style.display === 'flex') {
@@ -4692,11 +4726,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             // Auth 関連の UI ロジック：プロバイダ選択 / サインアウト
             
             const authBtn = document.getElementById('auth-signin-btn');
-            const authProviderSelect = document.getElementById('auth-provider-select');
 
             const updateAuthControls = (user) => {
                 const btn = document.getElementById('auth-signin-btn');
-                const providerSelect = document.getElementById('auth-provider-select');
+                const authModal = document.getElementById('auth-modal');
                 const settingsBtn = document.getElementById('settings-btn');
                 const status = document.getElementById('auth-status');
                 if (!btn || !status) return;
@@ -4706,19 +4739,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
                 if (isSignedIn) {
                     btn.style.display = 'none';
-                    if (providerSelect) providerSelect.style.display = 'none';
+                    if (authModal) authModal.style.display = 'none';
                     if (settingsBtn) settingsBtn.style.display = 'inline-block';
                     status.innerText = window.t('authStatusReady');
                 } else {
                     btn.style.display = 'inline-block';
-                    if (providerSelect) providerSelect.style.display = 'block';
                     if (settingsBtn) settingsBtn.style.display = 'none';
                     status.innerText = window.t('authStatusPreparing');
                 }
             };
 
-            const getSelectedAuthProvider = () => {
-                const providerKey = authProviderSelect?.value || 'google';
+            const getSelectedAuthProvider = (providerKey) => {
                 switch (providerKey) {
                     case 'email':
                         return 'email';
@@ -4734,27 +4765,21 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
             };
 
-            const handleEmailSignIn = async () => {
-                const email = window.prompt('Eメールアドレスを入力してください');
-                if (!email) return;
+            const handleEmailSignup = async () => {
+                const emailInput = document.getElementById('auth-signup-email');
+                const email = (emailInput?.value || '').trim();
+                if (!email) {
+                    alert('Eメールアドレスを入力してください');
+                    return;
+                }
                 try {
-                    const trimmedEmail = email.trim();
-                    const methods = await fetchSignInMethodsForEmail(auth, trimmedEmail).catch(() => []);
-                    const hasPasswordAccount = methods.includes('password');
-                    if (hasPasswordAccount) {
-                        const password = window.prompt('パスワードを入力してください');
-                        if (!password) return;
-                        await signInWithEmailAndPassword(auth, trimmedEmail, password);
-                        return;
-                    }
-
                     const continueUrl = getEmailLinkContinueUrl();
                     const actionCodeSettings = {
                         url: continueUrl,
                         handleCodeInApp: true
                     };
-                    await sendSignInLinkToEmail(auth, trimmedEmail, actionCodeSettings);
-                    localStorage.setItem(EMAIL_LINK_STORAGE_KEY, trimmedEmail);
+                    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+                    localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
                     alert(window.t('authEmailLinkSent'));
                 } catch (e) {
                     if (e?.code === 'auth/invalid-email') {
@@ -4766,38 +4791,83 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
             };
 
+            const handleEmailPasswordLogin = async () => {
+                const emailInput = document.getElementById('auth-login-email');
+                const passwordInput = document.getElementById('auth-login-password');
+                const email = (emailInput?.value || '').trim();
+                const password = passwordInput?.value || '';
+                if (!email || !password) {
+                    alert('Eメールアドレスとパスワードを入力してください');
+                    return;
+                }
+                await signInWithEmailAndPassword(auth, email, password);
+            };
+
+            const handleAuthProviderButton = async (providerKey) => {
+                const provider = getSelectedAuthProvider(providerKey);
+                if (provider === 'email') {
+                    await handleEmailSignup();
+                    return;
+                }
+                await signInWithPopup(auth, provider);
+            };
+
+            const authOpenBtn = document.getElementById('auth-signin-btn');
+            const authCloseBtn = document.getElementById('auth-modal-close-btn');
+            const emailSignupBtn = document.getElementById('auth-email-signup-btn');
+            const emailLoginBtn = document.getElementById('auth-email-login-btn');
+            const providerButtons = Array.from(document.querySelectorAll('#auth-modal [data-provider]'));
+
+            if (authOpenBtn) {
+                authOpenBtn.addEventListener('click', () => {
+                    const modal = document.getElementById('auth-modal');
+                    if (!modal) return;
+                    modal.style.display = 'flex';
+                    setTimeout(() => document.getElementById('auth-signup-email')?.focus(), 0);
+                });
+            }
+
+            if (authCloseBtn) {
+                authCloseBtn.addEventListener('click', () => {
+                    const modal = document.getElementById('auth-modal');
+                    if (modal) modal.style.display = 'none';
+                });
+            }
+
+            if (emailSignupBtn) {
+                emailSignupBtn.addEventListener('click', async () => {
+                    await handleEmailSignup();
+                });
+            }
+
+            if (emailLoginBtn) {
+                emailLoginBtn.addEventListener('click', async () => {
+                    await handleEmailPasswordLogin();
+                });
+            }
+
+            providerButtons.forEach((button) => {
+                button.addEventListener('click', async () => {
+                    const providerKey = button.getAttribute('data-provider');
+                    if (!providerKey) return;
+                    try {
+                        await handleAuthProviderButton(providerKey);
+                    } catch (e) {
+                        console.error('Sign-in error:', e.code, e.message);
+                        alert('ログインに失敗しました: ' + (e.message || 'Unknown error'));
+                    }
+                });
+            });
+
             const handleAuthButtonClick = async (e) => {
                 if (!auth) {
                     console.error('Firebase Auth not initialized');
                     return;
                 }
-                
-                const selectedProvider = getSelectedAuthProvider();
-
-                if (auth.currentUser && !auth.currentUser.isAnonymous) {
-                    // サインアウト処理：ログアウト後、匿名で続行
-                    try {
-                        console.log('Signing out...');
-                        await signOut(auth);
-                        await signInAnonymously(auth);
-                    } catch(e) {
-                        console.error('Sign out error:', e);
-                    }
-                } else {
-                    // サインイン処理：選択されたプロバイダで認証
-                    try {
-                        console.log('Current user:', auth.currentUser?.uid, 'Is anonymous:', auth.currentUser?.isAnonymous);
-                        if (selectedProvider === 'email') {
-                            await handleEmailSignIn();
-                        } else {
-                            console.log('Signing in with provider...');
-                            await signInWithPopup(auth, selectedProvider);
-                        }
-                    } catch(e) {
-                        console.error('Sign-in error:', e.code, e.message);
-                        // ポップアップ表示用アラート
-                        alert('ログインに失敗しました: ' + (e.message || 'Unknown error'));
-                    }
+                const modal = document.getElementById('auth-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    setTimeout(() => document.getElementById('auth-signup-email')?.focus(), 0);
                 }
             };
 
