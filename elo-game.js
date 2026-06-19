@@ -227,7 +227,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         appleProvider.addScope('email');
         appleProvider.addScope('name');
         const EMAIL_LINK_STORAGE_KEY = 'chessEmailForEmailLink';
-        const DEFAULT_EMAIL_LINK_CONTINUE_URL = 'https://yuugame.github.io/ChessGame/';
+        const DEFAULT_EMAIL_LINK_CONTINUE_URL = 'https://yuugame.github.io/ChessGame/elo.html';
         const getEmailLinkContinueUrl = () => {
             try {
                 if (typeof __email_link_continue_url !== 'undefined' && __email_link_continue_url) {
