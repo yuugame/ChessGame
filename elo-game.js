@@ -1763,8 +1763,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const overlayId = this.getVisibleOverlayId();
                 const key = e.key;
                 const activeElement = document.activeElement;
+                const eventTarget = e.target;
                 const activeTag = activeElement?.tagName;
                 const activeType = (activeElement?.getAttribute && activeElement.getAttribute('type')) ? activeElement.getAttribute('type').toLowerCase() : '';
+                const targetTag = eventTarget?.tagName;
+                const targetType = (eventTarget?.getAttribute && eventTarget.getAttribute('type')) ? eventTarget.getAttribute('type').toLowerCase() : '';
+                const editingElement = (this.isEditableTextField(activeElement) || this.isEditableTextField(eventTarget) || targetTag === 'TEXTAREA' || activeElement?.isContentEditable || eventTarget?.isContentEditable);
 
                 if (this.keyboardEditElement && document.activeElement === this.keyboardEditElement) {
                     if (key === 'Escape') {
@@ -1783,7 +1787,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
 
-                if (this.isEditableTextField(activeElement) && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                if (editingElement && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                    e.stopPropagation();
                     return;
                 }
 
