@@ -1783,6 +1783,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
 
+                if (this.isEditableTextField(activeElement) && (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight')) {
+                    return;
+                }
+
                 if (overlayId && activeType === 'range' && (key === 'ArrowLeft' || key === 'ArrowRight')) {
                     return;
                 }
