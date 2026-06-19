@@ -169,7 +169,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a9</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a10</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -186,8 +186,9 @@
                 <div id="login-required-info" class="text-sm opacity-70 text-center mt-4 px-3" style="display:none;" data-i18n="loginRequiredInfo">ログインするとランクマッチとオンライン対戦が利用できます。</div>
             </div>
             <div id="auth-status" class="mt-6 text-xs opacity-50 text-center" style="display:none;" data-i18n="authStatusPreparing">アカウント同期中...</div>
-            <div id="auth-controls" class="mt-2 text-center">
+            <div id="auth-controls" class="mt-2 text-center flex flex-col items-center gap-2">
                 <button id="google-auth-btn" class="btn-sub ui-button" style="max-width:220px;">Sign in with Google</button>
+                <button id="settings-btn" class="btn-sub ui-button !bg-zinc-700" style="display:none; max-width:120px;" onclick="game.openSettingsModal()" data-i18n="settingsBtn">設定</button>
             </div>
         </div>
 
@@ -217,7 +218,6 @@
                     <div class="text-xs opacity-70 mb-2" data-i18n="usernameLabel">ユーザーネーム</div>
                     <div id="online-display-name" class="text-base font-black text-amber-400 tracking-wide">---</div>
                     <div id="online-display-id" class="text-xs opacity-70 mb-3 font-mono">ID: ---</div>
-                    <button id="online-edit-btn" class="btn-sub ui-button !bg-blue-600 w-full" onclick="game.changeOnlineIdentity()" data-i18n="changeIdentityBtn">名前/IDの変更</button>
                 </div>
                 <input type="text" id="room-id-input" data-i18n="roomWordPlaceholder" placeholder="合言葉を入力" class="p-3 w-full rounded text-black font-bold text-center text-xl">
                 <button class="btn-sub ui-button !bg-orange-500" onclick="game.joinOnlineRoom()" data-i18n="joinRoom">部屋に入る</button>
@@ -320,6 +320,26 @@
                 <div class="flex gap-3 justify-center w-full mt-5">
                     <button class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" onclick="game.saveIdentityModal()" data-i18n="identitySave">保存</button>
                     <button class="ui-button bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" onclick="game.closeIdentityModal()" data-i18n="cancel">キャンセル</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="settings-modal" class="w-full flex flex-col items-center" style="display: none;">
+            <div class="bg-[#2a2a2a] p-6 rounded-lg shadow-xl text-center max-w-[340px] w-full border border-zinc-700">
+                <h2 class="text-xl font-bold mb-4 text-white" data-i18n="settingsTitle">設定</h2>
+                <div class="flex flex-col gap-3">
+                    <button class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" onclick="game.changeOnlineIdentity()" data-i18n="changeIdentityBtn">名前/IDの変更</button>
+                    <button class="ui-button bg-zinc-700 hover:bg-zinc-600 py-2 px-4 rounded font-bold transition-colors text-white w-full" onclick="game.handleSettingsLogout()" data-i18n="logoutBtn">ログアウト</button>
+                    <div id="delete-account-panel" class="flex flex-col gap-3 text-left" style="display:none;">
+                        <p class="text-xs opacity-70 leading-relaxed" data-i18n="deleteAccountHint">削除するには、自分のユーザーIDを入力してください。</p>
+                        <input id="delete-account-id-input" type="text" class="w-full p-3 rounded text-black font-mono font-bold text-lg outline-none" data-i18n="deleteAccountInputPlaceholder" placeholder="ユーザーIDを入力" autocomplete="off" autocapitalize="off" spellcheck="false" onpaste="return false" oncontextmenu="return false">
+                        <div class="flex gap-2">
+                            <button class="ui-button bg-red-600 hover:bg-red-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" onclick="game.verifyDeleteAccountId()" data-i18n="deleteAccountVerify">確認</button>
+                            <button class="ui-button bg-zinc-600 hover:bg-zinc-500 py-2 px-4 rounded font-bold transition-colors flex-1 text-white" onclick="game.cancelDeleteAccountPanel()" data-i18n="cancel">キャンセル</button>
+                        </div>
+                    </div>
+                    <button class="ui-link-button text-red-400 hover:text-red-300 py-2 px-4 rounded font-bold transition-colors text-left w-full" style="background: transparent; border-color: transparent; text-decoration-color: rgba(248,113,113,0.9);" onclick="game.openDeleteAccountPanel()" data-i18n="deleteAccountBtn">アカウントの削除</button>
+                    <button class="ui-link-button text-sm py-2" onclick="game.closeSettingsModal()" data-i18n="back">戻る</button>
                 </div>
             </div>
         </div>
