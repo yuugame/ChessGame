@@ -141,6 +141,30 @@
         .btn-main:hover { transform: scale(1.05); background-color: #2563eb; }
         .btn-sub { background-color: #10b981; color: white; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; max-width: 300px; }
         .btn-sub:hover { filter: brightness(1.1); }
+        .auth-provider-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: flex-start;
+            text-align: left;
+            padding-left: 14px;
+        }
+        .auth-provider-icon {
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 22px;
+        }
+        .auth-provider-icon svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .auth-provider-label {
+            flex: 1;
+        }
 
         input[type=text] {
             width: 100%;
@@ -169,7 +193,7 @@
     <div id="overlay-container">
         <div id="mode-selection" class="w-full flex flex-col items-center">
             <h1 class="text-4xl font-bold mb-2 text-center" data-i18n="title">CHESS</h1>
-            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t2</div>
+            <div class="text-xs opacity-50 mb-8 tracking-widest font-mono">v2.0.0a-t3</div>
             
             <div class="flex flex-col gap-4 w-full items-center">
                 <!-- プロフィール表示セクション -->
@@ -199,10 +223,41 @@
                     <div class="text-xs opacity-70 font-bold mb-1" data-i18n="authSignupTitle">Eメールアドレス　サインアップ</div>
                     <input id="auth-signup-email" type="email" class="w-full p-3 rounded text-black outline-none" data-i18n="authEmailLabel" placeholder="Eメールアドレス">
                     <button id="auth-email-signup-btn" class="ui-button bg-blue-600 hover:bg-blue-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-i18n="authSignupTitle">Eメールアドレス　サインアップ</button>
-                    <button id="auth-google-login-btn" class="ui-button bg-red-600 hover:bg-red-500 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="google" data-i18n="authGoogleLogin">Googleでログイン</button>
-                    <button id="auth-facebook-login-btn" class="ui-button bg-blue-700 hover:bg-blue-600 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="facebook" data-i18n="authFacebookLogin">Facebookでログイン</button>
-                    <button id="auth-apple-login-btn" class="ui-button bg-zinc-900 hover:bg-zinc-800 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="apple" data-i18n="authAppleLogin">Appleでログイン</button>
-                    <button id="auth-github-login-btn" class="ui-button bg-zinc-700 hover:bg-zinc-600 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="github" data-i18n="authGitHubLogin">GitHubでログイン</button>
+                    <button id="auth-google-login-btn" class="ui-button auth-provider-btn bg-white hover:bg-zinc-100 py-2 px-4 rounded font-bold transition-colors text-zinc-900 w-full" data-provider="google">
+                        <span class="auth-provider-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path fill="#4285F4" d="M23.64 12.27c0-.79-.07-1.54-.2-2.27H12v4.31h6.51c-.28 1.5-1.12 2.77-2.38 3.62v3h3.85c2.25-2.07 3.66-5.13 3.66-8.66z"/>
+                                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.85-3c-1.07.72-2.45 1.15-4.08 1.15-3.13 0-5.78-2.11-6.73-4.94H1.28v3.09C3.25 21.36 7.39 24 12 24z"/>
+                                <path fill="#FBBC05" d="M5.27 14.3c-.24-.72-.38-1.48-.38-2.3s.14-1.58.38-2.3V6.61H1.28A11.98 11.98 0 0 0 0 12c0 1.93.46 3.75 1.28 5.39l3.99-3.09z"/>
+                                <path fill="#EA4335" d="M12 4.75c1.76 0 3.35.61 4.6 1.8l3.45-3.45C17.94 1.08 15.24 0 12 0 7.39 0 3.25 2.64 1.28 6.61l3.99 3.09C6.22 6.86 8.87 4.75 12 4.75z"/>
+                            </svg>
+                        </span>
+                        <span class="auth-provider-label" data-i18n="authGoogleLogin">Googleでログイン</span>
+                    </button>
+                    <button id="auth-facebook-login-btn" class="ui-button auth-provider-btn bg-[#1877F2] hover:bg-[#166fe5] py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="facebook">
+                        <span class="auth-provider-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path fill="#ffffff" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.08 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.01 1.79-4.67 4.53-4.67 1.31 0 2.68.24 2.68.24v2.95h-1.51c-1.49 0-1.95.93-1.95 1.89v2.27h3.32l-.53 3.49h-2.79V24C19.61 23.08 24 18.1 24 12.07z"/>
+                            </svg>
+                        </span>
+                        <span class="auth-provider-label" data-i18n="authFacebookLogin">Facebookでログイン</span>
+                    </button>
+                    <button id="auth-apple-login-btn" class="ui-button auth-provider-btn bg-zinc-900 hover:bg-zinc-800 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="apple">
+                        <span class="auth-provider-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path fill="#ffffff" d="M16.37 13.13c-.03-2.14 1.75-3.16 1.83-3.21-1-1.46-2.55-1.66-3.09-1.68-1.31-.13-2.56.77-3.22.77-.67 0-1.7-.75-2.79-.73-1.42.02-2.73.83-3.46 2.1-1.48 2.56-.38 6.35 1.06 8.43.71 1.02 1.55 2.17 2.66 2.13 1.07-.04 1.47-.69 2.75-.69 1.27 0 1.63.69 2.77.66 1.18-.02 1.92-1.03 2.62-2.07.82-1.2 1.15-2.37 1.16-2.43-.03-.01-2.21-.84-2.25-3.28zM14.41 6.83c.58-.69.97-1.65.86-2.61-.84.03-1.87.56-2.47 1.25-.54.62-1.02 1.61-.89 2.54.93.07 1.89-.48 2.5-1.18z"/>
+                            </svg>
+                        </span>
+                        <span class="auth-provider-label" data-i18n="authAppleLogin">Appleでログイン</span>
+                    </button>
+                    <button id="auth-github-login-btn" class="ui-button auth-provider-btn bg-zinc-800 hover:bg-zinc-700 py-2 px-4 rounded font-bold transition-colors text-white w-full" data-provider="github">
+                        <span class="auth-provider-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path fill="#ffffff" d="M12 .5C5.65.5.5 5.68.5 12.07c0 5.1 3.29 9.43 7.86 10.96.58.11.79-.26.79-.57v-2.01c-3.2.71-3.88-1.39-3.88-1.39-.53-1.36-1.3-1.72-1.3-1.72-1.06-.74.08-.73.08-.73 1.18.08 1.8 1.23 1.8 1.23 1.04 1.81 2.73 1.29 3.39.99.1-.77.41-1.29.75-1.59-2.56-.3-5.25-1.31-5.25-5.82 0-1.29.45-2.35 1.2-3.18-.12-.3-.52-1.51.11-3.15 0 0 .98-.32 3.2 1.22a11.1 11.1 0 0 1 2.91-.39c.99 0 1.99.13 2.91.39 2.21-1.54 3.19-1.22 3.19-1.22.64 1.64.24 2.85.12 3.15.75.83 1.2 1.89 1.2 3.18 0 4.52-2.7 5.51-5.27 5.81.42.37.79 1.09.79 2.2v3.26c0 .31.21.69.8.57 4.57-1.53 7.86-5.86 7.86-10.96C23.5 5.68 18.35.5 12 .5z"/>
+                            </svg>
+                        </span>
+                        <span class="auth-provider-label" data-i18n="authGitHubLogin">GitHubでログイン</span>
+                    </button>
                     <div class="text-xs opacity-60 font-bold my-1" data-i18n="authOrDivider">----または----</div>
                     <input id="auth-login-email" type="email" class="w-full p-3 rounded text-black outline-none" data-i18n="authEmailLabel" placeholder="Eメールアドレス">
                     <input id="auth-login-password" type="password" class="w-full p-3 rounded text-black outline-none" data-i18n="authPasswordLabel" placeholder="パスワード">
