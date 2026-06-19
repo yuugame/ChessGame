@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, FacebookAuthProvider, GithubAuthProvider, OAuthProvider, EmailAuthProvider, signInWithPopup, signInWithEmailAndPassword, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, fetchSignInMethodsForEmail, reauthenticateWithPopup, reauthenticateWithCredential, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -36,6 +36,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "名前を入力", identityIdPlaceholder: "英数字ID", identityRandom: "ランダム",
                 identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
                 usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID", logoutBtn: "ログアウト",
+                authChooseProvider: "ログイン方法を選択", authSignIn: "ログイン",
+                authProviderEmail: "Eメール", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
+                authEmailLinkSent: "確認リンクをメール送信しました。メールを開いてログインを完了してください。",
                 settingsBtn: "設定", settingsTitle: "設定", deleteAccountBtn: "アカウントの削除", deleteAccountHint: "削除するには、自分のユーザーIDまたはプロフィールIDを入力してください。", deleteAccountInputPlaceholder: "ユーザーIDを入力",
                 deleteAccountVerify: "確認", deleteAccountConfirmTitle: "アカウント削除", deleteAccountConfirmMsg: "本当に削除しますか？", deleteAccountIdMismatch: "ユーザーIDが一致しません",
                 deleteAccountReauthTitle: "再認証が必要です", deleteAccountReauthMsg: "アカウント削除の前に、もう一度ログインしてください。"
@@ -72,6 +75,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "Enter name", identityIdPlaceholder: "Alphanumeric ID", identityRandom: "Random",
                 identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save",
                 usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID", logoutBtn: "Log out",
+                authChooseProvider: "Choose sign-in method", authSignIn: "Sign in",
+                authProviderEmail: "Email", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
+                authEmailLinkSent: "A verification link was sent. Open your email to finish sign-in.",
                 settingsBtn: "Settings", settingsTitle: "Settings", deleteAccountBtn: "Delete Account", deleteAccountHint: "To delete the account, enter your user ID or profile ID.", deleteAccountInputPlaceholder: "Enter user ID",
                 deleteAccountVerify: "Verify", deleteAccountConfirmTitle: "Delete Account", deleteAccountConfirmMsg: "Do you really want to delete your account?", deleteAccountIdMismatch: "User ID does not match",
                 deleteAccountReauthTitle: "Re-authentication Required", deleteAccountReauthMsg: "Please sign in again before deleting your account."
@@ -108,6 +114,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityNamePlaceholder: "输入昵称", identityIdPlaceholder: "字母数字ID", identityRandom: "随机",
                 identityHint: "昵称可重复。ID 只能使用字母和数字，且不能重复。", identitySave: "保存",
                 usernameLabel: "用户名", changeIdentityBtn: "修改昵称 / ID", profileIdLabel: "ID", logoutBtn: "退出登录",
+                authChooseProvider: "选择登录方式", authSignIn: "登录",
+                authProviderEmail: "邮箱", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
+                authEmailLinkSent: "验证链接已发送到邮箱。请打开邮件完成登录。",
                 settingsBtn: "设置", settingsTitle: "设置", deleteAccountBtn: "删除账号", deleteAccountHint: "删除账号前，请输入自己的用户ID或个人资料ID。", deleteAccountInputPlaceholder: "输入用户ID",
                 deleteAccountVerify: "确认", deleteAccountConfirmTitle: "删除账号", deleteAccountConfirmMsg: "真的要删除吗？", deleteAccountIdMismatch: "用户ID不一致",
                 deleteAccountReauthTitle: "需要重新验证", deleteAccountReauthMsg: "删除账号前，请重新登录。"
@@ -193,7 +202,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
         
-        let app, auth, db, googleProvider = new GoogleAuthProvider();
+        let app, auth, db, googleProvider = new GoogleAuthProvider(), facebookProvider = new FacebookAuthProvider(), githubProvider = new GithubAuthProvider(), appleProvider = new OAuthProvider('apple.com');
+        googleProvider.addScope('profile');
+        googleProvider.addScope('email');
+        facebookProvider.addScope('email');
+        facebookProvider.addScope('public_profile');
+        githubProvider.addScope('read:user');
+        githubProvider.addScope('user:email');
+        appleProvider.addScope('email');
+        appleProvider.addScope('name');
+        const EMAIL_LINK_STORAGE_KEY = 'chessEmailForEmailLink';
+        const getEmailLinkContinueUrl = () => {
+            try {
+                return `${window.location.origin}${window.location.pathname}`;
+            } catch (e) {
+                return window.location.href.split('?')[0];
+            }
+        };
         if (Object.keys(firebaseConfig).length > 0) {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -784,9 +809,26 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             async reauthenticateForSensitiveAction() {
                 if (!auth || !auth.currentUser) return false;
                 try {
-                    const provider = googleProvider || new GoogleAuthProvider();
-                    googleProvider = provider;
-                    await reauthenticateWithPopup(auth.currentUser, provider);
+                    const currentUser = auth.currentUser;
+                    const providerId = currentUser.providerData.find(p => p.providerId && p.providerId !== 'firebase')?.providerId || 'google.com';
+                    if (providerId === 'password') {
+                        const email = currentUser.email || window.prompt('Eメールアドレスを入力してください');
+                        if (!email) return false;
+                        const password = window.prompt('パスワードを入力してください');
+                        if (!password) return false;
+                        const credential = EmailAuthProvider.credential(email.trim(), password);
+                        await reauthenticateWithCredential(currentUser, credential);
+                    } else {
+                        const provider = providerId === 'facebook.com'
+                            ? facebookProvider
+                            : providerId === 'github.com'
+                                ? githubProvider
+                                : providerId === 'apple.com'
+                                    ? appleProvider
+                                    : (googleProvider || new GoogleAuthProvider());
+                        googleProvider = googleProvider || provider;
+                        await reauthenticateWithPopup(currentUser, provider);
+                    }
                     return true;
                 } catch (e) {
                     console.error('Reauthentication failed:', e);
@@ -4558,6 +4600,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
         let authObserverReady = false;
         let authBootstrapPending = false;
+        let emailLinkSignInPending = false;
 
         const initAuth = async () => {
             try {
@@ -4570,11 +4613,32 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             } catch(e) { console.error(e); }
         };
 
+        const maybeCompleteEmailLinkSignIn = async () => {
+            if (!auth || !isSignInWithEmailLink(window.location.href)) return false;
+            emailLinkSignInPending = true;
+            try {
+                const savedEmail = localStorage.getItem(EMAIL_LINK_STORAGE_KEY) || window.prompt('確認メールを送ったEメールアドレスを入力してください');
+                if (!savedEmail) return false;
+                await signInWithEmailLink(auth, savedEmail.trim(), window.location.href);
+                localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
+                try {
+                    window.history.replaceState({}, document.title, `${window.location.origin}${window.location.pathname}`);
+                } catch (e) {}
+                return true;
+            } catch (e) {
+                console.error('Email link sign-in failed:', e);
+                alert('メールリンク認証に失敗しました: ' + (e?.message || e));
+                return false;
+            } finally {
+                emailLinkSignInPending = false;
+            }
+        };
+
         if (auth) {
             onAuthStateChanged(auth, user => { 
                 if (!authObserverReady) {
                     authObserverReady = true;
-                    if (!user && !authBootstrapPending && typeof __initial_auth_token === 'undefined') {
+                    if (!user && !authBootstrapPending && !emailLinkSignInPending && typeof __initial_auth_token === 'undefined') {
                         authBootstrapPending = true;
                         signInAnonymously(auth).catch(console.error);
                     }
@@ -4621,39 +4685,84 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
             });
 
-            initAuth();
+            maybeCompleteEmailLinkSignIn().finally(() => {
+                initAuth();
+            });
 
-            // Auth 関連の UI ロジック：Google サインイン / サインアウト
-            googleProvider.addScope('profile');
-            googleProvider.addScope('email');
+            // Auth 関連の UI ロジック：プロバイダ選択 / サインアウト
             
-            const authBtn = document.getElementById('google-auth-btn');
-            let isGoogleLinked = false; // Google 連携状態フラグ
+            const authBtn = document.getElementById('auth-signin-btn');
+            const authProviderSelect = document.getElementById('auth-provider-select');
 
             const updateAuthControls = (user) => {
-                const btn = document.getElementById('google-auth-btn');
+                const btn = document.getElementById('auth-signin-btn');
+                const providerSelect = document.getElementById('auth-provider-select');
                 const settingsBtn = document.getElementById('settings-btn');
                 const status = document.getElementById('auth-status');
                 if (!btn || !status) return;
                 status.style.display = 'block';
                 
-                // Google 連携状態を判定（providerData に google.com が含まれているか）
-                isGoogleLinked = user && user.providerData.some(p => p.providerId === 'google.com');
-                
-                if (isGoogleLinked) {
+                const isSignedIn = !!user && !user.isAnonymous;
+
+                if (isSignedIn) {
                     btn.style.display = 'none';
-                    btn.innerText = 'Sign in with Google';
-                    btn.classList.add('!bg-blue-600');
-                    btn.setAttribute('data-action', 'signin');
+                    if (providerSelect) providerSelect.style.display = 'none';
                     if (settingsBtn) settingsBtn.style.display = 'inline-block';
                     status.innerText = window.t('authStatusReady');
                 } else {
                     btn.style.display = 'inline-block';
-                    btn.innerText = 'Sign in with Google';
-                    btn.classList.add('!bg-blue-600');
-                    btn.setAttribute('data-action', 'signin');
+                    if (providerSelect) providerSelect.style.display = 'block';
                     if (settingsBtn) settingsBtn.style.display = 'none';
                     status.innerText = window.t('authStatusPreparing');
+                }
+            };
+
+            const getSelectedAuthProvider = () => {
+                const providerKey = authProviderSelect?.value || 'google';
+                switch (providerKey) {
+                    case 'email':
+                        return 'email';
+                    case 'apple':
+                        return appleProvider;
+                    case 'facebook':
+                        return facebookProvider;
+                    case 'github':
+                        return githubProvider;
+                    case 'google':
+                    default:
+                        return googleProvider;
+                }
+            };
+
+            const handleEmailSignIn = async () => {
+                const email = window.prompt('Eメールアドレスを入力してください');
+                if (!email) return;
+                try {
+                    const trimmedEmail = email.trim();
+                    const methods = await fetchSignInMethodsForEmail(auth, trimmedEmail).catch(() => []);
+                    const hasPasswordAccount = methods.includes('password');
+                    if (hasPasswordAccount) {
+                        const password = window.prompt('パスワードを入力してください');
+                        if (!password) return;
+                        await signInWithEmailAndPassword(auth, trimmedEmail, password);
+                        return;
+                    }
+
+                    const continueUrl = getEmailLinkContinueUrl();
+                    const actionCodeSettings = {
+                        url: continueUrl,
+                        handleCodeInApp: true
+                    };
+                    await sendSignInLinkToEmail(auth, trimmedEmail, actionCodeSettings);
+                    localStorage.setItem(EMAIL_LINK_STORAGE_KEY, trimmedEmail);
+                    alert(window.t('authEmailLinkSent'));
+                } catch (e) {
+                    if (e?.code === 'auth/invalid-email') {
+                        alert('メールアドレスが正しくありません');
+                        return;
+                    }
+                    console.error('Email sign-in error:', e);
+                    throw e;
                 }
             };
 
@@ -4663,11 +4772,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     return;
                 }
                 
-                const action = authBtn.getAttribute('data-action');
-                console.log('Auth action:', action);
-                
-                if (action === 'signout') {
-                    // サインアウト処理：Google リンク解除後、匿名で続行
+                const selectedProvider = getSelectedAuthProvider();
+
+                if (auth.currentUser && !auth.currentUser.isAnonymous) {
+                    // サインアウト処理：ログアウト後、匿名で続行
                     try {
                         console.log('Signing out...');
                         await signOut(auth);
@@ -4676,15 +4784,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         console.error('Sign out error:', e);
                     }
                 } else {
-                    // サインイン処理：Google と連携
+                    // サインイン処理：選択されたプロバイダで認証
                     try {
                         console.log('Current user:', auth.currentUser?.uid, 'Is anonymous:', auth.currentUser?.isAnonymous);
-                        
-                        // シンプルな Google サインイン（リンク不要）
-                        console.log('Signing in with Google...');
-                        await signInWithPopup(auth, googleProvider);
+                        if (selectedProvider === 'email') {
+                            await handleEmailSignIn();
+                        } else {
+                            console.log('Signing in with provider...');
+                            await signInWithPopup(auth, selectedProvider);
+                        }
                     } catch(e) {
-                        console.error('Google sign-in error:', e.code, e.message);
+                        console.error('Sign-in error:', e.code, e.message);
                         // ポップアップ表示用アラート
                         alert('ログインに失敗しました: ' + (e.message || 'Unknown error'));
                     }
