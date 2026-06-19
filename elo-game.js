@@ -193,7 +193,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
         
-        let app, auth, db;
+        let app, auth, db, googleProvider;
         if (Object.keys(firebaseConfig).length > 0) {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -4622,7 +4622,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             initAuth();
 
             // Auth 関連の UI ロジック：Google サインイン / サインアウト
-            const googleProvider = new GoogleAuthProvider();
+            googleProvider = new GoogleAuthProvider();
             googleProvider.addScope('profile');
             googleProvider.addScope('email');
             
