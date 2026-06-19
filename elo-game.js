@@ -193,7 +193,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
         
-        let app, auth, db, googleProvider;
+        let app, auth, db, googleProvider = new GoogleAuthProvider();
         if (Object.keys(firebaseConfig).length > 0) {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -784,7 +784,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             async reauthenticateForSensitiveAction() {
                 if (!auth || !auth.currentUser) return false;
                 try {
-                    await reauthenticateWithPopup(auth.currentUser, googleProvider);
+                    const provider = googleProvider || new GoogleAuthProvider();
+                    googleProvider = provider;
+                    await reauthenticateWithPopup(auth.currentUser, provider);
                     return true;
                 } catch (e) {
                     console.error('Reauthentication failed:', e);
@@ -4622,7 +4624,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             initAuth();
 
             // Auth 関連の UI ロジック：Google サインイン / サインアウト
-            googleProvider = new GoogleAuthProvider();
             googleProvider.addScope('profile');
             googleProvider.addScope('email');
             
