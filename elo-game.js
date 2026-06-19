@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, FacebookAuthProvider, GithubAuthProvider, OAuthProvider, EmailAuthProvider, linkWithCredential, updateProfile, signInWithPopup, signInWithEmailAndPassword, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, fetchSignInMethodsForEmail, reauthenticateWithPopup, reauthenticateWithCredential, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, FacebookAuthProvider, GithubAuthProvider, OAuthProvider, EmailAuthProvider, linkWithCredential, updateProfile, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, fetchSignInMethodsForEmail, reauthenticateWithPopup, reauthenticateWithCredential, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 多言語辞書と管理機能 ---
@@ -37,7 +37,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityHint: "名前は重複可。IDは英数字のみで、他のユーザーと重複しません。", identitySave: "保存",
                 usernameLabel: "ユーザーネーム", changeIdentityBtn: "名前/IDの変更", profileIdLabel: "ID", logoutBtn: "ログアウト",
                 authChooseProvider: "ログイン方法を選択", authOpenModal: "サインアップ / ログイン", authModalTitle: "サインアップ / ログイン",
-                authSignupTitle: "Eメールアドレス　サインアップ", authSignupBtn: "サインアップ", authEmailLabel: "Eメールアドレス", authPasswordLabel: "パスワード",
+                authSignupTitle: "Eメールアドレスで登録", authSignupBtn: "登録", authEmailLabel: "Eメールアドレス", authPasswordLabel: "パスワード",
                 authPasswordLogin: "ログイン", authOrDivider: "または",
                 authGoogleLogin: "Googleでログイン", authFacebookLogin: "Facebookでログイン", authAppleLogin: "Appleでログイン", authGitHubLogin: "GitHubでログイン",
                 authProviderEmail: "Eメール", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
@@ -81,7 +81,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 identityHint: "Names can duplicate. IDs use only letters and digits, and must be unique.", identitySave: "Save",
                 usernameLabel: "Username", changeIdentityBtn: "Change Name / ID", profileIdLabel: "ID", logoutBtn: "Log out",
                 authChooseProvider: "Choose sign-in method", authOpenModal: "Sign up / Sign in", authModalTitle: "Sign up / Sign in",
-                authSignupTitle: "Email Signup", authSignupBtn: "Sign up", authEmailLabel: "Email", authPasswordLabel: "Password",
+                authSignupTitle: "Register with Email", authSignupBtn: "Register", authEmailLabel: "Email", authPasswordLabel: "Password",
                 authPasswordLogin: "Sign in", authOrDivider: "OR",
                 authGoogleLogin: "Sign in with Google", authFacebookLogin: "Sign in with Facebook", authAppleLogin: "Sign in with Apple", authGitHubLogin: "Sign in with GitHub",
                 authProviderEmail: "Email", authProviderGoogle: "Google", authProviderApple: "Apple", authProviderFacebook: "Facebook", authProviderGitHub: "GitHub",
@@ -4966,31 +4966,40 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             const handleEmailSignup = async () => {
                 const emailInput = document.getElementById('auth-signup-email');
+                const passwordInput = document.getElementById('auth-signup-password');
                 const email = (emailInput?.value || '').trim();
+                const password = passwordInput?.value || '';
                 if (!email) {
                     alert('Eメールアドレスを入力してください');
                     return;
                 }
+                if (!password) {
+                    alert('パスワードを入力してください');
+                    return;
+                }
+                if (password.length < 6) {
+                    alert('パスワードは6文字以上にしてください');
+                    return;
+                }
                 try {
-                    const continueUrl = getEmailLinkContinueUrl();
-                    if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:' && !(typeof __email_link_continue_url !== 'undefined' && __email_link_continue_url)) {
-                        alert('この画面はローカルファイルではなく、HTTPSで公開されたURLで開いてください。');
-                        return;
-                    }
-                    const actionCodeSettings = {
-                        url: continueUrl,
-                        handleCodeInApp: true
-                    };
-                    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-                    localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
-                    alert(window.t('authEmailLinkSent'));
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    const displayName = email.split('@')[0] || 'Player';
+                    await updateProfile(userCredential.user, { displayName }).catch(() => {});
                 } catch (e) {
                     if (e?.code === 'auth/invalid-email') {
                         alert('メールアドレスが正しくありません');
                         return;
                     }
+                    if (e?.code === 'auth/email-already-in-use') {
+                        alert('このメールアドレスは既に登録済みです。下のログインを使ってください。');
+                        return;
+                    }
+                    if (e?.code === 'auth/weak-password') {
+                        alert('パスワードが弱すぎます');
+                        return;
+                    }
                     console.error('Email sign-in error:', e);
-                    throw e;
+                    alert(`登録に失敗しました: ${e?.message || e}`);
                 }
             };
 
