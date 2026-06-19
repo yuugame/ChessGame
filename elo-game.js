@@ -4967,8 +4967,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const handleEmailSignup = async () => {
                 const emailInput = document.getElementById('auth-signup-email');
                 const passwordInput = document.getElementById('auth-signup-password');
+                const passwordConfirmInput = document.getElementById('auth-signup-password-confirm');
                 const email = (emailInput?.value || '').trim();
                 const password = passwordInput?.value || '';
+                const passwordConfirm = passwordConfirmInput?.value || '';
                 if (!email) {
                     alert('Eメールアドレスを入力してください');
                     return;
@@ -4979,6 +4981,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
                 if (password.length < 6) {
                     alert('パスワードは6文字以上にしてください');
+                    return;
+                }
+                if (password !== passwordConfirm) {
+                    alert('パスワードが一致しません');
                     return;
                 }
                 try {
@@ -5012,7 +5018,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     alert('Eメールアドレスとパスワードを入力してください');
                     return;
                 }
-                await signInWithEmailAndPassword(auth, email, password);
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } catch (e) {
+                    if (e?.code === 'auth/invalid-credential' || e?.code === 'auth/wrong-password' || e?.code === 'auth/user-not-found' || e?.code === 'auth/invalid-email') {
+                        alert('メールアドレスまたはパスワードが正しくありません');
+                        return;
+                    }
+                    console.error('Email password login error:', e);
+                    alert(`ログインに失敗しました: ${e?.message || e}`);
+                }
             };
 
             const handleAuthProviderButton = async (providerKey) => {
@@ -5026,16 +5041,39 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             const authOpenBtn = document.getElementById('auth-signin-btn');
             const authCloseBtn = document.getElementById('auth-modal-close-btn');
+            const emailSignupToggleBtn = document.getElementById('auth-email-signup-toggle-btn');
             const emailSignupBtn = document.getElementById('auth-email-signup-btn');
             const emailLoginBtn = document.getElementById('auth-email-login-btn');
             const providerButtons = Array.from(document.querySelectorAll('#auth-modal [data-provider]'));
+
+            const showEmailSignupForm = () => {
+                const form = document.getElementById('auth-email-signup-form');
+                const trigger = document.getElementById('auth-email-signup-toggle-btn');
+                if (form) form.style.display = 'flex';
+                if (trigger) trigger.style.display = 'none';
+                setTimeout(() => document.getElementById('auth-signup-email')?.focus(), 0);
+            };
+
+            const hideEmailSignupForm = () => {
+                const form = document.getElementById('auth-email-signup-form');
+                const trigger = document.getElementById('auth-email-signup-toggle-btn');
+                const emailInput = document.getElementById('auth-signup-email');
+                const passwordInput = document.getElementById('auth-signup-password');
+                const passwordConfirmInput = document.getElementById('auth-signup-password-confirm');
+                if (form) form.style.display = 'none';
+                if (trigger) trigger.style.display = 'inline-flex';
+                if (emailInput) emailInput.value = '';
+                if (passwordInput) passwordInput.value = '';
+                if (passwordConfirmInput) passwordConfirmInput.value = '';
+            };
 
             if (authOpenBtn) {
                 authOpenBtn.addEventListener('click', () => {
                     const modal = document.getElementById('auth-modal');
                     if (!modal) return;
                     modal.style.display = 'flex';
-                    setTimeout(() => document.getElementById('auth-signup-email')?.focus(), 0);
+                    hideEmailSignupForm();
+                    setTimeout(() => document.getElementById('auth-email-signup-toggle-btn')?.focus(), 0);
                 });
             }
 
@@ -5043,6 +5081,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 authCloseBtn.addEventListener('click', () => {
                     const modal = document.getElementById('auth-modal');
                     if (modal) modal.style.display = 'none';
+                    hideEmailSignupForm();
+                });
+            }
+
+            if (emailSignupToggleBtn) {
+                emailSignupToggleBtn.addEventListener('click', () => {
+                    showEmailSignupForm();
                 });
             }
 
@@ -5084,7 +5129,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const modal = document.getElementById('auth-modal');
                 if (modal) {
                     modal.style.display = 'flex';
-                    setTimeout(() => document.getElementById('auth-signup-email')?.focus(), 0);
+                    hideEmailSignupForm();
+                    setTimeout(() => document.getElementById('auth-email-signup-toggle-btn')?.focus(), 0);
                 }
             };
 
